@@ -29,9 +29,31 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class ProblemHandler extends ResponseEntityExceptionHandler {
 
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(ProblemHandler.class);
+
+    /** Authors see the database's own message: they wrote the SQL (spec §11.1). */
+    @ExceptionHandler(io.opendbapi.core.endpoint.QueryExecutor.QueryFailedException.class)
+    ResponseEntity<ProblemDetail> queryFailed(io.opendbapi.core.endpoint.QueryExecutor.QueryFailedException e) {
+        return problem(HttpStatus.BAD_REQUEST, "query_failed", "The database refused the query: " + e.getMessage(), null);
+    }
+
     @ExceptionHandler(ApiProblem.class)
     ResponseEntity<ProblemDetail> apiProblem(ApiProblem e) {
         return problem(HttpStatus.valueOf(e.status()), e.code(), e.getMessage(), null);
+    }
+
+    /** Anything unexpected: logged with an incident id, answered without internals. */
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<ProblemDetail> unexpected(Exception e) throws Exception {
+        if (e instanceof org.springframework.security.access.AccessDeniedException
+                || e instanceof org.springframework.security.core.AuthenticationException) {
+            throw e; // the security filter chain answers these
+        }
+        String incident = java.util.UUID.randomUUID().toString();
+        LOG.error("Unexpected error [incident {}]", incident, e);
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "internal_error",
+                "Something went wrong on the server. Report incident " + incident + " to the operator.",
+                Map.of("incident", incident));
     }
 
     @Override

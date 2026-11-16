@@ -36,8 +36,16 @@ public final class Paginator {
         if (size < 1) {
             throw new IllegalArgumentException("size must be 1 or more, got " + size + ".");
         }
+        return window(query, dialect, (long) (page - 1) * size, size);
+    }
+
+    /** Rows {@code offset} to {@code offset + limit - 1}, and the count query. */
+    public static Paged window(BoundSql query, Dialect dialect, long offset, int limit) {
+        if (offset < 0 || limit < 1) {
+            throw new IllegalArgumentException("offset must be 0 or more and limit 1 or more.");
+        }
+        int size = limit;
         String sql = stripTerminator(query.sql());
-        long offset = (long) (page - 1) * size;
         Shape shape = Shape.of(sql);
 
         boolean append = shape.parsed && !shape.limited;
