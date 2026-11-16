@@ -1123,7 +1123,7 @@ management:
 4. ✅ (2026-11-16) Datasource registry + CRUD + test kết nối + duyệt schema/bảng/cột, cùng màn hình Datasources.
 5. ✅ (2026-11-16) Endpoint draft/validate/publish/rollback + registry + pipeline serving (§9.1, bước 1, 3, 7, 10–14, 16).
 6. ✅ (2026-11-17) Service account, client, OAuth2 token, cấp quyền (§9.1 bước 4–5). Token endpoint `POST /oauth2/token`, khoá công khai tại `GET /oauth2/jwks`; khoá ký RS256 lưu trong bảng `signing_key`, private key niêm phong bằng master key. Bảng `oauth_client_directory` (không RLS, không chứa secret) cho token endpoint biết client thuộc workspace nào.
-6b. Firewall IP/CIDR và rate limit (§14, §9.1 bước 2 và 6).
+6b. ✅ (2026-11-17) Firewall IP/CIDR và rate limit (§14, §9.1 bước 2 và 6): cấu hình theo workspace (cột `workspace.serving_policy`), giới hạn riêng từng endpoint ở `limits.ratePerMinute`. Token bucket chạy trong bộ nhớ nên giới hạn được đếm riêng ở mỗi instance. Header `X-Forwarded-For` chỉ được tin khi request đến từ `opendbapi.serving.trusted-proxies`.
 7. Preview + Try-it (gọi pipeline thật trong cùng tiến trình).
 8. OpenAPI tự sinh + Swagger UI.
 9. Stream NDJSON/CSV trên virtual threads.

@@ -8,5 +8,10 @@
 
 export interface Limits {
   maxRows: number;
+  /**
+     * Calls per minute across all callers; null = unlimited
+     * @nullable
+     */
+  ratePerMinute?: number | null;
   timeoutSeconds: number;
 }

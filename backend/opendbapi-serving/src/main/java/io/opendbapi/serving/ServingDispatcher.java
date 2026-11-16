@@ -13,6 +13,8 @@ import io.opendbapi.core.endpoint.ParamBinder;
 import io.opendbapi.core.endpoint.QueryExecutor;
 import io.opendbapi.core.endpoint.RequestJson;
 import io.opendbapi.core.error.ApiProblem;
+import io.opendbapi.core.policy.RateLimiter;
+import io.opendbapi.core.policy.ServingGuard;
 import io.opendbapi.core.workspace.Workspace;
 import io.opendbapi.core.workspace.WorkspaceScope;
 import io.opendbapi.core.workspace.WorkspaceStore;
@@ -59,10 +61,12 @@ public class ServingDispatcher {
     private final QueryExecutor executor;
     private final AccessTokens tokens;
     private final CallerAuthorizer authorizer;
+    private final ServingGuard guard;
 
     public ServingDispatcher(WorkspaceStore workspaces, EndpointRegistry registry, WorkspaceScope scope,
                              DatasourceStore datasources, QueryExecutor executor, AccessTokens tokens,
-                             CallerAuthorizer authorizer) {
+                             CallerAuthorizer authorizer, ServingGuard guard) {
+        this.guard = guard;
         this.workspaces = workspaces;
         this.registry = registry;
         this.scope = scope;
@@ -79,10 +83,18 @@ public class ServingDispatcher {
         String method = request.getMethod().toUpperCase(Locale.ROOT);
         String path = endpointPath(request.getRequestURI(), request.getContextPath(), workspaceSlug);
         Outcome outcome = new Outcome();
+        outcome.ip = guard.clientIp(request.getRemoteAddr(), request.getHeader("X-Forwarded-For"));
         try {
             ResponseEntity<?> response = serve(workspaceSlug, method, path, request, requestId, outcome);
             outcome.status = response.getStatusCode().value();
             return response;
+        } catch (ServingGuard.RateLimited e) {
+            outcome.status = 429;
+            outcome.errorCode = e.code();
+            ResponseEntity<ProblemDetail> answer = problem(HttpStatus.TOO_MANY_REQUESTS, e.code(), e.getMessage(), requestId);
+            HttpHeaders headers = rateHeaders(e.decision());
+            headers.set(HttpHeaders.RETRY_AFTER, Long.toString(e.decision().retryAfterSeconds()));
+            return ResponseEntity.status(429).headers(headers).contentType(MediaType.APPLICATION_PROBLEM_JSON).body(answer.getBody());
         } catch (ApiProblem e) {
             outcome.status = e.status();
             outcome.errorCode = e.code();
@@ -106,13 +118,14 @@ public class ServingDispatcher {
                             + "\"status\":{},\"durationMs\":{},\"rows\":{},\"error\":{},\"clientId\":{},\"ip\":\"{}\"}",
                     requestId, workspaceSlug, method, path, quote(outcome.endpointId), outcome.version, outcome.status,
                     (System.nanoTime() - start) / 1_000_000, outcome.rows, quote(outcome.errorCode), quote(outcome.clientId),
-                    request.getRemoteAddr());
+                    outcome.ip);
         }
     }
 
     private ResponseEntity<?> serve(String slug, String method, String path, HttpServletRequest request, String requestId,
                                     Outcome outcome) {
         Workspace ws = workspaces.findBySlug(slug).filter(Workspace::active).orElseThrow(() -> notFound(method, path, slug));
+        guard.checkFirewall(ws.id(), outcome.ip);
         EndpointRegistry.Match match = registry.resolve(ws.id(), method, path).orElseThrow(() -> notFound(method, path, slug));
         EndpointRegistry.Route route = match.route();
         outcome.endpointId = route.endpointId().toString();
@@ -123,6 +136,8 @@ public class ServingDispatcher {
         }
 
         EndpointDefinition def = route.definition();
+        RateLimiter.Decision rate = guard.checkRate(ws.id(), route.endpointId(), def.limits().ratePerMinute(), outcome.clientId,
+                outcome.ip);
         Set<String> reserved = def.pagination().enabled() ? EndpointValidator.RESERVED : Set.of("format");
         Map<String, Object> params = ParamBinder.bind(def.params(), new ParamBinder.Request(match.pathVariables(),
                 query(request), headers(request), body(request, def)), reserved);
@@ -152,7 +167,7 @@ public class ServingDispatcher {
         Map<String, Object> envelope = new LinkedHashMap<>();
         envelope.put("data", data);
         envelope.put("meta", meta);
-        return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(envelope);
+        return ResponseEntity.ok().headers(rateHeaders(rate)).contentType(MediaType.APPLICATION_JSON).body(envelope);
     }
 
     /** Spec §9.1 steps 4–5: a valid token for this workspace, a usable client, a grant. */
@@ -174,6 +189,17 @@ public class ServingDispatcher {
         if (status == CallerStatus.NOT_GRANTED) {
             throw new ApiProblem(403, "not_granted", "This client has not been granted access to the endpoint.");
         }
+    }
+
+    /** IETF draft RateLimit header fields, for the tightest limit that applied. */
+    private static HttpHeaders rateHeaders(RateLimiter.Decision d) {
+        HttpHeaders headers = new HttpHeaders();
+        if (d != null) {
+            headers.set("RateLimit-Limit", Integer.toString(d.limit()));
+            headers.set("RateLimit-Remaining", Integer.toString(d.remaining()));
+            headers.set("RateLimit-Reset", Long.toString(d.allowed() ? Math.max(1, 60L / Math.max(1, d.limit())) : d.retryAfterSeconds()));
+        }
+        return headers;
     }
 
     private static QueryExecutor.PageRequest pageRequest(EndpointDefinition.Pagination p, HttpServletRequest request) {
@@ -295,5 +321,6 @@ public class ServingDispatcher {
         String errorCode;
         String clientId;
         String serviceAccountId;
+        String ip;
     }
 }

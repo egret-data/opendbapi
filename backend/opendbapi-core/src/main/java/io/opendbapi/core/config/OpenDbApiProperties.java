@@ -22,10 +22,16 @@ public record OpenDbApiProperties(
     /**
      * @param context first path segment of every published endpoint: {@code /{context}/{ws}/...}
      * @param urlBase public base URL shown to authors; empty means derive it from the request
+     * @param trustedProxies IPs or CIDR ranges of reverse proxies whose X-Forwarded-For is
+     *     believed (spec §14); empty = the TCP peer is the caller
      */
     public record Serving(
             @DefaultValue("api") String context,
-            @DefaultValue("") String urlBase) {
+            @DefaultValue("") String urlBase,
+            java.util.List<String> trustedProxies) {
+        public Serving {
+            trustedProxies = trustedProxies == null ? java.util.List.of() : trustedProxies;
+        }
     }
 
     /**

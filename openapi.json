@@ -2415,6 +2415,68 @@
         "tags" : [ "service-accounts" ]
       }
     },
+    "/admin/api/ws/{ws}/serving-policy" : {
+      "get" : {
+        "operationId" : "getServingPolicy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ServingPolicy"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Firewall and rate limits",
+        "tags" : [ "serving-policy" ]
+      },
+      "put" : {
+        "operationId" : "saveServingPolicy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ServingPolicy"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ServingPolicy"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Replace firewall and rate limits (admin)",
+        "tags" : [ "serving-policy" ]
+      }
+    },
     "/admin/api/ws/{ws}/user-search" : {
       "get" : {
         "operationId" : "searchUsers",
@@ -2947,6 +3009,22 @@
           }
         }
       },
+      "Firewall" : {
+        "required" : [ "entries", "mode" ],
+        "type" : "object",
+        "properties" : {
+          "entries" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "mode" : {
+            "type" : "string",
+            "enum" : [ "off", "allow", "deny" ]
+          }
+        }
+      },
       "Grant" : {
         "required" : [ "grantedAt", "resourceId", "resourceName", "resourceType" ],
         "type" : "object",
@@ -2983,6 +3061,12 @@
           "maxRows" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "ratePerMinute" : {
+            "type" : "integer",
+            "description" : "Calls per minute across all callers; null = unlimited",
+            "format" : "int32",
+            "nullable" : true
           },
           "timeoutSeconds" : {
             "type" : "integer",
@@ -3404,6 +3488,21 @@
           }
         }
       },
+      "RateLimits" : {
+        "type" : "object",
+        "properties" : {
+          "perClientPerMinute" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "perIpPerMinute" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          }
+        }
+      },
       "ResetPassword" : {
         "required" : [ "password" ],
         "type" : "object",
@@ -3607,6 +3706,18 @@
           },
           "summary" : {
             "$ref" : "#/components/schemas/ServiceAccount"
+          }
+        }
+      },
+      "ServingPolicy" : {
+        "required" : [ "firewall", "rateLimits" ],
+        "type" : "object",
+        "properties" : {
+          "firewall" : {
+            "$ref" : "#/components/schemas/Firewall"
+          },
+          "rateLimits" : {
+            "$ref" : "#/components/schemas/RateLimits"
           }
         }
       },

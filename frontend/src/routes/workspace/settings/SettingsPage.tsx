@@ -8,6 +8,7 @@ import { Forbidden } from "@/routes/Forbidden";
 import { AuditSection } from "./AuditSection";
 import { GeneralSection } from "./GeneralSection";
 import { MembersSection } from "./MembersSection";
+import { ServingPolicySection } from "./ServingPolicySection";
 
 /** `/w/:ws/settings/*`: each section is a route, so the open tab survives a reload (FE-PAGE-2). */
 export default function SettingsPage() {
@@ -29,12 +30,14 @@ export default function SettingsPage() {
       <nav aria-label="Settings sections" className={`${tabsListClass("pill")} mt-4`}>
         {tab(`/w/${ws}/settings`, "General")}
         {tab(`/w/${ws}/settings/members`, "Members")}
+        {tab(`/w/${ws}/settings/serving`, "Firewall & limits")}
         {isAdmin && tab(`/w/${ws}/settings/audit`, "Audit log")}
       </nav>
       <div className="pt-4">
         <Routes>
           <Route index element={<GeneralSection ws={ws} role={role} />} />
           <Route path="members" element={<MembersSection ws={ws} role={role} />} />
+          <Route path="serving" element={<ServingPolicySection ws={ws} role={role} />} />
           <Route
             path="audit"
             element={isAdmin ? <AuditSection ws={ws} /> : <Forbidden reason="The audit log is for workspace admins." />}
