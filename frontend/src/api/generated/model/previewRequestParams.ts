@@ -6,10 +6,8 @@
  * OpenAPI spec version: v1
  */
 
-export interface Column {
-  name: string;
-  nullable: boolean;
-  position: number;
-  size: number;
-  type: string;
-}
+/**
+ * Test values by parameter name
+ * @nullable
+ */
+export type PreviewRequestParams = { [key: string]: unknown } | null;

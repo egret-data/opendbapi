@@ -9,7 +9,7 @@ import type { JsonNode } from './jsonNode';
 
 export interface AuditEntry {
   action: string;
-  detail: JsonNode;
+  detail?: JsonNode | null;
   id: number;
   /** @nullable */
   targetId?: string | null;

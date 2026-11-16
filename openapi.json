@@ -1024,7 +1024,7 @@
                 "schema" : {
                   "type" : "array",
                   "items" : {
-                    "$ref" : "#/components/schemas/Column"
+                    "$ref" : "#/components/schemas/TableColumn"
                   }
                 }
               }
@@ -1149,6 +1149,765 @@
         },
         "summary" : "Check a saved datasource can connect (author)",
         "tags" : [ "datasources" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints" : {
+      "get" : {
+        "operationId" : "listEndpoints",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "state",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "groupId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "datasourceId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "trashed",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/EndpointSummary"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Endpoints, optionally filtered; trashed=true lists the trash",
+        "tags" : [ "endpoints" ]
+      },
+      "post" : {
+        "operationId" : "createEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateEndpoint"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EndpointDetail"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Create a draft with a starter query (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{id}" : {
+      "delete" : {
+        "operationId" : "deleteEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Delete for good; only from the trash (author)",
+        "tags" : [ "endpoints" ]
+      },
+      "get" : {
+        "operationId" : "getEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EndpointDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "The draft and what is live",
+        "tags" : [ "endpoints" ]
+      },
+      "patch" : {
+        "operationId" : "updateEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateEndpoint"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EndpointDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Save the draft; callers keep getting the live version (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{id}/preview" : {
+      "post" : {
+        "operationId" : "previewEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PreviewRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PreviewResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Run the on-screen draft with test values; always rolled back (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{id}/versions" : {
+      "get" : {
+        "operationId" : "listEndpointVersions",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/VersionView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Published versions, newest first",
+        "tags" : [ "endpoints" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{id}/versions/{version}" : {
+      "get" : {
+        "operationId" : "getEndpointVersion",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "version",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VersionView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "One published version",
+        "tags" : [ "endpoints" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{id}/versions/{version}:rollback" : {
+      "post" : {
+        "operationId" : "rollbackEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "version",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EndpointSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Serve an older version; the draft is untouched (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{id}:disable" : {
+      "post" : {
+        "operationId" : "disableEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EndpointSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Stop serving (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{id}:duplicate" : {
+      "post" : {
+        "operationId" : "duplicateEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EndpointDetail"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Copy the draft as a new draft (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{id}:enable" : {
+      "post" : {
+        "operationId" : "enableEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EndpointSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Serve the live version again (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{id}:publish" : {
+      "post" : {
+        "operationId" : "publishEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PublishRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/VersionView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Freeze the draft as a new version and serve it (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{id}:restore" : {
+      "post" : {
+        "operationId" : "restoreEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EndpointSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Bring back from the trash, disabled (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{id}:trash" : {
+      "post" : {
+        "operationId" : "trashEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EndpointSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Move a draft or disabled endpoint to the trash (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{id}:validate" : {
+      "post" : {
+        "operationId" : "validateEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ValidationView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Check the saved draft as publish would (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
+    "/admin/api/ws/{ws}/groups" : {
+      "get" : {
+        "operationId" : "listGroups",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ApiGroup"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Endpoint groups with their endpoint counts",
+        "tags" : [ "groups" ]
+      },
+      "post" : {
+        "operationId" : "createGroup",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveGroup"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiGroup"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Create a group (author)",
+        "tags" : [ "groups" ]
+      }
+    },
+    "/admin/api/ws/{ws}/groups/{id}" : {
+      "delete" : {
+        "operationId" : "deleteGroup",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Delete a group; its endpoints become ungrouped (author)",
+        "tags" : [ "groups" ]
+      },
+      "patch" : {
+        "operationId" : "renameGroup",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveGroup"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Rename a group (author)",
+        "tags" : [ "groups" ]
       }
     },
     "/admin/api/ws/{ws}/members" : {
@@ -1343,8 +2102,25 @@
           }
         }
       },
+      "ApiGroup" : {
+        "required" : [ "endpointCount", "id", "name" ],
+        "type" : "object",
+        "properties" : {
+          "endpointCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
       "AuditEntry" : {
-        "required" : [ "action", "detail", "id", "ts" ],
+        "required" : [ "action", "id", "ts" ],
         "type" : "object",
         "properties" : {
           "action" : {
@@ -1423,25 +2199,36 @@
           }
         }
       },
-      "Column" : {
-        "required" : [ "name", "nullable", "position", "size", "type" ],
+      "CreateEndpoint" : {
+        "required" : [ "access", "datasourceId", "method", "name", "path" ],
         "type" : "object",
         "properties" : {
-          "name" : {
+          "access" : {
+            "pattern" : "private|public",
             "type" : "string"
           },
-          "nullable" : {
-            "type" : "boolean"
+          "datasourceId" : {
+            "type" : "string",
+            "format" : "uuid"
           },
-          "position" : {
-            "type" : "integer",
-            "format" : "int32"
+          "groupId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "nullable" : true
           },
-          "size" : {
-            "type" : "integer",
-            "format" : "int32"
+          "method" : {
+            "pattern" : "GET|POST|PUT|DELETE",
+            "type" : "string"
           },
-          "type" : {
+          "name" : {
+            "maxLength" : 120,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "path" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "pattern" : "^[A-Za-z0-9_\\-{}]+(/[A-Za-z0-9_\\-{}]+)*$",
             "type" : "string"
           }
         }
@@ -1604,8 +2391,146 @@
           }
         }
       },
+      "EndpointDefinition" : {
+        "required" : [ "limits", "pagination", "params", "task" ],
+        "type" : "object",
+        "properties" : {
+          "limits" : {
+            "$ref" : "#/components/schemas/Limits"
+          },
+          "pagination" : {
+            "$ref" : "#/components/schemas/Pagination"
+          },
+          "params" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Param"
+            }
+          },
+          "task" : {
+            "$ref" : "#/components/schemas/Task"
+          }
+        }
+      },
+      "EndpointDetail" : {
+        "required" : [ "createdAt", "definition", "summary" ],
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "definition" : {
+            "$ref" : "#/components/schemas/EndpointDefinition"
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/EndpointSummary"
+          }
+        }
+      },
+      "EndpointSummary" : {
+        "required" : [ "access", "dirty", "id", "method", "name", "path", "state", "trashed", "updatedAt" ],
+        "type" : "object",
+        "properties" : {
+          "access" : {
+            "type" : "string",
+            "enum" : [ "private", "public" ]
+          },
+          "datasourceId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "nullable" : true
+          },
+          "description" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "dirty" : {
+            "type" : "boolean"
+          },
+          "groupId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "nullable" : true
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "liveVersion" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "method" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string",
+            "enum" : [ "draft", "live", "disabled" ]
+          },
+          "trashed" : {
+            "type" : "boolean"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ExecutedSql" : {
+        "required" : [ "parameters", "sql" ],
+        "type" : "object",
+        "properties" : {
+          "parameters" : {
+            "type" : "array",
+            "items" : {
+              "type" : "object"
+            }
+          },
+          "sql" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Finding" : {
+        "required" : [ "code", "message", "severity" ],
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "severity" : {
+            "type" : "string"
+          }
+        }
+      },
       "JsonNode" : {
-        "type" : "object"
+        "type" : "object",
+        "nullable" : true
+      },
+      "Limits" : {
+        "required" : [ "maxRows", "timeoutSeconds" ],
+        "type" : "object",
+        "properties" : {
+          "maxRows" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "timeoutSeconds" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
       },
       "LoginRequest" : {
         "required" : [ "password", "source", "username" ],
@@ -1744,6 +2669,81 @@
           }
         }
       },
+      "Pagination" : {
+        "required" : [ "count", "defaultSize", "enabled", "maxSize" ],
+        "type" : "object",
+        "properties" : {
+          "count" : {
+            "type" : "boolean"
+          },
+          "defaultSize" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "maxSize" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "Param" : {
+        "required" : [ "in", "name", "required", "type" ],
+        "type" : "object",
+        "properties" : {
+          "defaultValue" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "description" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "enumValues" : {
+            "type" : "array",
+            "nullable" : true,
+            "items" : {
+              "type" : "string",
+              "nullable" : true
+            }
+          },
+          "in" : {
+            "type" : "string",
+            "enum" : [ "path", "query", "header", "body" ]
+          },
+          "max" : {
+            "type" : "number",
+            "description" : "Numbers: largest value; text: longest length",
+            "nullable" : true
+          },
+          "maxItems" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "min" : {
+            "type" : "number",
+            "description" : "Numbers: smallest value; text: shortest length",
+            "nullable" : true
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "pattern" : {
+            "type" : "string",
+            "description" : "Regular expression the value must match",
+            "nullable" : true
+          },
+          "required" : {
+            "type" : "boolean"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "string", "bigint", "double", "decimal", "boolean", "date", "datetime", "array<string>", "array<bigint>", "array<double>", "array<date>" ]
+          }
+        }
+      },
       "PoolSettings" : {
         "type" : "object",
         "properties" : {
@@ -1764,6 +2764,92 @@
             "description" : "default 0",
             "format" : "int32",
             "nullable" : true
+          }
+        }
+      },
+      "PreviewRequest" : {
+        "required" : [ "definition", "method", "path" ],
+        "type" : "object",
+        "properties" : {
+          "definition" : {
+            "$ref" : "#/components/schemas/EndpointDefinition"
+          },
+          "method" : {
+            "pattern" : "GET|POST|PUT|DELETE",
+            "type" : "string"
+          },
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "params" : {
+            "type" : "object",
+            "additionalProperties" : true,
+            "description" : "Test values by parameter name",
+            "nullable" : true
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          }
+        }
+      },
+      "PreviewResponse" : {
+        "required" : [ "columns", "durationMs", "executed", "findings", "rows", "truncated" ],
+        "type" : "object",
+        "properties" : {
+          "affectedRows" : {
+            "type" : "integer",
+            "format" : "int64",
+            "nullable" : true
+          },
+          "columns" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ResultColumn"
+            }
+          },
+          "durationMs" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "executed" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ExecutedSql"
+            }
+          },
+          "findings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Finding"
+            }
+          },
+          "hasNext" : {
+            "type" : "boolean",
+            "nullable" : true
+          },
+          "rows" : {
+            "type" : "array",
+            "items" : {
+              "type" : "object",
+              "additionalProperties" : {
+                "type" : "object"
+              }
+            }
+          },
+          "total" : {
+            "type" : "integer",
+            "format" : "int64",
+            "nullable" : true
+          },
+          "truncated" : {
+            "type" : "boolean"
           }
         }
       },
@@ -1836,11 +2922,34 @@
           }
         }
       },
+      "PublishRequest" : {
+        "type" : "object",
+        "properties" : {
+          "note" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string",
+            "nullable" : true
+          }
+        }
+      },
       "ResetPassword" : {
         "required" : [ "password" ],
         "type" : "object",
         "properties" : {
           "password" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ResultColumn" : {
+        "required" : [ "name", "type" ],
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "type" : {
             "type" : "string"
           }
         }
@@ -1900,6 +3009,17 @@
           }
         }
       },
+      "SaveGroup" : {
+        "required" : [ "name" ],
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "maxLength" : 120,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }
+      },
       "SaveProvider" : {
         "required" : [ "config", "enabled", "name", "type" ],
         "type" : "object",
@@ -1924,6 +3044,18 @@
           "type" : {
             "type" : "string",
             "enum" : [ "ldap", "oidc" ]
+          }
+        }
+      },
+      "Statement" : {
+        "required" : [ "id", "template" ],
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "template" : {
+            "type" : "string"
           }
         }
       },
@@ -1960,6 +3092,29 @@
           }
         }
       },
+      "TableColumn" : {
+        "required" : [ "name", "nullable", "position", "size", "type" ],
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "nullable" : {
+            "type" : "boolean"
+          },
+          "position" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        }
+      },
       "Tables" : {
         "required" : [ "items", "truncated" ],
         "type" : "object",
@@ -1972,6 +3127,29 @@
           },
           "truncated" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "Task" : {
+        "required" : [ "statements", "transaction", "type" ],
+        "type" : "object",
+        "properties" : {
+          "datasourceId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "nullable" : true
+          },
+          "statements" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Statement"
+            }
+          },
+          "transaction" : {
+            "type" : "boolean"
+          },
+          "type" : {
+            "type" : "string"
           }
         }
       },
@@ -2000,6 +3178,45 @@
           "username" : {
             "type" : "string",
             "nullable" : true
+          }
+        }
+      },
+      "UpdateEndpoint" : {
+        "required" : [ "access", "definition", "method", "name", "path" ],
+        "type" : "object",
+        "properties" : {
+          "access" : {
+            "pattern" : "private|public",
+            "type" : "string"
+          },
+          "definition" : {
+            "$ref" : "#/components/schemas/EndpointDefinition"
+          },
+          "description" : {
+            "maxLength" : 2000,
+            "minLength" : 0,
+            "type" : "string",
+            "nullable" : true
+          },
+          "groupId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "nullable" : true
+          },
+          "method" : {
+            "pattern" : "GET|POST|PUT|DELETE",
+            "type" : "string"
+          },
+          "name" : {
+            "maxLength" : 120,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "path" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "pattern" : "^[A-Za-z0-9_\\-{}]+(/[A-Za-z0-9_\\-{}]+)*$",
+            "type" : "string"
           }
         }
       },
@@ -2107,6 +3324,70 @@
           },
           "username" : {
             "type" : "string"
+          }
+        }
+      },
+      "ValidationView" : {
+        "required" : [ "detectedParameters", "findings", "ok", "outputColumns" ],
+        "type" : "object",
+        "properties" : {
+          "detectedParameters" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "findings" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Finding"
+            }
+          },
+          "ok" : {
+            "type" : "boolean"
+          },
+          "outputColumns" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ResultColumn"
+            }
+          }
+        }
+      },
+      "VersionView" : {
+        "required" : [ "access", "definition", "live", "method", "path", "publishedAt", "version" ],
+        "type" : "object",
+        "properties" : {
+          "access" : {
+            "type" : "string"
+          },
+          "definition" : {
+            "$ref" : "#/components/schemas/EndpointDefinition"
+          },
+          "live" : {
+            "type" : "boolean"
+          },
+          "method" : {
+            "type" : "string"
+          },
+          "note" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "publishedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "publishedBy" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },

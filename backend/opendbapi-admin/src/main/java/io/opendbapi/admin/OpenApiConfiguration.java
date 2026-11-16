@@ -41,7 +41,9 @@ public class OpenApiConfiguration {
                 }
                 List<String> required = new ArrayList<>();
                 schema.getProperties().forEach((name, property) -> {
-                    if (!Boolean.TRUE.equals(property.getNullable())) {
+                    // A $ref cannot carry "nullable" in OpenAPI 3.0; free-form JSON is always optional.
+                    boolean freeJson = property.get$ref() != null && property.get$ref().endsWith("/JsonNode");
+                    if (!Boolean.TRUE.equals(property.getNullable()) && !freeJson) {
                         required.add(name);
                     }
                     // Map<String, Object>: values may be any JSON, not only objects.

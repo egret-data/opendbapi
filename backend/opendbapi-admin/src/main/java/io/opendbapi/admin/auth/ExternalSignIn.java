@@ -36,7 +36,7 @@ public class ExternalSignIn {
         if (user.disabled()) {
             throw LocalLogin.invalid();
         }
-        RoleSync.Result sync = roleSync.sync(user, identity.groups());
+        RoleSync.SyncResult sync = roleSync.sync(user, identity.groups());
         users.recordSuccessfulLogin(user.id());
         audit.record(null, user.id(), "auth.login", "user", user.id().toString(), Map.of(
                 "source", idp.type(),

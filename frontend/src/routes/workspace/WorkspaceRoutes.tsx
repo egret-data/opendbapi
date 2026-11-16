@@ -3,6 +3,9 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { NotBuiltYet } from "@/routes/NotBuiltYet";
 import { NotFound } from "@/routes/NotFound";
 import SettingsPage from "./settings/SettingsPage";
+import EndpointDetailPage from "./endpoints/EndpointDetailPage";
+import EndpointsPage from "./endpoints/EndpointsPage";
+import NewEndpointPage from "./endpoints/NewEndpointPage";
 import DatasourceDetailPage from "./datasources/DatasourceDetailPage";
 import DatasourcesPage from "./datasources/DatasourcesPage";
 import NewDatasourcePage from "./datasources/NewDatasourcePage";
@@ -13,16 +16,9 @@ export default function WorkspaceRoutes() {
   return (
     <Routes>
       <Route index element={<Navigate to="endpoints" replace />} />
-      <Route
-        path="endpoints/*"
-        element={
-          <NotBuiltYet
-            title="Endpoints"
-            step={5}
-            summary="Write SQL, preview it, and publish versioned endpoints. Arrives with the endpoint lifecycle."
-          />
-        }
-      />
+      <Route path="endpoints" element={<EndpointsPage />} />
+      <Route path="endpoints/new" element={<RequireRole minimum="author"><NewEndpointPage /></RequireRole>} />
+      <Route path="endpoints/:id" element={<EndpointDetailPage />} />
       <Route path="datasources" element={<DatasourcesPage />} />
       <Route path="datasources/new" element={<RequireRole minimum="admin"><NewDatasourcePage /></RequireRole>} />
       <Route path="datasources/:id" element={<DatasourceDetailPage />} />

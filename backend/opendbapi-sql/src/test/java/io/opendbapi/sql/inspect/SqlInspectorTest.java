@@ -3,7 +3,7 @@ package io.opendbapi.sql.inspect;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.opendbapi.sql.inspect.SqlInspector.Context;
-import io.opendbapi.sql.inspect.SqlInspector.Finding;
+import io.opendbapi.sql.inspect.SqlInspector.SqlFinding;
 import io.opendbapi.sql.inspect.SqlInspector.Severity;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -14,8 +14,8 @@ class SqlInspectorTest {
     private static final Context POST = new Context(false, false);
     private static final Context POST_READ_ONLY_DB = new Context(false, true);
 
-    private static List<String> codes(List<Finding> findings) {
-        return findings.stream().map(Finding::code).toList();
+    private static List<String> codes(List<SqlFinding> findings) {
+        return findings.stream().map(SqlFinding::code).toList();
     }
 
     @Test
@@ -88,7 +88,7 @@ class SqlInspectorTest {
         var findings = SqlInspector.inspect("select * from users where id = ?", GET);
 
         // Assert
-        assertThat(findings).extracting(Finding::code, Finding::severity).containsExactly(
+        assertThat(findings).extracting(SqlFinding::code, SqlFinding::severity).containsExactly(
                 org.assertj.core.groups.Tuple.tuple("select_star", Severity.WARNING));
         assertThat(SqlInspector.hasErrors(findings)).isFalse();
         assertThat(codes(SqlInspector.inspect("select u.* from users u union all select a.* from admins a", GET)))

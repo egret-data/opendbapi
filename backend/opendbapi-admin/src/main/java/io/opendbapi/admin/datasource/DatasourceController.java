@@ -262,7 +262,7 @@ public class DatasourceController {
 
     @GetMapping("/{id}/columns")
     @Operation(operationId = "listColumns", summary = "Columns of one table (author)")
-    public List<DataSourceRegistry.Column> columns(@PathVariable String ws, @PathVariable UUID id,
+    public List<DataSourceRegistry.TableColumn> columns(@PathVariable String ws, @PathVariable UUID id,
                                                    @RequestParam(required = false) String schema,
                                                    @RequestParam String table) {
         var granted = access.require(ws, WorkspaceRole.AUTHOR);

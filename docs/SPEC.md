@@ -1121,7 +1121,7 @@ management:
 2. ✅ (2026-11-16) Workspace + user + đăng nhập nội bộ/LDAP/OIDC + role theo workspace + group mapping.
 3. ✅ (2026-11-16) Engine template + kiểm tra SQL tĩnh + phân trang (TDD), module `opendbapi-sql`, đã chạy thử trên PostgreSQL và MySQL thật.
 4. ✅ (2026-11-16) Datasource registry + CRUD + test kết nối + duyệt schema/bảng/cột, cùng màn hình Datasources.
-5. Endpoint draft/validate/publish/rollback + registry + pipeline serving (§9.1, bước 1–7, 10–14, 16).
+5. ✅ (2026-11-16) Endpoint draft/validate/publish/rollback + registry + pipeline serving (§9.1, bước 1–7, 10–14, 16).
 6. Service account, client, OAuth2 token, cấp quyền.
 7. Preview + Try-it (gọi pipeline thật trong cùng tiến trình).
 8. OpenAPI tự sinh + Swagger UI.

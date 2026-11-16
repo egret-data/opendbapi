@@ -25,7 +25,7 @@ public final class SqlInspector {
 
     public enum Severity { ERROR, WARNING }
 
-    public record Finding(Severity severity, String code, String message) {
+    public record SqlFinding(Severity severity, String code, String message) {
     }
 
     /**
@@ -38,35 +38,35 @@ public final class SqlInspector {
     private SqlInspector() {
     }
 
-    public static boolean hasErrors(List<Finding> findings) {
+    public static boolean hasErrors(List<SqlFinding> findings) {
         return findings.stream().anyMatch(f -> f.severity() == Severity.ERROR);
     }
 
-    public static List<Finding> inspect(String sql, Context context) {
-        List<Finding> findings = new ArrayList<>();
+    public static List<SqlFinding> inspect(String sql, Context context) {
+        List<SqlFinding> findings = new ArrayList<>();
         List<Statement> statements;
         try {
             Statements parsed = CCJSqlParserUtil.parseStatements(sql);
             statements = new ArrayList<>(parsed);
         } catch (JSQLParserException | RuntimeException e) {
-            findings.add(new Finding(Severity.WARNING, "unparsed",
+            findings.add(new SqlFinding(Severity.WARNING, "unparsed",
                     "The SQL could not be analysed (vendor-specific syntax?). Checks for missing WHERE and "
                             + "multiple statements were skipped; review it yourself before publishing."));
             // Not understood is not a pass: a write keyword anywhere still blocks read-only contexts,
             // e.g. PostgreSQL's data-modifying CTE "WITH d AS (DELETE …) SELECT …".
             String keyword = writeKeyword(sql);
             if (keyword != null && context.readOnlyEndpoint()) {
-                findings.add(new Finding(Severity.ERROR, "write_in_get",
+                findings.add(new SqlFinding(Severity.ERROR, "write_in_get",
                         "A GET endpoint must not change data, and this SQL contains %s.".formatted(keyword)));
             }
             if (keyword != null && context.readOnlyDatasource()) {
-                findings.add(new Finding(Severity.ERROR, "write_on_read_only",
+                findings.add(new SqlFinding(Severity.ERROR, "write_on_read_only",
                         "The datasource is read-only, and this SQL contains %s.".formatted(keyword)));
             }
             return findings;
         }
         if (statements.size() > 1) {
-            findings.add(new Finding(Severity.ERROR, "multiple_statements",
+            findings.add(new SqlFinding(Severity.ERROR, "multiple_statements",
                     "Only one SQL statement is allowed per query; found %d.".formatted(statements.size())));
         }
         for (Statement statement : statements) {
@@ -75,39 +75,39 @@ public final class SqlInspector {
         return findings;
     }
 
-    private static void inspect(Statement statement, Context context, List<Finding> findings) {
+    private static void inspect(Statement statement, Context context, List<SqlFinding> findings) {
         boolean write;
         if (statement instanceof Select select) {
             SelectFacts facts = new SelectFacts();
             facts.visit(select, true);
             write = facts.into;
             if (facts.star) {
-                findings.add(new Finding(Severity.WARNING, "select_star",
+                findings.add(new SqlFinding(Severity.WARNING, "select_star",
                         "SELECT * makes the response change whenever a column is added; list the columns instead."));
             }
             if (facts.forUpdate) {
-                findings.add(new Finding(Severity.WARNING, "locks_rows",
+                findings.add(new SqlFinding(Severity.WARNING, "locks_rows",
                         "SELECT … FOR UPDATE/SHARE locks rows until the request ends."));
             }
         } else {
             write = true;
         }
         if (write && context.readOnlyEndpoint()) {
-            findings.add(new Finding(Severity.ERROR, "write_in_get",
+            findings.add(new SqlFinding(Severity.ERROR, "write_in_get",
                     "A GET endpoint must not change data; use POST, PUT or DELETE for this statement."));
         }
         if (write && context.readOnlyDatasource()) {
-            findings.add(new Finding(Severity.ERROR, "write_on_read_only",
+            findings.add(new SqlFinding(Severity.ERROR, "write_on_read_only",
                     "The datasource is read-only; this statement changes data."));
         }
         if (statement instanceof Update u && u.getWhere() == null) {
-            findings.add(new Finding(Severity.ERROR, "missing_where", "UPDATE without WHERE changes every row."));
+            findings.add(new SqlFinding(Severity.ERROR, "missing_where", "UPDATE without WHERE changes every row."));
         }
         if (statement instanceof Delete d && d.getWhere() == null) {
-            findings.add(new Finding(Severity.ERROR, "missing_where", "DELETE without WHERE removes every row."));
+            findings.add(new SqlFinding(Severity.ERROR, "missing_where", "DELETE without WHERE removes every row."));
         }
         if (isDdl(statement)) {
-            findings.add(new Finding(Severity.WARNING, "ddl",
+            findings.add(new SqlFinding(Severity.WARNING, "ddl",
                     "This statement changes the schema (%s).".formatted(statement.getClass().getSimpleName())));
         }
     }
