@@ -4,14 +4,16 @@ Publish SQL as versioned, access-controlled REST APIs, with workspaces for multi
 sign-in through local accounts, LDAP or SSO. A clean-room rewrite of the ideas behind DBAPI;
 the full design is in [`docs/SPEC.md`](docs/SPEC.md).
 
-> **Status:** roadmap steps 1–2 done: schema with per-workspace row-level security,
+> **Status:** roadmap steps 1–3 done: schema with per-workspace row-level security,
 > sign-in (local, LDAP, SSO/OIDC) with group → role mapping, workspaces, members, users,
-> identity providers and audit log. Endpoint authoring areas still show a placeholder.
+> identity providers and audit log; the SQL template engine with static checks and
+> pagination. Endpoint authoring areas still show a placeholder.
 
 ## Layout
 
 ```text
 backend/            Maven multi-module, Java 21, Spring Boot 3.3
+  opendbapi-sql/      SQL templates, expression language, static checks, pagination (plain Java)
   opendbapi-core/     schema (Flyway), workspace isolation, configuration
   opendbapi-admin/    management API under /admin/api
   opendbapi-serving/  published endpoints under /{context}/{workspace}/**
