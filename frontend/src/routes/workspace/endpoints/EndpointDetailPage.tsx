@@ -35,13 +35,14 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { errorMessage } from "@/lib/errors";
 import { useUnsavedChangesWarning } from "@/lib/useUnsavedChangesWarning";
+import { AccessTab } from "./AccessTab";
 import { ParamsEditor } from "./ParamsEditor";
 import { FindingsList, PreviewPanel } from "./PreviewPanel";
 import { SettingsTab } from "./SettingsTab";
 import { VersionsTab } from "./VersionsTab";
 import { STATE_LABEL, STATE_TONE, formFrom, mainSql, toUpdate, withMainSql, type DraftForm } from "./endpointForm";
 
-const TABS = ["query", "settings", "versions"] as const;
+const TABS = ["query", "settings", "access", "versions"] as const;
 
 export default function EndpointDetailPage() {
   const { ws = "", id = "" } = useParams();
@@ -58,6 +59,7 @@ export default function EndpointDetailPage() {
 function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
   const { me } = useAuth();
   const canAuthor = hasRole(effectiveRole(me, ws) ?? "viewer", "author");
+  const isAdmin = hasRole(effectiveRole(me, ws) ?? "viewer", "admin");
   const s = detail.summary;
   const saved = useMemo(() => formFrom(detail), [detail]);
   const [form, setForm] = useState<DraftForm>(saved);
@@ -169,6 +171,7 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
         <TabsList>
           <TabsTrigger value="query">Query</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
+          <TabsTrigger value="access">Access</TabsTrigger>
           <TabsTrigger value="versions">Versions</TabsTrigger>
         </TabsList>
         <TabsContent value="query" className="space-y-4 pt-4">
@@ -198,6 +201,9 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
         </TabsContent>
         <TabsContent value="settings" className="pt-4">
           <SettingsTab ws={ws} form={form} onChange={setForm} live={s.state === "live"} disabled={!canAuthor} />
+        </TabsContent>
+        <TabsContent value="access" className="pt-4">
+          <AccessTab ws={ws} endpointId={s.id} isPublic={s.access === "public"} isAdmin={isAdmin} />
         </TabsContent>
         <TabsContent value="versions" className="pt-4">
           <VersionsTab ws={ws} id={s.id} draftSql={mainSql(saved.definition)} canAuthor={canAuthor} onChanged={refresh} />

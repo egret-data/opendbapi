@@ -45,6 +45,10 @@ public class WorkspaceStore {
         return jdbc.sql("select * from workspace where slug = ?").param(slug).query(this::map).optional();
     }
 
+    public Optional<Workspace> findById(UUID id) {
+        return jdbc.sql("select * from workspace where id = ?").param(id).query(this::map).optional();
+    }
+
     public List<Workspace> list() {
         return jdbc.sql("select * from workspace order by status, lower(name)").query(this::map).list();
     }

@@ -33,21 +33,23 @@ public class SystemController {
         return new SystemInfo(
                 version,
                 properties.mode().name().toLowerCase(Locale.ROOT),
-                servingBaseUrl());
+                publicBase() + "/" + properties.serving().context(),
+                publicBase() + "/oauth2/token");
     }
 
-    private String servingBaseUrl() {
+    private String publicBase() {
         String base = properties.serving().urlBase();
         if (base.isBlank()) {
             base = ServletUriComponentsBuilder.fromCurrentContextPath().toUriString();
         }
-        return stripTrailingSlash(base) + "/" + properties.serving().context();
+        return stripTrailingSlash(base);
     }
 
     private static String stripTrailingSlash(String url) {
         return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 
-    public record SystemInfo(String version, String mode, String servingBaseUrl) {
+    /** @param tokenUrl where API callers exchange client credentials for an access token */
+    public record SystemInfo(String version, String mode, String servingBaseUrl, String tokenUrl) {
     }
 }

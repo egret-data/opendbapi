@@ -1,6 +1,9 @@
 package io.opendbapi.serving;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.opendbapi.core.client.AccessTokens;
+import io.opendbapi.core.client.CallerAuthorizer;
+import io.opendbapi.core.client.ServiceAccountStore.CallerStatus;
 import io.opendbapi.core.datasource.Datasource;
 import io.opendbapi.core.datasource.DatasourceStore;
 import io.opendbapi.core.endpoint.EndpointDefinition;
@@ -27,6 +30,7 @@ import java.util.Set;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -53,14 +57,19 @@ public class ServingDispatcher {
     private final WorkspaceScope scope;
     private final DatasourceStore datasources;
     private final QueryExecutor executor;
+    private final AccessTokens tokens;
+    private final CallerAuthorizer authorizer;
 
     public ServingDispatcher(WorkspaceStore workspaces, EndpointRegistry registry, WorkspaceScope scope,
-                             DatasourceStore datasources, QueryExecutor executor) {
+                             DatasourceStore datasources, QueryExecutor executor, AccessTokens tokens,
+                             CallerAuthorizer authorizer) {
         this.workspaces = workspaces;
         this.registry = registry;
         this.scope = scope;
         this.datasources = datasources;
         this.executor = executor;
+        this.tokens = tokens;
+        this.authorizer = authorizer;
     }
 
     @RequestMapping(WS_PREFIX_PATTERN + "**")
@@ -77,7 +86,15 @@ public class ServingDispatcher {
         } catch (ApiProblem e) {
             outcome.status = e.status();
             outcome.errorCode = e.code();
-            return problem(HttpStatus.valueOf(e.status()), e.code(), e.getMessage(), requestId);
+            ResponseEntity<ProblemDetail> answer = problem(HttpStatus.valueOf(e.status()), e.code(), e.getMessage(), requestId);
+            if (e.status() == 401) {
+                // RFC 6750 §3: tell the caller which scheme to use and, for a bad token, why.
+                String challenge = "unauthenticated".equals(e.code()) ? "Bearer realm=\"opendbapi\""
+                        : "Bearer realm=\"opendbapi\", error=\"invalid_token\"";
+                return ResponseEntity.status(401).header(HttpHeaders.WWW_AUTHENTICATE, challenge)
+                        .contentType(MediaType.APPLICATION_PROBLEM_JSON).body(answer.getBody());
+            }
+            return answer;
         } catch (QueryExecutor.QueryFailedException e) {
             log.warn("Query failed [request {}] {} {}: {}", requestId, method, path, e.getMessage());
             outcome.status = 500;
@@ -86,9 +103,10 @@ public class ServingDispatcher {
                     "The query failed. Give the endpoint's owner this request id: " + requestId + ".", requestId);
         } finally {
             access.info("{\"requestId\":\"{}\",\"ws\":\"{}\",\"method\":\"{}\",\"path\":\"{}\",\"endpointId\":{},\"version\":{},"
-                            + "\"status\":{},\"durationMs\":{},\"rows\":{},\"error\":{},\"ip\":\"{}\"}",
+                            + "\"status\":{},\"durationMs\":{},\"rows\":{},\"error\":{},\"clientId\":{},\"ip\":\"{}\"}",
                     requestId, workspaceSlug, method, path, quote(outcome.endpointId), outcome.version, outcome.status,
-                    (System.nanoTime() - start) / 1_000_000, outcome.rows, quote(outcome.errorCode), request.getRemoteAddr());
+                    (System.nanoTime() - start) / 1_000_000, outcome.rows, quote(outcome.errorCode), quote(outcome.clientId),
+                    request.getRemoteAddr());
         }
     }
 
@@ -101,7 +119,7 @@ public class ServingDispatcher {
         outcome.version = route.version();
 
         if (!"public".equals(route.access())) {
-            throw new ApiProblem(401, "unauthenticated", "This endpoint needs an access token.");
+            authenticate(ws, route, request, outcome);
         }
 
         EndpointDefinition def = route.definition();
@@ -135,6 +153,27 @@ public class ServingDispatcher {
         envelope.put("data", data);
         envelope.put("meta", meta);
         return ResponseEntity.ok().contentType(MediaType.APPLICATION_JSON).body(envelope);
+    }
+
+    /** Spec §9.1 steps 4–5: a valid token for this workspace, a usable client, a grant. */
+    private void authenticate(Workspace ws, EndpointRegistry.Route route, HttpServletRequest request, Outcome outcome) {
+        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (header == null || !header.regionMatches(true, 0, "Bearer ", 0, 7) || header.length() <= 7) {
+            throw new ApiProblem(401, "unauthenticated", "This endpoint needs an access token: Authorization: Bearer <token>.");
+        }
+        AccessTokens.Caller caller = tokens.verify(header.substring(7).strip());
+        outcome.clientId = caller.clientId();
+        outcome.serviceAccountId = caller.serviceAccountId().toString();
+        if (!caller.workspaceId().equals(ws.id())) {
+            throw new ApiProblem(401, "invalid_token", "The token was issued for another workspace.");
+        }
+        CallerStatus status = authorizer.check(ws.id(), caller.clientId(), route.endpointId());
+        if (status == CallerStatus.INVALID) {
+            throw new ApiProblem(401, "invalid_token", "The client was revoked or its service account disabled.");
+        }
+        if (status == CallerStatus.NOT_GRANTED) {
+            throw new ApiProblem(403, "not_granted", "This client has not been granted access to the endpoint.");
+        }
     }
 
     private static QueryExecutor.PageRequest pageRequest(EndpointDefinition.Pagination p, HttpServletRequest request) {
@@ -254,5 +293,7 @@ public class ServingDispatcher {
         Integer version;
         long rows;
         String errorCode;
+        String clientId;
+        String serviceAccountId;
     }
 }

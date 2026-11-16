@@ -60,6 +60,11 @@ public class SecretResolver {
                 "A secret reference must start with env: or enc:v1:.");
     }
 
+    /** Whether a master key is configured, so {@link #seal} works. */
+    public boolean canSeal() {
+        return masterKey != null;
+    }
+
     /** Seals a plain-text secret into an {@code enc:v1:} reference. */
     public String seal(String plaintext) {
         SecretKey key = requireKey();

@@ -9,5 +9,6 @@
 export interface SystemInfo {
   mode: string;
   servingBaseUrl: string;
+  tokenUrl: string;
   version: string;
 }
