@@ -54,16 +54,67 @@ public class QueryExecutor {
         }
     }
 
+    private static final org.slf4j.Logger slow = org.slf4j.LoggerFactory.getLogger("opendbapi.slow");
+
     private final DataSourceRegistry registry;
+    private io.micrometer.core.instrument.MeterRegistry meters = new io.micrometer.core.instrument.simple.SimpleMeterRegistry();
+    private io.micrometer.observation.ObservationRegistry observations = io.micrometer.observation.ObservationRegistry.NOOP;
+    private long slowQueryMs = 1000;
 
     public QueryExecutor(DataSourceRegistry registry) {
         this.registry = registry;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setMeters(io.micrometer.core.instrument.MeterRegistry meters) {
+        this.meters = meters;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setObservations(io.micrometer.observation.ObservationRegistry observations) {
+        this.observations = observations;
+    }
+
+    @org.springframework.beans.factory.annotation.Value("${opendbapi.serving.slow-query-ms:1000}")
+    void setSlowQueryMs(long slowQueryMs) {
+        this.slowQueryMs = slowQueryMs;
+    }
+
+    /**
+     * Times database work per datasource, opens a {@code opendbapi.db} observation (a span when
+     * tracing is on; never with parameter values) and logs slow runs with the rendered SQL and
+     * the parameter names only (spec §18).
+     */
+    private <T> T measured(Datasource ds, Map<String, Object> params, List<BoundSql> executed,
+                           java.util.function.Supplier<T> work) {
+        long start = System.nanoTime();
+        try {
+            return io.micrometer.observation.Observation.createNotStarted("opendbapi.db", observations)
+                    .lowCardinalityKeyValue("db.system", ds.config().dialect().name().toLowerCase(java.util.Locale.ROOT))
+                    .lowCardinalityKeyValue("datasource", ds.name())
+                    .observe(work);
+        } finally {
+            long nanos = System.nanoTime() - start;
+            io.micrometer.core.instrument.Timer.builder("opendbapi.db.duration").description("Database time per call")
+                    .tag("datasource", ds.name()).register(meters).record(nanos, java.util.concurrent.TimeUnit.NANOSECONDS);
+            long ms = nanos / 1_000_000;
+            if (ms >= slowQueryMs) {
+                slow.warn("Slow query: {} ms on datasource '{}', parameters {}: {}", ms, ds.name(),
+                        params == null ? List.of() : new java.util.TreeSet<>(params.keySet()),
+                        executed.stream().map(BoundSql::sql).toList());
+            }
+        }
+    }
+
     public QueryResult run(Datasource ds, CompiledTask task, Map<String, Object> params, PageRequest page,
                       EndpointDefinition.Limits limits, RunMode mode) {
-        long start = System.nanoTime();
         List<BoundSql> executed = new ArrayList<>();
+        return measured(ds, params, executed, () -> runMeasured(ds, task, params, page, limits, mode, executed));
+    }
+
+    private QueryResult runMeasured(Datasource ds, CompiledTask task, Map<String, Object> params, PageRequest page,
+                      EndpointDefinition.Limits limits, RunMode mode, List<BoundSql> executed) {
+        long start = System.nanoTime();
         Dialect dialect = Dialect.valueOf(ds.config().dialect().name());
         try (Connection c = registry.connection(ds)) {
             boolean manual = mode == RunMode.PREVIEW || task.transaction();
@@ -138,6 +189,12 @@ public class QueryExecutor {
      */
     public long stream(Datasource ds, CompiledTask task, Map<String, Object> params, EndpointDefinition.Limits limits,
                        RowSink sink) {
+        List<BoundSql> executed = new ArrayList<>();
+        return measured(ds, params, executed, () -> streamMeasured(ds, task, params, limits, sink, executed));
+    }
+
+    private long streamMeasured(Datasource ds, CompiledTask task, Map<String, Object> params, EndpointDefinition.Limits limits,
+                                RowSink sink, List<BoundSql> executed) {
         int limit = limits.streamRowLimit();
         try (Connection c = registry.connection(ds)) {
             c.setAutoCommit(false); // PostgreSQL only uses a cursor (fetch size) inside a transaction
@@ -145,6 +202,7 @@ public class QueryExecutor {
             try {
                 for (int i = 0; i < task.statements().size(); i++) {
                     BoundSql bound = render(task.statements().get(i), params);
+                    executed.add(bound);
                     if (i != task.mainIndex()) {
                         execute(c, bound, limits);
                         continue;

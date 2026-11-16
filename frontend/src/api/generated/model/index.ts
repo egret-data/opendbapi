@@ -6,6 +6,8 @@
  * OpenAPI spec version: v1
  */
 
+export * from './activityLogParams';
+export * from './activitySummaryParams';
 export * from './addMember';
 export * from './addMemberRole';
 export * from './apiGroup';
@@ -23,6 +25,7 @@ export * from './datasourceTestResult';
 export * from './datasourceView';
 export * from './datasourceViewDialect';
 export * from './datasourceViewProperties';
+export * from './day';
 export * from './dialectInfo';
 export * from './dialectInfoDialect';
 export * from './endpointAccess';
@@ -46,6 +49,7 @@ export * from './listColumnsParams';
 export * from './listEndpointsParams';
 export * from './listTablesParams';
 export * from './listWorkspaceAuditParams';
+export * from './logEntry';
 export * from './loginRequest';
 export * from './loginRequestSource';
 export * from './mappingView';
@@ -90,6 +94,7 @@ export * from './servingPolicy';
 export * from './statement';
 export * from './streaming';
 export * from './streamingFormatsItem';
+export * from './summary';
 export * from './systemInfo';
 export * from './table';
 export * from './tableColumn';
@@ -97,6 +102,8 @@ export * from './tables';
 export * from './task';
 export * from './testDatasource';
 export * from './testRequest';
+export * from './topEndpoint';
+export * from './topError';
 export * from './tryRequest';
 export * from './tryRequestParams';
 export * from './tryResponse';

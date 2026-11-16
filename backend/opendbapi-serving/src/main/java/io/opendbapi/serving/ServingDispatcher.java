@@ -64,10 +64,18 @@ public class ServingDispatcher {
     private final CallerAuthorizer authorizer;
     private final ServingGuard guard;
     private final TryItRelay relay;
+    private final io.opendbapi.core.activity.AccessLogWriter accessLog;
+    private final io.micrometer.core.instrument.MeterRegistry meters;
+    private final org.springframework.beans.factory.ObjectProvider<io.micrometer.tracing.Tracer> tracer;
 
     public ServingDispatcher(WorkspaceStore workspaces, EndpointRegistry registry, WorkspaceScope scope,
                              DatasourceStore datasources, QueryExecutor executor, AccessTokens tokens,
-                             CallerAuthorizer authorizer, ServingGuard guard, TryItRelay relay) {
+                             CallerAuthorizer authorizer, ServingGuard guard, TryItRelay relay,
+                             io.opendbapi.core.activity.AccessLogWriter accessLog, io.micrometer.core.instrument.MeterRegistry meters,
+                             org.springframework.beans.factory.ObjectProvider<io.micrometer.tracing.Tracer> tracer) {
+        this.accessLog = accessLog;
+        this.meters = meters;
+        this.tracer = tracer;
         this.guard = guard;
         this.relay = relay;
         this.workspaces = workspaces;
@@ -125,6 +133,7 @@ public class ServingDispatcher {
             return answer;
         } catch (QueryExecutor.QueryFailedException e) {
             log.warn("Query failed [request {}] {} {}: {}", requestId, method, path, e.getMessage());
+            outcome.error = e.getMessage();
             if (servletResponse.isCommitted()) { // mid-stream: the writer already said so in-band
                 outcome.status = servletResponse.getStatus();
                 outcome.errorCode = "query_failed";
@@ -135,17 +144,14 @@ public class ServingDispatcher {
             return problem(HttpStatus.INTERNAL_SERVER_ERROR, "query_failed",
                     "The query failed. Give the endpoint's owner this request id: " + requestId + ".", requestId);
         } finally {
-            access.info("{\"requestId\":\"{}\",\"ws\":\"{}\",\"method\":\"{}\",\"path\":\"{}\",\"endpointId\":{},\"version\":{},"
-                            + "\"status\":{},\"durationMs\":{},\"rows\":{},\"error\":{},\"clientId\":{},\"actorUserId\":{},\"ip\":\"{}\"}",
-                    requestId, workspaceSlug, method, path, quote(outcome.endpointId), outcome.version, outcome.status,
-                    (System.nanoTime() - start) / 1_000_000, outcome.rows, quote(outcome.errorCode), quote(outcome.clientId),
-                    quote(outcome.actorUserId), outcome.ip);
+            record(requestId, workspaceSlug, method, path, outcome, System.nanoTime() - start);
         }
     }
 
     private ResponseEntity<?> serve(String slug, String method, String path, HttpServletRequest request,
                                     jakarta.servlet.http.HttpServletResponse servletResponse, String requestId, Outcome outcome) {
         Workspace ws = workspaces.findBySlug(slug).filter(Workspace::active).orElseThrow(() -> notFound(method, path, slug));
+        outcome.workspaceId = ws.id();
         guard.checkFirewall(ws.id(), outcome.ip);
         EndpointRegistry.Match match = registry.resolve(ws.id(), method, path).orElseThrow(() -> notFound(method, path, slug));
         EndpointRegistry.Route route = match.route();
@@ -218,6 +224,39 @@ public class ServingDispatcher {
         }
         if (status == CallerStatus.NOT_GRANTED) {
             throw new ApiProblem(403, "not_granted", "This client has not been granted access to the endpoint.");
+        }
+    }
+
+    /** Access log (file line and table), request metrics (spec §18–19). */
+    private void record(String requestId, String workspaceSlug, String method, String path, Outcome outcome, long nanos) {
+        long ms = nanos / 1_000_000;
+        String traceId = null;
+        io.micrometer.tracing.Tracer t = tracer.getIfAvailable();
+        if (t != null && t.currentSpan() != null) {
+            traceId = t.currentSpan().context().traceId();
+        }
+        access.info("{\"requestId\":\"{}\",\"ws\":\"{}\",\"method\":\"{}\",\"path\":\"{}\",\"endpointId\":{},\"version\":{},"
+                        + "\"status\":{},\"durationMs\":{},\"rows\":{},\"error\":{},\"clientId\":{},\"actorUserId\":{},"
+                        + "\"traceId\":{},\"ip\":\"{}\"}",
+                requestId, workspaceSlug, method, path, quote(outcome.endpointId), outcome.version, outcome.status, ms,
+                outcome.rows, quote(outcome.errorCode), quote(outcome.clientId), quote(outcome.actorUserId), quote(traceId),
+                outcome.ip);
+        String client = outcome.actorUserId != null ? "try-it" : outcome.clientId == null ? "anonymous" : outcome.clientId;
+        String endpoint = outcome.endpointId == null ? "none" : outcome.endpointId;
+        String version = outcome.version == null ? "none" : outcome.version.toString();
+        io.micrometer.core.instrument.Counter.builder("opendbapi.requests").description("Calls to published endpoints")
+                .tags("endpoint", endpoint, "version", version, "status", Integer.toString(outcome.status), "client", client)
+                .register(meters).increment();
+        io.micrometer.core.instrument.Timer.builder("opendbapi.request.duration").description("Time to answer a call")
+                .tags("endpoint", endpoint, "status", Integer.toString(outcome.status / 100) + "xx")
+                .register(meters).record(nanos, java.util.concurrent.TimeUnit.NANOSECONDS);
+        if (outcome.workspaceId != null) {
+            accessLog.offer(new io.opendbapi.core.activity.AccessRecord(java.time.Instant.now(), outcome.workspaceId,
+                    outcome.endpointId == null ? null : UUID.fromString(outcome.endpointId), outcome.version, method, path,
+                    outcome.status, ms, outcome.rows, outcome.clientId,
+                    outcome.serviceAccountId == null ? null : UUID.fromString(outcome.serviceAccountId), outcome.ip,
+                    outcome.errorCode, outcome.error, traceId,
+                    outcome.actorUserId == null ? null : UUID.fromString(outcome.actorUserId), requestId));
         }
     }
 
@@ -446,5 +485,7 @@ public class ServingDispatcher {
         String ip;
         String actorUserId;
         boolean truncated;
+        UUID workspaceId;
+        String error;
     }
 }

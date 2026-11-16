@@ -966,13 +966,14 @@ Gate: `npm run lint`, `tsc -b`, `vitest run`, `vite build`, kiểm tra Monaco đ
   - `opendbapi_access_log_dropped_total`
 - Tracing OpenTelemetry: span cho pipeline, render, thực thi DB (gắn `db.system`, không gắn giá trị tham số) và HTTP upstream. `trace_id` được ghi vào access log.
 - **Log query chậm:** request có thời gian DB vượt `slowQueryMs` (mặc định 1.000) thì ghi SQL đã render, kèm tên tham số nhưng không kèm giá trị.
+- Hiện trạng P1: chưa có `opendbapi_cache_hits_total` (cache thuộc P2). Span được export qua OTLP khi đặt `management.otlp.tracing.endpoint`; tỷ lệ lấy mẫu đặt bằng `OPENDBAPI_TRACE_SAMPLING` (mặc định 0,1). Logger của log query chậm là `opendbapi.slow`.
 
 ---
 
 ## 19. Access log
 
-- Writer: `file` (JSON lines), `db` (batch bất đồng bộ, hàng đợi giới hạn), `kafka`.
-- Tự dọn log theo `retentionDays` (mặc định 30).
+- Writer: `file` (JSON lines), `db` (batch bất đồng bộ, hàng đợi giới hạn), `kafka`. P1 có `file` (logger `opendbapi.access`) và `db` (hàng đợi 10.000 bản ghi, ghi theo lô mỗi giây; khi đầy thì bỏ bản ghi và tăng `opendbapi_access_log_dropped_total`). Có cột `request_id` để tra lời gọi lỗi từ request id mà bên gọi gửi lại.
+- Tự dọn log theo `retentionDays` (mặc định 30; `opendbapi.access-log.retention-days`), chạy mỗi 6 giờ.
 - Có thể dùng ClickHouse cho khối lượng lớn.
 
 ---
@@ -1131,7 +1132,7 @@ management:
 7. ✅ (2026-11-17) Preview + Try-it (gọi pipeline thật trong cùng tiến trình). Preview đã có từ bước 5. Lời gọi Try-it được ghi vào access log dạng dòng JSON (`actorUserId`); bảng `access_log` thuộc bước 10.
 8. ✅ (2026-11-17) OpenAPI tự sinh + Swagger UI.
 9. ✅ (2026-11-17) Stream NDJSON/CSV trên virtual threads.
-10. Metric, tracing, log query chậm, access log ra file, trang Activity cơ bản.
+10. ✅ (2026-11-17) Metric, tracing, log query chậm, access log ra file, trang Activity cơ bản.
 11. UI theo §17: login, shell + workspace switcher, Endpoints (list/new/detail 5 tab), Datasources, Clients, Activity, Settings, Admin.
 
 ---

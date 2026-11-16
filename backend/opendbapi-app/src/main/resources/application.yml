@@ -8,6 +8,11 @@ opendbapi:
   serving:
     context: api
     url-base: ""
+    # Statements slower than this are logged (rendered SQL, no parameter values; spec §18).
+    slow-query-ms: 1000
+  access-log:
+    # Spec §19: rows in access_log are kept this many days.
+    retention-days: 30
 
 spring:
   application:
@@ -59,6 +64,14 @@ server:
         secure: ${OPENDBAPI_SECURE_COOKIES:false}
 
 management:
+  tracing:
+    sampling:
+      probability: ${OPENDBAPI_TRACE_SAMPLING:0.1}
+  metrics:
+    distribution:
+      percentiles-histogram:
+        opendbapi.request.duration: true
+        opendbapi.db.duration: true
   endpoints:
     web:
       exposure:

@@ -53,6 +53,14 @@ public class DataSourceRegistry implements DisposableBean {
     private final SecretResolver secrets;
     private final HostPolicy hosts;
 
+    private io.micrometer.core.instrument.MeterRegistry meters;
+
+    /** Registers {@code opendbapi_pool_active{datasource}} for each pool (spec §18). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setMeters(io.micrometer.core.instrument.MeterRegistry meters) {
+        this.meters = meters;
+    }
+
     public DataSourceRegistry(SecretResolver secrets, HostPolicy hosts) {
         this.secrets = secrets;
         this.hosts = hosts;
@@ -147,6 +155,12 @@ public class DataSourceRegistry implements DisposableBean {
         });
     }
 
+    private double active(UUID id) {
+        Entry e = pools.get(id);
+        var bean = e == null ? null : e.pool().getHikariPoolMXBean();
+        return bean == null ? 0 : bean.getActiveConnections();
+    }
+
     @Override
     public void destroy() {
         pools.keySet().forEach(this::evict);
@@ -171,6 +185,11 @@ public class DataSourceRegistry implements DisposableBean {
             Entry previous = pools.put(ds.id(), new Entry(ds.updatedAt(), created));
             if (previous != null) {
                 previous.pool().close();
+            }
+            if (meters != null && previous == null) {
+                UUID id = ds.id();
+                io.micrometer.core.instrument.Gauge.builder("opendbapi.pool.active", this, r -> r.active(id))
+                        .description("Connections in use").tag("datasource", ds.name()).register(meters);
             }
             return created;
         }

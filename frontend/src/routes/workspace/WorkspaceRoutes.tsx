@@ -1,8 +1,8 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
-import { NotBuiltYet } from "@/routes/NotBuiltYet";
 import { NotFound } from "@/routes/NotFound";
 import SettingsPage from "./settings/SettingsPage";
+import ActivityPage from "./activity/ActivityPage";
 import ClientsPage from "./clients/ClientsPage";
 import ServiceAccountPage from "./clients/ServiceAccountPage";
 import EndpointDetailPage from "./endpoints/EndpointDetailPage";
@@ -26,10 +26,7 @@ export default function WorkspaceRoutes() {
       <Route path="datasources/:id" element={<DatasourceDetailPage />} />
       <Route path="clients" element={<ClientsPage />} />
       <Route path="clients/:id" element={<ServiceAccountPage />} />
-      <Route
-        path="activity/*"
-        element={<NotBuiltYet title="Activity" step={10} summary="Calls, errors and latency from the access log." />}
-      />
+      <Route path="activity" element={<ActivityPage />} />
       <Route path="settings/*" element={<SettingsPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>

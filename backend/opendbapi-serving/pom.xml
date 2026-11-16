@@ -17,6 +17,11 @@
             <groupId>io.opendbapi</groupId>
             <artifactId>opendbapi-core</artifactId>
         </dependency>
+        <!-- Trace id for the access log; the OpenTelemetry bridge is added by the app. -->
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-tracing</artifactId>
+        </dependency>
         <!-- Served from the jar so API docs work without internet access (spec §10). -->
         <dependency>
             <groupId>org.webjars</groupId>
