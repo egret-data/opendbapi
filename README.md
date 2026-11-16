@@ -4,8 +4,9 @@ Publish SQL as versioned, access-controlled REST APIs, with workspaces for multi
 sign-in through local accounts, LDAP or SSO. A clean-room rewrite of the ideas behind DBAPI;
 the full design is in [`docs/SPEC.md`](docs/SPEC.md).
 
-> **Status:** roadmap step 1 (skeleton). The schema, workspace isolation, app shell and
-> build pipeline are in place; feature areas show a "Roadmap step N" placeholder.
+> **Status:** roadmap steps 1–2 done: schema with per-workspace row-level security,
+> sign-in (local, LDAP, SSO/OIDC) with group → role mapping, workspaces, members, users,
+> identity providers and audit log. Endpoint authoring areas still show a placeholder.
 
 ## Layout
 
@@ -35,6 +36,8 @@ docker compose -f deploy/dev/docker-compose.yml up -d --wait
 cd backend
 mvn -q install -DskipTests
 OPENDBAPI_DB_PASSWORD=app OPENDBAPI_DB_OWNER_PASSWORD=owner \
+OPENDBAPI_MASTER_KEY="$(openssl rand -base64 32)" \
+OPENDBAPI_BOOTSTRAP_ADMIN_PASSWORD=change-me-please \
   java -jar opendbapi-app/target/opendbapi-app-0.1.0-SNAPSHOT.jar
 
 # 3. Frontend dev server on :5173 (proxies /admin/api and /api to :8520)
@@ -42,6 +45,23 @@ cd frontend
 npm ci
 npm run dev
 ```
+
+On first start the app creates the system administrator `admin`. Its password is
+`OPENDBAPI_BOOTSTRAP_ADMIN_PASSWORD`, or, when that is unset, a random one printed once in the
+log. `OPENDBAPI_MASTER_KEY` (base64 of 32 bytes) seals stored secrets such as LDAP bind
+passwords; keep it stable, or secrets saved with the old key can no longer be read. Secrets
+can also be given as `env:NAME` references instead.
+
+To try LDAP and SSO locally, sign in as `admin` and add under **Administration → Identity
+providers**:
+
+| Type | Settings |
+|---|---|
+| LDAP | URL `ldap://localhost:1389`, *Allow unencrypted* on, service DN `cn=admin,dc=opendbapi,dc=local` / password `admin`, user base `ou=users,dc=opendbapi,dc=local`, user filter `(uid={0})`, group base `ou=groups,dc=opendbapi,dc=local`, group filter `(member={0})` |
+| OIDC | Issuer `http://localhost:8180/realms/opendbapi`, client `opendbapi`, secret `opendbapi-dev-secret` |
+
+Then map groups on the provider's **Group mappings** tab, for example `sales-authors` →
+workspace *Sales* as Author, and `opendbapi-admins` → System admin.
 
 Development credentials (local only):
 

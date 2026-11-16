@@ -51,7 +51,7 @@ describe("LoginPage", () => {
     // Assert
     expect(await screen.findByRole("link", { name: "Sign in with Keycloak" })).toHaveAttribute(
       "href",
-      "/admin/api/auth/oidc/kc/start",
+      "/admin/api/auth/oidc/kc",
     );
     expect(screen.getByRole("radio", { name: "Local account" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Corp AD" })).toBeInTheDocument();
@@ -129,5 +129,21 @@ describe("LoginPage", () => {
     // Assert
     expect(await screen.findByRole("alert")).toHaveTextContent("Invalid username or password.");
     expect(screen.queryByText(/not found/)).not.toBeInTheDocument();
+  });
+});
+
+describe("SSO failures", () => {
+  it("shows why single sign-on did not complete", async () => {
+    // Arrange
+    mockServer({
+      "GET /admin/api/me": () => problem(401, "Not signed in"),
+      "GET /admin/api/auth/providers": () => json(PROVIDERS),
+    });
+
+    // Act
+    renderApp("/login?error=sso&reason=Your%20account%20is%20disabled.");
+
+    // Assert
+    expect(await screen.findByText("Single sign-on did not complete: Your account is disabled.")).toBeInTheDocument();
   });
 });

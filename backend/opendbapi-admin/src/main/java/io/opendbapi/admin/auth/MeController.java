@@ -2,6 +2,7 @@ package io.opendbapi.admin.auth;
 
 import io.opendbapi.admin.security.CurrentUser;
 import io.opendbapi.admin.security.Passwords;
+import io.opendbapi.admin.workspace.RoleName;
 import io.opendbapi.core.audit.AuditLog;
 import io.opendbapi.core.error.ApiProblem;
 import io.opendbapi.core.identity.UserAccount;
@@ -28,7 +29,7 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "me")
 public class MeController {
 
-    public record MyWorkspace(UUID id, String slug, String name, String role) {
+    public record MyWorkspace(UUID id, String slug, String name, RoleName role) {
     }
 
     public record Me(
@@ -60,17 +61,17 @@ public class MeController {
     }
 
     @GetMapping
-    @Operation(operationId = "get", summary = "The signed-in user and their workspaces")
+    @Operation(operationId = "getMe", summary = "The signed-in user and their workspaces")
     public Me me() {
         UserAccount user = currentUser.require();
         return new Me(user.id(), user.username(), user.displayName(), user.email(), user.source(), user.systemAdmin(),
                 memberships.activeWorkspacesOf(user.id()).stream()
-                        .map(w -> new MyWorkspace(w.id(), w.slug(), w.name(), w.role().dbValue()))
+                        .map(w -> new MyWorkspace(w.id(), w.slug(), w.name(), RoleName.of(w.role())))
                         .toList());
     }
 
     @PostMapping("/password")
-    @Operation(operationId = "changePassword", summary = "Change your own local password")
+    @Operation(operationId = "changeMyPassword", summary = "Change your own local password")
     public ResponseEntity<Void> changePassword(@Valid @RequestBody ChangePassword body) {
         UserAccount user = currentUser.require();
         if (!user.local()) {

@@ -112,14 +112,14 @@ public class IdentityProviderController {
     }
 
     @GetMapping
-    @Operation(operationId = "list", summary = "Every sign-in provider")
+    @Operation(operationId = "listIdentityProviders", summary = "Every sign-in provider")
     public List<ProviderView> list() {
         currentUser.requireSystemAdmin();
         return providers.list().stream().map(this::view).toList();
     }
 
     @GetMapping("/{id}")
-    @Operation(operationId = "get", summary = "One sign-in provider")
+    @Operation(operationId = "getIdentityProvider", summary = "One sign-in provider")
     public ProviderView get(@PathVariable UUID id) {
         currentUser.requireSystemAdmin();
         return view(find(id));
@@ -127,7 +127,7 @@ public class IdentityProviderController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(operationId = "create", summary = "Add an LDAP directory or OIDC issuer")
+    @Operation(operationId = "createIdentityProvider", summary = "Add an LDAP directory or OIDC issuer")
     public ProviderView create(@Valid @RequestBody SaveProvider body) {
         UserAccount caller = currentUser.requireSystemAdmin();
         ObjectNode config = validatedConfig(body);
@@ -139,7 +139,7 @@ public class IdentityProviderController {
     }
 
     @PatchMapping("/{id}")
-    @Operation(operationId = "update", summary = "Change a provider; omit secret to keep it")
+    @Operation(operationId = "updateIdentityProvider", summary = "Change a provider; omit secret to keep it")
     public ProviderView update(@PathVariable UUID id, @Valid @RequestBody SaveProvider body) {
         UserAccount caller = currentUser.requireSystemAdmin();
         IdentityProvider existing = find(id);
@@ -154,7 +154,7 @@ public class IdentityProviderController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(operationId = "delete", summary = "Remove a provider nobody has signed in through")
+    @Operation(operationId = "deleteIdentityProvider", summary = "Remove a provider nobody has signed in through")
     public ResponseEntity<Void> delete(@PathVariable UUID id) {
         UserAccount caller = currentUser.requireSystemAdmin();
         IdentityProvider existing = find(id);
@@ -168,7 +168,7 @@ public class IdentityProviderController {
     }
 
     @PostMapping("/{id}:test")
-    @Operation(operationId = "test", summary = "Check connectivity; for LDAP optionally sign a test user in")
+    @Operation(operationId = "testIdentityProvider", summary = "Check connectivity; for LDAP optionally sign a test user in")
     public TestResult test(@PathVariable UUID id, @RequestBody(required = false) TestRequest body) {
         currentUser.requireSystemAdmin();
         IdentityProvider idp = find(id);
@@ -189,7 +189,7 @@ public class IdentityProviderController {
     }
 
     @GetMapping("/{id}/group-mappings")
-    @Operation(operationId = "getMappings", summary = "Directory group → role mappings")
+    @Operation(operationId = "getGroupMappings", summary = "Directory group → role mappings")
     public List<MappingView> mappings(@PathVariable UUID id) {
         currentUser.requireSystemAdmin();
         find(id);
@@ -197,7 +197,7 @@ public class IdentityProviderController {
     }
 
     @PutMapping("/{id}/group-mappings")
-    @Operation(operationId = "replaceMappings", summary = "Replace all mappings; applied at each user's next sign-in")
+    @Operation(operationId = "replaceGroupMappings", summary = "Replace all mappings; applied at each user's next sign-in")
     public List<MappingView> replaceMappings(@PathVariable UUID id, @Valid @RequestBody List<@Valid MappingView> body) {
         UserAccount caller = currentUser.requireSystemAdmin();
         find(id);

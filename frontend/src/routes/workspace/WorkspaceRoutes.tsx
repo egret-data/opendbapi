@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { NotBuiltYet } from "@/routes/NotBuiltYet";
 import { NotFound } from "@/routes/NotFound";
+import SettingsPage from "./settings/SettingsPage";
 
 /** Everything under `/w/:ws` (spec §17.3). Loaded lazily from `App.tsx`. */
 export default function WorkspaceRoutes() {
@@ -38,10 +39,7 @@ export default function WorkspaceRoutes() {
         path="activity/*"
         element={<NotBuiltYet title="Activity" step={10} summary="Calls, errors and latency from the access log." />}
       />
-      <Route
-        path="settings/*"
-        element={<NotBuiltYet title="Workspace settings" step={2} summary="General settings and members." />}
-      />
+      <Route path="settings/*" element={<SettingsPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );

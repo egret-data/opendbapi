@@ -41,28 +41,26 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "members")
 public class MemberController {
 
-    public enum Role { owner, admin, script_author, author, viewer }
-
     public record MemberView(
             UUID userId,
             String username,
             @Schema(nullable = true) String displayName,
             @Schema(nullable = true) String email,
             String source,
-            Role role,
+            RoleName role,
             boolean fromMapping,
             OffsetDateTime createdAt) {
 
         static MemberView of(MembershipStore.Member m) {
             return new MemberView(m.userId(), m.username(), m.displayName(), m.email(), m.source(),
-                    Role.valueOf(m.role().dbValue()), m.fromMapping(), m.createdAt());
+                    RoleName.of(m.role()), m.fromMapping(), m.createdAt());
         }
     }
 
-    public record AddMember(@NotNull UUID userId, @NotNull Role role) {
+    public record AddMember(@NotNull UUID userId, @NotNull RoleName role) {
     }
 
-    public record ChangeRole(@NotNull Role role) {
+    public record ChangeRole(@NotNull RoleName role) {
     }
 
     public record UserMatch(UUID id, String username, @Schema(nullable = true) String displayName,
@@ -82,7 +80,7 @@ public class MemberController {
     }
 
     @GetMapping("/members")
-    @Operation(operationId = "list", summary = "Members and their roles (any member)")
+    @Operation(operationId = "listMembers", summary = "Members and their roles (any member)")
     public List<MemberView> list(@PathVariable String ws) {
         var granted = access.require(ws, WorkspaceRole.VIEWER);
         return memberships.members(granted.workspace().id()).stream().map(MemberView::of).toList();
@@ -91,10 +89,10 @@ public class MemberController {
     @PostMapping("/members")
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
-    @Operation(operationId = "add", summary = "Add a user to the workspace (workspace admin)")
+    @Operation(operationId = "addMember", summary = "Add a user to the workspace (workspace admin)")
     public MemberView add(@PathVariable String ws, @Valid @RequestBody AddMember body) {
         var granted = access.require(ws, WorkspaceRole.ADMIN);
-        WorkspaceRole role = WorkspaceRole.fromDb(body.role().name());
+        WorkspaceRole role = body.role().toRole();
         requireMayGrant(granted, role);
         var user = users.findById(body.userId())
                 .filter(u -> !u.disabled())
@@ -110,13 +108,13 @@ public class MemberController {
 
     @PatchMapping("/members/{userId}")
     @Transactional
-    @Operation(operationId = "changeRole", summary = "Change a member's role (workspace admin)")
+    @Operation(operationId = "changeMemberRole", summary = "Change a member's role (workspace admin)")
     public MemberView changeRole(@PathVariable String ws, @PathVariable UUID userId, @Valid @RequestBody ChangeRole body) {
         var granted = access.require(ws, WorkspaceRole.ADMIN);
         MemberView current = find(granted.workspace().id(), userId);
         requireEditable(current);
-        WorkspaceRole from = WorkspaceRole.fromDb(current.role().name());
-        WorkspaceRole to = WorkspaceRole.fromDb(body.role().name());
+        WorkspaceRole from = current.role().toRole();
+        WorkspaceRole to = body.role().toRole();
         requireMayGrant(granted, from);
         requireMayGrant(granted, to);
         if (from == WorkspaceRole.OWNER && to != WorkspaceRole.OWNER) {
@@ -130,12 +128,12 @@ public class MemberController {
 
     @DeleteMapping("/members/{userId}")
     @Transactional
-    @Operation(operationId = "remove", summary = "Remove a member (workspace admin)")
+    @Operation(operationId = "removeMember", summary = "Remove a member (workspace admin)")
     public ResponseEntity<Void> remove(@PathVariable String ws, @PathVariable UUID userId) {
         var granted = access.require(ws, WorkspaceRole.ADMIN);
         MemberView current = find(granted.workspace().id(), userId);
         requireEditable(current);
-        WorkspaceRole role = WorkspaceRole.fromDb(current.role().name());
+        WorkspaceRole role = current.role().toRole();
         requireMayGrant(granted, role);
         if (role == WorkspaceRole.OWNER) {
             requireAnotherOwner(granted.workspace().id());

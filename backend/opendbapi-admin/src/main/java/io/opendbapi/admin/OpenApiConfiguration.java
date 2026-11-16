@@ -44,6 +44,12 @@ public class OpenApiConfiguration {
                     if (!Boolean.TRUE.equals(property.getNullable())) {
                         required.add(name);
                     }
+                    // Map<String, Object>: values may be any JSON, not only objects.
+                    if (property.getAdditionalProperties() instanceof Schema<?> values
+                            && "object".equals(values.getType()) && values.getProperties() == null
+                            && values.get$ref() == null) {
+                        property.setAdditionalProperties(true);
+                    }
                 });
                 schema.setRequired(required.stream().sorted().toList());
             }

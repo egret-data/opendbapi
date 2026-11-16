@@ -11,7 +11,7 @@
   "paths" : {
     "/admin/api/audit" : {
       "get" : {
-        "operationId" : "list_4",
+        "operationId" : "listAudit",
         "parameters" : [ {
           "in" : "query",
           "name" : "action",
@@ -92,7 +92,7 @@
     },
     "/admin/api/auth/providers" : {
       "get" : {
-        "operationId" : "providers",
+        "operationId" : "getAuthProviders",
         "responses" : {
           "200" : {
             "content" : {
@@ -111,7 +111,7 @@
     },
     "/admin/api/identity-providers" : {
       "get" : {
-        "operationId" : "list_3",
+        "operationId" : "listIdentityProviders",
         "responses" : {
           "200" : {
             "content" : {
@@ -131,7 +131,7 @@
         "tags" : [ "identityProviders" ]
       },
       "post" : {
-        "operationId" : "create_2",
+        "operationId" : "createIdentityProvider",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -160,7 +160,7 @@
     },
     "/admin/api/identity-providers/{id}" : {
       "delete" : {
-        "operationId" : "delete",
+        "operationId" : "deleteIdentityProvider",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -179,7 +179,7 @@
         "tags" : [ "identityProviders" ]
       },
       "get" : {
-        "operationId" : "get_2",
+        "operationId" : "getIdentityProvider",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -205,7 +205,7 @@
         "tags" : [ "identityProviders" ]
       },
       "patch" : {
-        "operationId" : "update_2",
+        "operationId" : "updateIdentityProvider",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -243,7 +243,7 @@
     },
     "/admin/api/identity-providers/{id}/group-mappings" : {
       "get" : {
-        "operationId" : "getMappings",
+        "operationId" : "getGroupMappings",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -272,7 +272,7 @@
         "tags" : [ "identityProviders" ]
       },
       "put" : {
-        "operationId" : "replaceMappings",
+        "operationId" : "replaceGroupMappings",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -316,7 +316,7 @@
     },
     "/admin/api/identity-providers/{id}:test" : {
       "post" : {
-        "operationId" : "test",
+        "operationId" : "testIdentityProvider",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -353,7 +353,7 @@
     },
     "/admin/api/me" : {
       "get" : {
-        "operationId" : "get_1",
+        "operationId" : "getMe",
         "responses" : {
           "200" : {
             "content" : {
@@ -372,7 +372,7 @@
     },
     "/admin/api/me/password" : {
       "post" : {
-        "operationId" : "changePassword",
+        "operationId" : "changeMyPassword",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -413,7 +413,7 @@
     },
     "/admin/api/users" : {
       "get" : {
-        "operationId" : "list_2",
+        "operationId" : "listUsers",
         "responses" : {
           "200" : {
             "content" : {
@@ -433,7 +433,7 @@
         "tags" : [ "users" ]
       },
       "post" : {
-        "operationId" : "create_1",
+        "operationId" : "createUser",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -462,7 +462,7 @@
     },
     "/admin/api/users/{id}" : {
       "patch" : {
-        "operationId" : "update_1",
+        "operationId" : "updateUser",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -500,7 +500,7 @@
     },
     "/admin/api/users/{id}:reset-password" : {
       "post" : {
-        "operationId" : "resetPassword",
+        "operationId" : "resetUserPassword",
         "parameters" : [ {
           "in" : "path",
           "name" : "id",
@@ -531,7 +531,7 @@
     },
     "/admin/api/workspaces" : {
       "get" : {
-        "operationId" : "list_1",
+        "operationId" : "listWorkspaces",
         "responses" : {
           "200" : {
             "content" : {
@@ -551,7 +551,7 @@
         "tags" : [ "workspaces" ]
       },
       "post" : {
-        "operationId" : "create",
+        "operationId" : "createWorkspace",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -580,7 +580,7 @@
     },
     "/admin/api/workspaces/{ws}" : {
       "get" : {
-        "operationId" : "get",
+        "operationId" : "getWorkspace",
         "parameters" : [ {
           "in" : "path",
           "name" : "ws",
@@ -605,7 +605,7 @@
         "tags" : [ "workspaces" ]
       },
       "patch" : {
-        "operationId" : "update",
+        "operationId" : "updateWorkspace",
         "parameters" : [ {
           "in" : "path",
           "name" : "ws",
@@ -642,7 +642,7 @@
     },
     "/admin/api/workspaces/{ws}:archive" : {
       "post" : {
-        "operationId" : "archive",
+        "operationId" : "archiveWorkspace",
         "parameters" : [ {
           "in" : "path",
           "name" : "ws",
@@ -669,7 +669,7 @@
     },
     "/admin/api/workspaces/{ws}:restore" : {
       "post" : {
-        "operationId" : "restore",
+        "operationId" : "restoreWorkspace",
         "parameters" : [ {
           "in" : "path",
           "name" : "ws",
@@ -696,7 +696,7 @@
     },
     "/admin/api/ws/{ws}/audit" : {
       "get" : {
-        "operationId" : "listForWorkspace",
+        "operationId" : "listWorkspaceAudit",
         "parameters" : [ {
           "in" : "path",
           "name" : "ws",
@@ -750,7 +750,7 @@
     },
     "/admin/api/ws/{ws}/members" : {
       "get" : {
-        "operationId" : "list",
+        "operationId" : "listMembers",
         "parameters" : [ {
           "in" : "path",
           "name" : "ws",
@@ -778,7 +778,7 @@
         "tags" : [ "members" ]
       },
       "post" : {
-        "operationId" : "add",
+        "operationId" : "addMember",
         "parameters" : [ {
           "in" : "path",
           "name" : "ws",
@@ -815,7 +815,7 @@
     },
     "/admin/api/ws/{ws}/members/{userId}" : {
       "delete" : {
-        "operationId" : "remove",
+        "operationId" : "removeMember",
         "parameters" : [ {
           "in" : "path",
           "name" : "ws",
@@ -841,7 +841,7 @@
         "tags" : [ "members" ]
       },
       "patch" : {
-        "operationId" : "changeRole",
+        "operationId" : "changeMemberRole",
         "parameters" : [ {
           "in" : "path",
           "name" : "ws",
@@ -1075,12 +1075,14 @@
         "type" : "object"
       },
       "LoginRequest" : {
-        "required" : [ "idpId", "password", "source", "username" ],
+        "required" : [ "password", "source", "username" ],
         "type" : "object",
         "properties" : {
           "idpId" : {
             "type" : "string",
-            "format" : "uuid"
+            "description" : "Required when source is ldap",
+            "format" : "uuid",
+            "nullable" : true
           },
           "password" : {
             "maxLength" : 256,
@@ -1201,7 +1203,8 @@
             "type" : "string"
           },
           "role" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "owner", "admin", "script_author", "author", "viewer" ]
           },
           "slug" : {
             "type" : "string"
@@ -1227,10 +1230,7 @@
         "properties" : {
           "config" : {
             "type" : "object",
-            "additionalProperties" : {
-              "type" : "object",
-              "description" : "Provider settings without secrets"
-            },
+            "additionalProperties" : true,
             "description" : "Provider settings without secrets"
           },
           "createdAt" : {
@@ -1280,9 +1280,7 @@
         "properties" : {
           "config" : {
             "type" : "object",
-            "additionalProperties" : {
-              "type" : "object"
-            }
+            "additionalProperties" : true
           },
           "enabled" : {
             "type" : "boolean"
@@ -1382,10 +1380,7 @@
           },
           "quotas" : {
             "type" : "object",
-            "additionalProperties" : {
-              "type" : "object",
-              "nullable" : true
-            },
+            "additionalProperties" : true,
             "nullable" : true
           }
         }
@@ -1478,9 +1473,7 @@
           },
           "quotas" : {
             "type" : "object",
-            "additionalProperties" : {
-              "type" : "object"
-            }
+            "additionalProperties" : true
           },
           "slug" : {
             "type" : "string"

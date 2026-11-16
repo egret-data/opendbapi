@@ -482,7 +482,9 @@ Hai cấp quyền:
 | Thành viên & role | ✓ | ✓ (trừ `owner`) | | | |
 | Đổi tên, hạn mức, archive workspace | ✓ | | | | |
 
-- Quyền được kiểm tra ở tầng service bằng annotation (`@RequireWorkspaceRole(ADMIN)`), không chỉ ẩn nút trên UI.
+- Quyền được kiểm tra trong code ở mọi action (`WorkspaceAccess.require(ws, role)`), không chỉ ẩn nút trên UI. Workspace không tồn tại hoặc người gọi không phải thành viên đều trả **404** như nhau, để không dò được workspace nào tồn tại.
+- Admin hệ thống được coi là `owner` của mọi workspace đang hoạt động (để tạo thành viên đầu tiên, xử lý sự cố), nhưng `/me` chỉ liệt kê workspace họ thật sự là thành viên.
+- Session chỉ lưu id người dùng; trạng thái disabled, cờ admin hệ thống và role được đọc lại từ DB ở mỗi request, nên thay đổi của admin có hiệu lực ngay.
 - Một user có thể thuộc nhiều workspace với role khác nhau. Session lưu workspace đang chọn, nhưng mọi admin API vẫn mang `{ws}` trên URL; không dựa vào trạng thái ẩn trong session.
 - Session cookie HttpOnly + SameSite=Lax + CSRF token. Hết hạn sau 8 giờ không hoạt động.
 
@@ -493,7 +495,7 @@ Ba nguồn đăng nhập, bật/tắt độc lập. Màn hình login hiển th�
 | Nguồn | Cách hoạt động |
 |---|---|
 | **Nội bộ** | Username + mật khẩu BCrypt. Chính sách mật khẩu cấu hình được (độ dài, hết hạn). Khoá tạm sau 5 lần sai. Có thể tắt hoàn toàn khi đã có LDAP/SSO (trừ tài khoản break-glass của admin hệ thống) |
-| **LDAP / Active Directory** | Bind bằng tài khoản dịch vụ → tìm user theo `userSearchFilter` → bind bằng mật khẩu người dùng. Đọc nhóm theo `groupSearchBase`/`groupSearchFilter` (hỗ trợ `memberOf` của AD). LDAPS hoặc StartTLS là bắt buộc trừ khi bật cờ dev |
+| **LDAP / Active Directory** | Bind bằng tài khoản dịch vụ → tìm user theo `userSearchFilter` → bind bằng mật khẩu người dùng. Đọc nhóm theo `groupSearchBase`/`groupSearchFilter` (hỗ trợ `memberOf` của AD). LDAPS hoặc StartTLS là bắt buộc; `ldap://` thường chỉ chạy khi bật `allowInsecure` (chỉ dùng cho dev). Lỗi kết nối ở màn hình login chỉ hiện thông báo chung, chi tiết chỉ có trong nút Test của admin |
 | **SSO (OIDC)** | Authorization Code + PKCE. Hỗ trợ Keycloak, Azure AD/Entra ID, Google, Okta… Lấy nhóm từ claim cấu hình được (mặc định `groups`). SAML 2.0 để P3 nếu có nhu cầu |
 
 `identity_provider(id, type 'ldap'|'oidc', name, enabled, config jsonb, secret_ref)`, ví dụ:
@@ -512,7 +514,7 @@ Ba nguồn đăng nhập, bật/tắt độc lập. Màn hình login hiển th�
 **Cấp tài khoản và đồng bộ role:**
 
 - User LDAP/OIDC được tạo tự động ở lần đăng nhập đầu tiên (`source`, `idp_id`, `external_id`), không có mật khẩu cục bộ.
-- `group_role_mapping(idp_id, external_group, workspace_id, role)`: ở **mỗi lần đăng nhập**, role của user trong các workspace được tính lại từ nhóm hiện tại. Bị rút khỏi nhóm thì mất quyền ở lần đăng nhập sau; session đang mở bị huỷ khi phát hiện thay đổi.
+- `group_role_mapping(idp_id, external_group, workspace_id, role)`: ở **mỗi lần đăng nhập**, role của user trong các workspace được tính lại từ nhóm hiện tại. Bị rút khỏi nhóm thì mất quyền ở lần đăng nhập sau. Directory không báo thay đổi cho OpenDBAPI, nên một session đang mở (tối đa 8 giờ không hoạt động) giữ quyền cũ cho tới lần đăng nhập kế tiếp; admin có thể vô hiệu hoá user để cắt ngay.
 - Role được gán tay cho user LDAP/OIDC vẫn giữ, trừ khi mapping của workspace đó đặt `managed = true` (khi đó chỉ mapping quyết định).
 - Mapping có thể cấp `system_admin` (vd nhóm `opendbapi-admins`).
 - Mọi lần đăng nhập, đăng nhập thất bại, và thay đổi role đều ghi `audit_log`.
@@ -967,7 +969,7 @@ Viết dạng resource RESTful, có tài liệu OpenAPI (springdoc), và fronten
 
 | Resource | Method & path | Quyền |
 |---|---|---|
-| Đăng nhập | `GET /auth/providers` (nguồn đang bật, cho màn hình login), `POST /auth/login` (`{source: local\|ldap, idpId?, username, password}`), `GET /auth/oidc/{idpId}/start`, callback `/login/oauth2/code/{idpId}`, `POST /auth/logout` | công khai |
+| Đăng nhập | `GET /auth/providers` (nguồn đang bật, cho màn hình login), `POST /auth/login` (`{source: local\|ldap, idpId?, username, password}`), `GET /auth/oidc/{idpId}` (chuyển hướng sang IdP, có PKCE), callback `/login/oauth2/code/{idpId}`; SSO lỗi thì về `/login?error=sso&reason=…`, `POST /auth/logout` | công khai |
 | Phiên | `GET /me` (user, system_admin, danh sách workspace + role) | đã đăng nhập |
 | Đổi mật khẩu | `POST /me/password` (chỉ user nội bộ) | đã đăng nhập |
 | Workspace | `GET/POST /workspaces`, `GET/PATCH /workspaces/{ws}`, `POST /workspaces/{ws}:archive`, `:restore` | system admin (`GET` lọc theo thành viên) |
@@ -982,7 +984,8 @@ Quyền tối thiểu theo bảng §8.4.
 
 | Resource | Method & path |
 |---|---|
-| Thành viên | `GET/POST /members`, `PATCH/DELETE /members/{userId}` |
+| Thành viên | `GET/POST /members`, `PATCH/DELETE /members/{userId}`, `GET /user-search?q=` (tìm user để thêm); role đến từ mapping thì trả 409 `managed_by_directory`, owner cuối cùng thì 409 `last_owner` |
+| Audit | `GET /audit` (admin workspace) |
 | Nhóm (thư mục) | `GET/POST /groups`, `PATCH/DELETE /groups/{id}` |
 | Datasource | `GET/POST /datasources`, `GET/PATCH/DELETE /datasources/{id}`, `POST /datasources/{id}/test`, `POST /datasources/test` (chưa lưu), `GET /datasources/{id}/tables`, `GET /datasources/{id}/tables/{table}/columns`, `POST /datasources/{id}/pool:reset` |
 | Endpoint | `GET/POST /endpoints` (lọc `state`, `groupId`, `datasourceId`, `q`, `trashed`), `GET/PATCH /endpoints/{id}`, `POST /endpoints/{id}:validate`, `:publish`, `:disable`, `:enable`, `:trash`, `:restore`, `:duplicate`, `:new-major`, `DELETE /endpoints/{id}` (chỉ khi đã ở thùng rác) |
@@ -1091,7 +1094,7 @@ management:
 ## 25. Lộ trình P1 (đề xuất)
 
 1. ✅ (2026-11-16) Khung repo: Maven multi-module, Docker Compose (PostgreSQL, OpenLDAP, Keycloak cho dev), khung frontend copy từ Egret theo §17.1, Flyway schema §4 với RLS.
-2. Workspace + user + đăng nhập nội bộ/LDAP/OIDC + role theo workspace + group mapping.
+2. ✅ (2026-11-16) Workspace + user + đăng nhập nội bộ/LDAP/OIDC + role theo workspace + group mapping.
 3. Engine template + kiểm tra SQL tĩnh + phân trang (TDD).
 4. Datasource registry + CRUD + test kết nối.
 5. Endpoint draft/validate/publish/rollback + registry + pipeline serving (§9.1, bước 1–7, 10–14, 16).

@@ -9,6 +9,7 @@ import io.opendbapi.core.identity.IdentityProviderStore;
 import io.opendbapi.core.identity.UserAccount;
 import io.opendbapi.core.identity.UserStore;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -44,7 +45,7 @@ public class AuthController {
 
     public record LoginRequest(
             @NotNull LoginSource source,
-            UUID idpId,
+            @Schema(nullable = true, description = "Required when source is ldap") UUID idpId,
             @NotBlank @Size(max = 256) String username,
             @NotBlank @Size(max = 256) String password) {
     }
@@ -72,7 +73,7 @@ public class AuthController {
     }
 
     @GetMapping("/providers")
-    @Operation(operationId = "providers", summary = "Sign-in methods to offer on the login page")
+    @Operation(operationId = "getAuthProviders", summary = "Sign-in methods to offer on the login page")
     public AuthProviders providers() {
         return new AuthProviders(
                 properties.auth().localEnabled(),

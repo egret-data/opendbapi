@@ -52,7 +52,7 @@ public class AuditController {
     }
 
     @GetMapping("/audit")
-    @Operation(operationId = "list", summary = "System-wide audit log, newest first (system admin)")
+    @Operation(operationId = "listAudit", summary = "System-wide audit log, newest first (system admin)")
     public List<AuditEntry> list(@RequestParam(required = false) String action,
                                  @RequestParam(required = false) Long before,
                                  @RequestParam(defaultValue = "50") int limit) {
@@ -61,7 +61,7 @@ public class AuditController {
     }
 
     @GetMapping("/ws/{ws}/audit")
-    @Operation(operationId = "listForWorkspace", summary = "One workspace's audit log (workspace admin)")
+    @Operation(operationId = "listWorkspaceAudit", summary = "One workspace's audit log (workspace admin)")
     public List<AuditEntry> listForWorkspace(@PathVariable String ws,
                                              @RequestParam(required = false) String action,
                                              @RequestParam(required = false) Long before,

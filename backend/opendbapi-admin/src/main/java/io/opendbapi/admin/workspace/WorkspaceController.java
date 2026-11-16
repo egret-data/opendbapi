@@ -84,7 +84,7 @@ public class WorkspaceController {
     }
 
     @GetMapping
-    @Operation(operationId = "list", summary = "Every workspace, archived included (system admin)")
+    @Operation(operationId = "listWorkspaces", summary = "Every workspace, archived included (system admin)")
     public List<WorkspaceView> list() {
         currentUser.requireSystemAdmin();
         return workspaces.list().stream().map(WorkspaceView::of).toList();
@@ -93,7 +93,7 @@ public class WorkspaceController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Transactional
-    @Operation(operationId = "create", summary = "Create a workspace with its first owner (system admin)")
+    @Operation(operationId = "createWorkspace", summary = "Create a workspace with its first owner (system admin)")
     public WorkspaceView create(@Valid @RequestBody CreateWorkspace body) {
         UserAccount caller = currentUser.requireSystemAdmin();
         UUID ownerId = body.ownerUserId() != null ? body.ownerUserId() : caller.id();
@@ -107,13 +107,13 @@ public class WorkspaceController {
     }
 
     @GetMapping("/{ws}")
-    @Operation(operationId = "get", summary = "One workspace (any member)")
+    @Operation(operationId = "getWorkspace", summary = "One workspace (any member)")
     public WorkspaceView get(@PathVariable String ws) {
         return WorkspaceView.of(access.require(ws, WorkspaceRole.VIEWER).workspace());
     }
 
     @PatchMapping("/{ws}")
-    @Operation(operationId = "update", summary = "Rename or change quotas (workspace owner)")
+    @Operation(operationId = "updateWorkspace", summary = "Rename or change quotas (workspace owner)")
     public WorkspaceView update(@PathVariable String ws, @Valid @RequestBody UpdateWorkspace body) {
         var granted = access.require(ws, WorkspaceRole.OWNER);
         if (body.quotas() != null && !granted.user().systemAdmin()) {
@@ -126,13 +126,13 @@ public class WorkspaceController {
     }
 
     @PostMapping("/{ws}:archive")
-    @Operation(operationId = "archive", summary = "Stop serving and hide a workspace (system admin)")
+    @Operation(operationId = "archiveWorkspace", summary = "Stop serving and hide a workspace (system admin)")
     public WorkspaceView archive(@PathVariable String ws) {
         return setArchived(ws, true);
     }
 
     @PostMapping("/{ws}:restore")
-    @Operation(operationId = "restore", summary = "Bring an archived workspace back (system admin)")
+    @Operation(operationId = "restoreWorkspace", summary = "Bring an archived workspace back (system admin)")
     public WorkspaceView restore(@PathVariable String ws) {
         return setArchived(ws, false);
     }

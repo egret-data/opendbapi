@@ -88,7 +88,7 @@ public class UserAdminController {
     }
 
     @GetMapping
-    @Operation(operationId = "list", summary = "Every user")
+    @Operation(operationId = "listUsers", summary = "Every user")
     public List<UserView> list() {
         currentUser.requireSystemAdmin();
         return users.list().stream().map(UserView::of).toList();
@@ -96,7 +96,7 @@ public class UserAdminController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @Operation(operationId = "create", summary = "Create a local user")
+    @Operation(operationId = "createUser", summary = "Create a local user")
     public UserView create(@Valid @RequestBody CreateUser body) {
         UserAccount caller = currentUser.requireSystemAdmin();
         UserAccount created = users.createLocal(body.username(), body.displayName(), body.email(),
@@ -108,7 +108,7 @@ public class UserAdminController {
 
     @PatchMapping("/{id}")
     @Transactional
-    @Operation(operationId = "update", summary = "Edit, disable or promote a user")
+    @Operation(operationId = "updateUser", summary = "Edit, disable or promote a user")
     public UserView update(@PathVariable UUID id, @Valid @RequestBody UpdateUser body) {
         UserAccount caller = currentUser.requireSystemAdmin();
         UserAccount target = users.findById(id)
@@ -135,7 +135,7 @@ public class UserAdminController {
     }
 
     @PostMapping("/{id}:reset-password")
-    @Operation(operationId = "resetPassword", summary = "Set a new password for a local user")
+    @Operation(operationId = "resetUserPassword", summary = "Set a new password for a local user")
     public ResponseEntity<Void> resetPassword(@PathVariable UUID id, @Valid @RequestBody ResetPassword body) {
         UserAccount caller = currentUser.requireSystemAdmin();
         UserAccount target = users.findById(id)
