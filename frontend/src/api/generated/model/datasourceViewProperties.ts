@@ -6,7 +6,4 @@
  * OpenAPI spec version: v1
  */
 
-export interface TestResult {
-  messages: string[];
-  ok: boolean;
-}
+export type DatasourceViewProperties = {[key: string]: string};

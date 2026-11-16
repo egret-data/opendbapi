@@ -17,7 +17,7 @@ import {
   useUpdateIdentityProvider,
 } from "@/api/generated/identity-providers/identity-providers";
 import { useListWorkspaces } from "@/api/generated/workspaces/workspaces";
-import type { MappingView, MappingViewRole, ProviderView, TestResult } from "@/api/generated/model";
+import type { MappingView, MappingViewRole, ProviderTestResult, ProviderView } from "@/api/generated/model";
 import { QueryBoundary } from "@/components/QueryBoundary";
 import { ConfigTable, ConfigTableGroup, ConfigTableRow } from "@/components/config/ConfigTable";
 import { DetailHeader } from "@/components/layout/DetailHeader";
@@ -307,7 +307,7 @@ function TestPanel({ provider, dirty }: { provider: ProviderView; dirty: boolean
   const test = useTestIdentityProvider();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [result, setResult] = useState<TestResult | null>(null);
+  const [result, setResult] = useState<ProviderTestResult | null>(null);
   const userId = useId();
   const passId = useId();
 

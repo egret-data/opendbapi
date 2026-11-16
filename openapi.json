@@ -340,7 +340,7 @@
             "content" : {
               "application/json" : {
                 "schema" : {
-                  "$ref" : "#/components/schemas/TestResult"
+                  "$ref" : "#/components/schemas/ProviderTestResult"
                 }
               }
             },
@@ -748,6 +748,409 @@
         "tags" : [ "audit" ]
       }
     },
+    "/admin/api/ws/{ws}/datasources" : {
+      "get" : {
+        "operationId" : "listDatasources",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/DatasourceView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Datasources of the workspace (any member)",
+        "tags" : [ "datasources" ]
+      },
+      "post" : {
+        "operationId" : "createDatasource",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveDatasource"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DatasourceView"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Add a datasource (workspace admin)",
+        "tags" : [ "datasources" ]
+      }
+    },
+    "/admin/api/ws/{ws}/datasources/dialects" : {
+      "get" : {
+        "operationId" : "listDialects",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/DialectInfo"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Supported databases, default ports and allowed driver properties",
+        "tags" : [ "datasources" ]
+      }
+    },
+    "/admin/api/ws/{ws}/datasources/test" : {
+      "post" : {
+        "operationId" : "testDatasourceSettings",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TestDatasource"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DatasourceTestResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Try settings before saving them (workspace admin)",
+        "tags" : [ "datasources" ]
+      }
+    },
+    "/admin/api/ws/{ws}/datasources/{id}" : {
+      "delete" : {
+        "operationId" : "deleteDatasource",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Delete a datasource no endpoint uses (workspace admin)",
+        "tags" : [ "datasources" ]
+      },
+      "get" : {
+        "operationId" : "getDatasource",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DatasourceView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "One datasource (any member)",
+        "tags" : [ "datasources" ]
+      },
+      "patch" : {
+        "operationId" : "updateDatasource",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveDatasource"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DatasourceView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Change a datasource; omit password to keep it (workspace admin)",
+        "tags" : [ "datasources" ]
+      }
+    },
+    "/admin/api/ws/{ws}/datasources/{id}/columns" : {
+      "get" : {
+        "operationId" : "listColumns",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "schema",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "table",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Column"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Columns of one table (author)",
+        "tags" : [ "datasources" ]
+      }
+    },
+    "/admin/api/ws/{ws}/datasources/{id}/schemas" : {
+      "get" : {
+        "operationId" : "listSchemas",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "type" : "string"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Schemas of the database, system ones left out (author)",
+        "tags" : [ "datasources" ]
+      }
+    },
+    "/admin/api/ws/{ws}/datasources/{id}/tables" : {
+      "get" : {
+        "operationId" : "listTables",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "schema",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Tables"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Tables and views of a schema, at most 2000 (author)",
+        "tags" : [ "datasources" ]
+      }
+    },
+    "/admin/api/ws/{ws}/datasources/{id}:test" : {
+      "post" : {
+        "operationId" : "testDatasource",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DatasourceTestResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Check a saved datasource can connect (author)",
+        "tags" : [ "datasources" ]
+      }
+    },
     "/admin/api/ws/{ws}/members" : {
       "get" : {
         "operationId" : "listMembers",
@@ -1020,6 +1423,29 @@
           }
         }
       },
+      "Column" : {
+        "required" : [ "name", "nullable", "position", "size", "type" ],
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "nullable" : {
+            "type" : "boolean"
+          },
+          "position" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        }
+      },
       "CreateUser" : {
         "required" : [ "password", "systemAdmin", "username" ],
         "type" : "object",
@@ -1068,6 +1494,113 @@
           "slug" : {
             "pattern" : "^[a-z0-9][a-z0-9-]{1,62}$",
             "type" : "string"
+          }
+        }
+      },
+      "DatasourceTestResult" : {
+        "required" : [ "message", "ok" ],
+        "type" : "object",
+        "properties" : {
+          "latencyMs" : {
+            "type" : "integer",
+            "format" : "int64",
+            "nullable" : true
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "ok" : {
+            "type" : "boolean"
+          },
+          "product" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "version" : {
+            "type" : "string",
+            "nullable" : true
+          }
+        }
+      },
+      "DatasourceView" : {
+        "required" : [ "createdAt", "database", "dialect", "hasPassword", "host", "id", "name", "pool", "port", "properties", "readOnly", "updatedAt", "username" ],
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "database" : {
+            "type" : "string"
+          },
+          "description" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "dialect" : {
+            "type" : "string",
+            "enum" : [ "POSTGRESQL", "MYSQL", "MARIADB", "SQLSERVER", "ORACLE" ]
+          },
+          "hasPassword" : {
+            "type" : "boolean"
+          },
+          "host" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "passwordEnv" : {
+            "type" : "string",
+            "description" : "The env: reference when the password comes from the environment",
+            "nullable" : true
+          },
+          "pool" : {
+            "$ref" : "#/components/schemas/PoolSettings"
+          },
+          "port" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "properties" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "readOnly" : {
+            "type" : "boolean"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DialectInfo" : {
+        "required" : [ "allowedProperties", "defaultPort", "dialect" ],
+        "type" : "object",
+        "properties" : {
+          "allowedProperties" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "defaultPort" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "dialect" : {
+            "type" : "string",
+            "enum" : [ "POSTGRESQL", "MYSQL", "MARIADB", "SQLSERVER", "ORACLE" ]
           }
         }
       },
@@ -1211,6 +1744,29 @@
           }
         }
       },
+      "PoolSettings" : {
+        "type" : "object",
+        "properties" : {
+          "connectionTimeoutMs" : {
+            "type" : "integer",
+            "description" : "250–60000 ms, default 10000",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "maximumPoolSize" : {
+            "type" : "integer",
+            "description" : "1–50, default 10",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "minimumIdle" : {
+            "type" : "integer",
+            "description" : "default 0",
+            "format" : "int32",
+            "nullable" : true
+          }
+        }
+      },
       "ProviderRef" : {
         "required" : [ "id", "name" ],
         "type" : "object",
@@ -1221,6 +1777,21 @@
           },
           "name" : {
             "type" : "string"
+          }
+        }
+      },
+      "ProviderTestResult" : {
+        "required" : [ "messages", "ok" ],
+        "type" : "object",
+        "properties" : {
+          "messages" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "ok" : {
+            "type" : "boolean"
           }
         }
       },
@@ -1274,6 +1845,61 @@
           }
         }
       },
+      "SaveDatasource" : {
+        "required" : [ "database", "dialect", "host", "name", "pool", "readOnly", "username" ],
+        "type" : "object",
+        "properties" : {
+          "database" : {
+            "type" : "string"
+          },
+          "description" : {
+            "maxLength" : 1000,
+            "minLength" : 0,
+            "type" : "string",
+            "nullable" : true
+          },
+          "dialect" : {
+            "type" : "string",
+            "enum" : [ "POSTGRESQL", "MYSQL", "MARIADB", "SQLSERVER", "ORACLE" ]
+          },
+          "host" : {
+            "type" : "string"
+          },
+          "name" : {
+            "maxLength" : 120,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "password" : {
+            "type" : "string",
+            "description" : "Plain password (stored encrypted) or env:NAME; omit to keep the stored one",
+            "nullable" : true
+          },
+          "pool" : {
+            "$ref" : "#/components/schemas/PoolSettings"
+          },
+          "port" : {
+            "type" : "integer",
+            "description" : "Default port of the dialect when empty",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "properties" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string",
+              "nullable" : true
+            },
+            "nullable" : true
+          },
+          "readOnly" : {
+            "type" : "boolean"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        }
+      },
       "SaveProvider" : {
         "required" : [ "config", "enabled", "name", "type" ],
         "type" : "object",
@@ -1316,6 +1942,54 @@
           }
         }
       },
+      "Table" : {
+        "required" : [ "name", "remarks", "schema", "type" ],
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "remarks" : {
+            "type" : "string"
+          },
+          "schema" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Tables" : {
+        "required" : [ "items", "truncated" ],
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Table"
+            }
+          },
+          "truncated" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "TestDatasource" : {
+        "required" : [ "settings" ],
+        "type" : "object",
+        "properties" : {
+          "existingId" : {
+            "type" : "string",
+            "description" : "Use this saved datasource's password when settings.password is empty",
+            "format" : "uuid",
+            "nullable" : true
+          },
+          "settings" : {
+            "$ref" : "#/components/schemas/SaveDatasource"
+          }
+        }
+      },
       "TestRequest" : {
         "type" : "object",
         "properties" : {
@@ -1326,21 +2000,6 @@
           "username" : {
             "type" : "string",
             "nullable" : true
-          }
-        }
-      },
-      "TestResult" : {
-        "required" : [ "messages", "ok" ],
-        "type" : "object",
-        "properties" : {
-          "messages" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "ok" : {
-            "type" : "boolean"
           }
         }
       },
