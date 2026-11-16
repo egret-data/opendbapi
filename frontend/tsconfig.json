@@ -1,0 +1,15 @@
+{
+  "compilerOptions": {
+    "target": "ES2022", "useDefineForClassFields": true, "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext", "skipLibCheck": true, "moduleResolution": "bundler",
+    "resolveJsonModule": true, "isolatedModules": true, "noEmit": true, "jsx": "react-jsx",
+    "strict": true, "noUnusedLocals": true, "noUnusedParameters": true, "noFallthroughCasesInSwitch": true,
+    "baseUrl": ".", "paths": { "@/*": ["src/*"] },
+    // `node` is listed explicitly as of Vitest 4: v2's `vitest/globals` pulled in
+    // @types/node transitively, v4 does not, and an explicit `types` array excludes
+    // every @types package it does not name. The harness script and the guard tests
+    // that read files off disk need it.
+    "types": ["node", "vitest/globals", "@testing-library/jest-dom"]
+  },
+  "include": ["src"]
+}

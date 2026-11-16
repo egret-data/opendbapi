@@ -1,0 +1,338 @@
+/* Google Fonts disabled for K8s compatibility - using system fonts as fallback */
+/* @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap'); */
+
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  /* Typography Scale */
+  --text-sm: 0.8125rem;
+  --text-sm--line-height: 1.25rem;
+  --text-sm--letter-spacing: 0.0rem;
+  --text-sm--font-weight: 400;
+
+  --text-xs: 0.75rem;
+  --text-xs--line-height: 1rem;
+  --text-xs--letter-spacing: 0.0rem;
+  --text-xs--font-weight: 400;
+
+  --text-base: 1rem;
+  --text-base--line-height: 1.5rem;
+  --text-base--letter-spacing: 0.025rem;
+  --text-base--font-weight: 400;
+
+  --text-lg: 1.125rem;
+  --text-lg--line-height: 1.75rem;
+  --text-lg--letter-spacing: 0.025rem;
+  --text-lg--font-weight: 400;
+
+  --text-xl: 1.25rem;
+  --text-xl--line-height: 2rem;
+  --text-xl--letter-spacing: 0.025rem;
+  --text-xl--font-weight: 400;
+
+  --text-2xl: 1.5rem;
+  --text-2xl--line-height: 2.25rem;
+  --text-2xl--letter-spacing: 0.025rem;
+  --text-2xl--font-weight: 400;
+
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 2.75rem;
+  --text-3xl--letter-spacing: 0.025rem;
+  --text-3xl--font-weight: 400;
+
+  --text-4xl: 2.25rem;
+  --text-4xl--line-height: 3.25rem;
+  --text-4xl--letter-spacing: 0.025rem;
+  --text-4xl--font-weight: 400;
+
+  /* Body text variants */
+  --text-body: var(--text-sm);
+  --text-body--line-height: var(--text-sm--line-height);
+  --text-body--letter-spacing: var(--text-sm--letter-spacing);
+  --text-body--font-weight: 400;
+
+  --text-body-medium: var(--text-sm);
+  --text-body-medium--line-height: var(--text-sm--line-height);
+  --text-body-medium--letter-spacing: var(--text-sm--letter-spacing);
+  --text-body-medium--font-weight: 500;
+
+  --text-body-bold: var(--text-sm);
+  --text-body-bold--line-height: var(--text-sm--line-height);
+  --text-body-bold--letter-spacing: var(--text-sm--letter-spacing);
+  --text-body-bold--font-weight: 700;
+
+  /* Heading variants */
+  --text-heading-2xl: 2rem;
+  --text-heading-2xl--line-height: 2.25rem;
+  --text-heading-2xl--letter-spacing: 0.025rem;
+  --text-heading-2xl--font-weight: 700;
+
+  --text-heading-xl: 1.625rem;
+  --text-heading-xl--line-height: 2rem;
+  --text-heading-xl--letter-spacing: 0.025rem;
+  --text-heading-xl--font-weight: 700;
+
+  --text-heading-lg: var(--text-2xl);
+  --text-heading-lg--line-height: var(--text-2xl--line-height);
+  --text-heading-lg--letter-spacing: var(--text-2xl--letter-spacing);
+  --text-heading-lg--font-weight: 600;
+
+  --text-heading-md: var(--text-xl);
+  --text-heading-md--line-height: var(--text-xl--line-height);
+  --text-heading-md--letter-spacing: var(--text-xl--letter-spacing);
+  --text-heading-md--font-weight: 600;
+
+  --text-heading-sm: var(--text-base);
+  --text-heading-sm--line-height: var(--text-base--line-height);
+  --text-heading-sm--letter-spacing: var(--text-base--letter-spacing);
+  --text-heading-sm--font-weight: 600;
+
+  /* The form/editor/settings column (FE-PAGE-6): `max-w-page`, 960px. */
+  --container-page: 60rem;
+}
+
+:root {
+  /* Light mode colors */
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.21 0.11 263.16);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.21 0.11 263.16);
+  --popover: oklch(0.98 0 264.7);
+  --popover-foreground: oklch(0.14 0 285.86);
+  /* Was `oklch(0.59 …)`: white `--primary-foreground` on it measured 3.50:1, a
+     fail of WCAG 1.4.3 for the 12-13px labels of the default Badge and Button.
+     0.46 is set by the tightest pair built on this token, not the plain fill:
+     the hover fill (`/90` over the page) reads 4.80:1 and the 10% tint behind
+     teal ink on a muted row 4.88:1; the plain fill reads 5.85:1 and teal ink
+     on the page 6.00:1. Hue and chroma are unchanged; dark is unchanged.
+     Measured in Chromium by tests/e2e/badge-variant-contrast.spec.ts. */
+  --primary: oklch(0.46 0.15 185);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.95 0.01 258.36);
+  --dashboard: oklch(0.955 0.004 270); /* Metabase-style light-gray dashboard canvas (cards float on this) */
+  --secondary-foreground: oklch(0.21 0.11 263.16);
+  --muted: oklch(0.22 0.11 263.03 / 3%);
+  --muted-foreground: oklch(0.49 0.07 270.49);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.21 0.01 285.93);
+  --destructive: oklch(0.58 0.24 28.48);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(0.92 0 286.61);
+  --input: oklch(0.92 0 286.61);
+  /* Keyboard focus indicator. Was `oklch(0.71 …)`, which measured 2.58:1 against
+     `--background` and only 2.23:1 against `--secondary` — a fail of WCAG 1.4.11
+     Non-text Contrast (3:1; the 4.5:1 bar is 1.4.3 and governs text, not rings).
+     0.63 is the first lightness that clears 3:1 on EVERY surface a focused
+     control actually lands on, not just the page: background/card 3.51,
+     popover 3.31, accent 3.21, dashboard 3.07, secondary 3.03. Hue and chroma
+     are untouched on purpose — this is a neutral, and tinting it would be a
+     visual change nobody asked for. Dark is left alone; it already passes
+     (4.08 on background, 3.09 worst-surface). Pinned by
+     src/__tests__/focusIndicatorContrast.test.ts. */
+  --ring: oklch(0.63 0.01 286.09);
+
+  /* Functional highlight (amber) — a warm accent for a page's single primary
+     emphasis: "recommended" badges, featured/active markers, upsell CTAs. The
+     teal `--primary` stays the default action color; `--highlight` is the rarer,
+     attention-grabbing accent (data-dashboard "blue data + amber highlight"
+     pattern). NOT `--accent`, which shadcn uses for hover/focus backgrounds. */
+  --highlight: oklch(0.72 0.15 65);
+  --highlight-foreground: oklch(0.28 0.06 65);
+  --success: oklch(0.55 0.14 155);
+  --success-foreground: oklch(0.99 0 0);
+
+  /* Font families */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  /* Border radius */
+  --radius: 0.625rem;
+
+  /* Shadows - Light mode */
+  --shadow-xs: 0 1px 3px 0px oklch(0.21 0.11 263.16 / 0.05);
+  --shadow-sm: 0 1px 3px 0px oklch(0.21 0.11 263.16 / 0.1), 0 1px 2px -1px oklch(0.21 0.11 263.16 / 0.1);
+  --shadow-md: 0 1px 3px 0px oklch(0.21 0.11 263.16 / 0.1), 0 2px 4px -1px oklch(0.21 0.11 263.16 / 0.1);
+  --shadow-lg: 0 1px 3px 0px oklch(0.21 0.11 263.16 / 0.1), 0 4px 6px -1px oklch(0.21 0.11 263.16 / 0.1);
+  --shadow-xl: 0 1px 3px 0px oklch(0.21 0.11 263.16 / 0.1), 0 8px 10px -1px oklch(0.21 0.11 263.16 / 0.1);
+
+  /* Letter spacing */
+  --tracking-normal: 0em;
+}
+
+.dark {
+  /* Dark mode colors */
+  --background: oklch(0.14 0 285.86);
+  --foreground: oklch(0.99 0 0);
+  --card: oklch(0.21 0.01 285.93);
+  --card-foreground: oklch(0.99 0 0);
+  --popover: oklch(0.21 0.01 285.93);
+  --popover-foreground: oklch(0.99 0 0);
+  --primary: oklch(0.66 0.13 185);
+  --primary-foreground: oklch(0.1 0 0);
+  --secondary: oklch(0.27 0.01 286.1);
+  --dashboard: oklch(0.16 0 0); /* darker than --card (0.21) so cards still pop in dark mode */
+  --secondary-foreground: oklch(0.99 0 0);
+  --muted: oklch(0.27 0.01 286.1);
+  --muted-foreground: oklch(0.71 0.01 286.09);
+  --accent: oklch(0.27 0.01 286.1);
+  --accent-foreground: oklch(0.99 0 0);
+  --destructive: oklch(0.7 0.19 22.23);
+  --destructive-foreground: oklch(0.99 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.55 0.02 285.93);
+
+  /* Dark mode: a brighter amber so it reads on the dark surfaces, dark text on it. */
+  --highlight: oklch(0.78 0.15 70);
+  --highlight-foreground: oklch(0.22 0.05 70);
+  --success: oklch(0.72 0.14 155);
+  --success-foreground: oklch(0.18 0.04 155);
+
+  /* Shadows - Dark mode */
+  --shadow-xs: 0 1px 3px 0px oklch(0 0 0 / 0.05);
+  --shadow-sm: 0 1px 3px 0px oklch(0 0 0 / 0.1), 0 1px 2px -1px oklch(0 0 0 / 0.1);
+  --shadow-md: 0 1px 3px 0px oklch(0 0 0 / 0.1), 0 2px 4px -1px oklch(0 0 0 / 0.1);
+  --shadow-lg: 0 1px 3px 0px oklch(0 0 0 / 0.1), 0 4px 6px -1px oklch(0 0 0 / 0.1);
+  --shadow-xl: 0 1px 3px 0px oklch(0 0 0 / 0.1), 0 8px 10px -1px oklch(0 0 0 / 0.1);
+
+  /* Letter spacing */
+  --tracking-normal: 0.025em;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-dashboard: var(--dashboard);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-xl: var(--shadow-xl);
+
+  --tracking-tighter: calc(var(--tracking-normal) - 0.05em);
+  --tracking-tight: calc(var(--tracking-normal) - 0.025em);
+  --tracking-normal: var(--tracking-normal);
+  --tracking-wide: calc(var(--tracking-normal) + 0.025em);
+  --tracking-wider: calc(var(--tracking-normal) + 0.05em);
+  --tracking-widest: calc(var(--tracking-normal) + 0.1em);
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  letter-spacing: var(--tracking-normal);
+}
+
+code {
+  font-family: var(--font-mono);
+}
+
+@layer base {
+  * {
+    /* Solid `outline-ring`, NOT the half-alpha variant it used to be. (The old
+       value is spelled out nowhere in this file on purpose: Tailwind v4 scans
+       source text for class-name candidates and does not know a comment from
+       code, so writing the old utility here made it emit a dead
+       `outline-color: color-mix(… 50% …)` rule into the shipped bundle — which
+       then looks, to anyone auditing that bundle, exactly like the fix failing
+       to land.)
+
+       This is the focus indicator for every
+       focusable element that does not style its own focus, and that is not a rare
+       fallback — tabbing the control-plane pages shows 11 of the first 14 stops
+       (the whole left navigation) landing here, painted by Chrome's default
+       `outline-style: auto` in this colour. #412 confirmed with a forced red
+       outline that `auto` does honour an author `outline-color`, so this really is
+       what the user sees.
+
+       At half alpha it measured 1.54:1 in light and 1.83:1 in dark. Unlike the
+       shadcn two-part pattern there is no solid border underneath to carry the
+       contrast, so the alpha had to go: half-alpha CANNOT reach 3:1 at any ring
+       lightness (even a much darker `--ring` only lifts it to ~1.73), which is why
+       darkening the token alone would not have fixed these elements. */
+    @apply border-border outline-ring;
+  }
+
+  body {
+    @apply bg-background text-foreground text-body;
+  }
+}
+
+/* Font smoothing */
+* {
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Accessibility: honor the OS "reduce motion" setting — neutralize transitions,
+   animations, and smooth-scroll so the UI stays fully functional without motion
+   (WCAG 2.3.3 / prefers-reduced-motion). Data still renders immediately. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* `ui/sheet.tsx`: the panel slides in from the right edge and back out. The
+   reduced-motion block above cuts both to 0.01ms. */
+@keyframes sheet-in-right {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes sheet-out-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* Tabular figures for numeric/data contexts (right-aligned counts, ids, metrics,
+   timers) so digits don't shift width and columns stay aligned. Apply `tabular`
+   (or Tailwind's `tabular-nums`) on the number cell/value. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}

@@ -1,0 +1,34 @@
+# Dev directory for dc=opendbapi,dc=local. Passwords are for local development only.
+dn: ou=users,dc=opendbapi,dc=local
+objectClass: organizationalUnit
+ou: users
+
+dn: ou=groups,dc=opendbapi,dc=local
+objectClass: organizationalUnit
+ou: groups
+
+dn: uid=alice,ou=users,dc=opendbapi,dc=local
+objectClass: inetOrgPerson
+uid: alice
+cn: Alice Nguyen
+sn: Nguyen
+mail: alice@opendbapi.local
+userPassword: alice
+
+dn: uid=bob,ou=users,dc=opendbapi,dc=local
+objectClass: inetOrgPerson
+uid: bob
+cn: Bob Tran
+sn: Tran
+mail: bob@opendbapi.local
+userPassword: bob
+
+dn: cn=opendbapi-admins,ou=groups,dc=opendbapi,dc=local
+objectClass: groupOfNames
+cn: opendbapi-admins
+member: uid=alice,ou=users,dc=opendbapi,dc=local
+
+dn: cn=sales-authors,ou=groups,dc=opendbapi,dc=local
+objectClass: groupOfNames
+cn: sales-authors
+member: uid=bob,ou=users,dc=opendbapi,dc=local

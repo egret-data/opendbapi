@@ -1,0 +1,51 @@
+{
+  "openapi" : "3.0.1",
+  "info" : {
+    "description" : "Authoring and administration API consumed by the OpenDBAPI web UI.",
+    "title" : "OpenDBAPI management API",
+    "version" : "v1"
+  },
+  "servers" : [ {
+    "url" : "/"
+  } ],
+  "paths" : {
+    "/admin/api/system/info" : {
+      "get" : {
+        "operationId" : "systemInfo",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SystemInfo"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Version, run mode and the public serving base URL",
+        "tags" : [ "system" ]
+      }
+    }
+  },
+  "components" : {
+    "schemas" : {
+      "SystemInfo" : {
+        "type" : "object",
+        "properties" : {
+          "mode" : {
+            "type" : "string"
+          },
+          "servingBaseUrl" : {
+            "type" : "string"
+          },
+          "version" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "mode", "servingBaseUrl", "version" ]
+      }
+    }
+  }
+}

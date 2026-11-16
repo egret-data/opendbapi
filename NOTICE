@@ -1,0 +1,9 @@
+OpenDBAPI
+Copyright 2026 The OpenDBAPI Authors
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+The web UI frame and shared components under frontend/ (layout, UI primitives,
+list and settings components, ESLint token rules and build configuration) are
+derived from Egret (https://github.com/egret-data/platform), Copyright The Egret
+Authors, also licensed under the Apache License, Version 2.0.

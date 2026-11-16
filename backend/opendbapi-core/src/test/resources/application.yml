@@ -1,0 +1,10 @@
+spring:
+  flyway:
+    schemas: opendbapi
+    placeholders:
+      app_role: opendbapi_app
+  datasource:
+    hikari:
+      # Force connection reuse so the "setting does not leak" test exercises a pooled connection.
+      maximum-pool-size: 1
+      connection-init-sql: set search_path to opendbapi

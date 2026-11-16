@@ -1,0 +1,31 @@
+# Reference artifacts (not part of the project)
+/*.tar.gz
+/*.pdf
+
+# Java / Maven
+target/
+*.class
+.mvn/wrapper/maven-wrapper.jar
+
+# Node
+node_modules/
+frontend/dist/
+frontend/test-results/
+frontend/playwright-report/
+*.tsbuildinfo
+
+# IDE / OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Local env & data
+.env
+data/
+
+# Local browser-automation output
+.playwright-mcp/
+
+# Full spec with reverse-engineering provenance; kept local, never published
+docs/internal/

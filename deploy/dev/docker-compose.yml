@@ -1,0 +1,48 @@
+# Local development dependencies for OpenDBAPI.
+# All credentials below are development defaults; never reuse them elsewhere.
+name: opendbapi-dev
+
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_DB: opendbapi
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "55432:5432"
+    volumes:
+      - ./postgres/init-roles.sql:/docker-entrypoint-initdb.d/init-roles.sql:ro
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d opendbapi"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  ldap:
+    image: osixia/openldap:1.5.0
+    command: --copy-service
+    environment:
+      LDAP_ORGANISATION: OpenDBAPI Dev
+      LDAP_DOMAIN: opendbapi.local
+      LDAP_ADMIN_PASSWORD: admin
+      LDAP_TLS: "false"
+    ports:
+      - "1389:389"
+    volumes:
+      - ./ldap/50-seed.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/50-seed.ldif:ro
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.7
+    command: start-dev --import-realm --http-port=8180
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+    ports:
+      - "8180:8180"
+    volumes:
+      - ./keycloak/opendbapi-realm.json:/opt/keycloak/data/import/opendbapi-realm.json:ro
+
+volumes:
+  postgres-data:

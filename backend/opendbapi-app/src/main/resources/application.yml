@@ -1,0 +1,51 @@
+opendbapi:
+  mode: standalone
+  serving:
+    context: api
+    url-base: ""
+
+spring:
+  application:
+    name: opendbapi
+  threads:
+    virtual:
+      enabled: true
+  datasource:
+    url: ${OPENDBAPI_DB_URL:jdbc:postgresql://localhost:55432/opendbapi}
+    # Application role: subject to row-level security (spec §4.0).
+    username: ${OPENDBAPI_DB_USER:opendbapi_app}
+    password: ${OPENDBAPI_DB_PASSWORD}
+    hikari:
+      connection-init-sql: set search_path to opendbapi
+  flyway:
+    # Migrations run as the schema owner, never as the application role.
+    user: ${OPENDBAPI_DB_OWNER:opendbapi_owner}
+    password: ${OPENDBAPI_DB_OWNER_PASSWORD}
+    schemas: opendbapi
+    placeholders:
+      app_role: ${OPENDBAPI_DB_USER:opendbapi_app}
+  mvc:
+    problemdetails:
+      enabled: true
+
+springdoc:
+  # The committed ../openapi.json documents the management API only; it feeds
+  # frontend codegen (Orval). Serving endpoints get their own generated docs (spec §10).
+  paths-to-match: /admin/api/**
+  api-docs:
+    path: /admin/api/openapi.json
+  writer-with-order-by-keys: true
+
+server:
+  port: 8520
+  shutdown: graceful
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,prometheus
+  endpoint:
+    health:
+      probes:
+        enabled: true
