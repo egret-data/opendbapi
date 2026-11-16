@@ -47,6 +47,7 @@ public class ApiClient {
     private final CookieManager cookies = new CookieManager(null, CookiePolicy.ACCEPT_ALL);
     private final HttpClient http;
     private boolean sendCsrf = true;
+    private final Map<String, String> extraHeaders = new java.util.HashMap<>();
 
     public ApiClient(String base) {
         this.base = base;
@@ -56,6 +57,31 @@ public class ApiClient {
     public ApiClient withoutCsrf() {
         this.sendCsrf = false;
         return this;
+    }
+
+    /** Sends this header on every later request; null removes it. */
+    public ApiClient header(String name, String value) {
+        if (value == null) {
+            extraHeaders.remove(name);
+        } else {
+            extraHeaders.put(name, value);
+        }
+        return this;
+    }
+
+    /** POST of an application/x-www-form-urlencoded body, without CSRF (machine callers). */
+    public Response form(String path, Map<String, String> fields) {
+        String body = fields.entrySet().stream()
+                .map(e -> enc(e.getKey()) + "=" + enc(e.getValue()))
+                .collect(java.util.stream.Collectors.joining("&"));
+        return send("POST", path, new Form(body));
+    }
+
+    private record Form(String encoded) {
+    }
+
+    private static String enc(String s) {
+        return java.net.URLEncoder.encode(s, java.nio.charset.StandardCharsets.UTF_8);
     }
 
     public Response get(String path) {
@@ -97,20 +123,23 @@ public class ApiClient {
 
     private Response send(String method, String path, Object body) {
         try {
-            if (!"GET".equals(method) && sendCsrf && cookie("XSRF-TOKEN") == null) {
+            if (!(body instanceof Form) && !"GET".equals(method) && sendCsrf && cookie("XSRF-TOKEN") == null) {
                 get("/admin/api/auth/providers"); // first visit issues the CSRF cookie
             }
             HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(base + path))
                     .header("Accept", "application/json");
+            boolean form = body instanceof Form;
             if (body != null) {
-                request.header("Content-Type", "application/json");
+                request.header("Content-Type", form ? "application/x-www-form-urlencoded" : "application/json");
             }
-            if (!"GET".equals(method) && sendCsrf && cookie("XSRF-TOKEN") != null) {
+            extraHeaders.forEach(request::header);
+            if (!form && !"GET".equals(method) && sendCsrf && cookie("XSRF-TOKEN") != null) {
                 request.header("X-XSRF-TOKEN", cookie("XSRF-TOKEN"));
             }
             HttpRequest.BodyPublisher publisher = body == null
                     ? HttpRequest.BodyPublishers.noBody()
-                    : HttpRequest.BodyPublishers.ofString(body instanceof String s ? s : JSON.writeValueAsString(body));
+                    : HttpRequest.BodyPublishers.ofString(body instanceof Form f ? f.encoded()
+                            : body instanceof String s ? s : JSON.writeValueAsString(body));
             HttpResponse<String> response = http.send(request.method(method, publisher).build(),
                     HttpResponse.BodyHandlers.ofString());
             return new Response(response.statusCode(), response.body());

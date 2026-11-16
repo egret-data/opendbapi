@@ -1254,6 +1254,44 @@
         "tags" : [ "endpoints" ]
       }
     },
+    "/admin/api/ws/{ws}/endpoints/{endpointId}/access" : {
+      "get" : {
+        "operationId" : "listEndpointAccess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "endpointId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/EndpointAccess"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Service accounts that may call the endpoint, directly or through its group",
+        "tags" : [ "service-accounts" ]
+      }
+    },
     "/admin/api/ws/{ws}/endpoints/{id}" : {
       "delete" : {
         "operationId" : "deleteEndpoint",
@@ -2046,6 +2084,337 @@
         "tags" : [ "members" ]
       }
     },
+    "/admin/api/ws/{ws}/service-accounts" : {
+      "get" : {
+        "operationId" : "listServiceAccounts",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ServiceAccount"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Service accounts of the workspace",
+        "tags" : [ "service-accounts" ]
+      },
+      "post" : {
+        "operationId" : "createServiceAccount",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveServiceAccount"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ServiceAccountDetail"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Create a service account (admin)",
+        "tags" : [ "service-accounts" ]
+      }
+    },
+    "/admin/api/ws/{ws}/service-accounts/{id}" : {
+      "delete" : {
+        "operationId" : "deleteServiceAccount",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Delete a service account, its clients and grants (admin)",
+        "tags" : [ "service-accounts" ]
+      },
+      "get" : {
+        "operationId" : "getServiceAccount",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ServiceAccountDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "A service account with its clients and grants",
+        "tags" : [ "service-accounts" ]
+      },
+      "patch" : {
+        "operationId" : "updateServiceAccount",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveServiceAccount"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ServiceAccountDetail"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Rename, describe, disable or enable (admin)",
+        "tags" : [ "service-accounts" ]
+      }
+    },
+    "/admin/api/ws/{ws}/service-accounts/{id}/clients" : {
+      "post" : {
+        "operationId" : "createClient",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateClient"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NewClient"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Create an OAuth2 client; the secret is returned only here (admin)",
+        "tags" : [ "service-accounts" ]
+      }
+    },
+    "/admin/api/ws/{ws}/service-accounts/{id}/clients/{clientRowId}:revoke" : {
+      "post" : {
+        "operationId" : "revokeClient",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "clientRowId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Revoke a client; its tokens stop working within seconds (admin)",
+        "tags" : [ "service-accounts" ]
+      }
+    },
+    "/admin/api/ws/{ws}/service-accounts/{id}/grants" : {
+      "put" : {
+        "operationId" : "grantAccess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveGrant"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Let the service account call an endpoint or every endpoint of a group (admin)",
+        "tags" : [ "service-accounts" ]
+      }
+    },
+    "/admin/api/ws/{ws}/service-accounts/{id}/grants/{resourceType}/{resourceId}" : {
+      "delete" : {
+        "operationId" : "revokeAccess",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "resourceType",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "resourceId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Remove a grant (admin)",
+        "tags" : [ "service-accounts" ]
+      }
+    },
     "/admin/api/ws/{ws}/user-search" : {
       "get" : {
         "operationId" : "searchUsers",
@@ -2196,6 +2565,50 @@
           "role" : {
             "type" : "string",
             "enum" : [ "owner", "admin", "script_author", "author", "viewer" ]
+          }
+        }
+      },
+      "Client" : {
+        "required" : [ "clientId", "createdAt", "id" ],
+        "type" : "object",
+        "properties" : {
+          "clientId" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "nullable" : true
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "lastUsedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "nullable" : true
+          },
+          "revokedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "nullable" : true
+          }
+        }
+      },
+      "CreateClient" : {
+        "type" : "object",
+        "properties" : {
+          "expiresInDays" : {
+            "maximum" : 3650,
+            "minimum" : 1,
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
           }
         }
       },
@@ -2391,6 +2804,26 @@
           }
         }
       },
+      "EndpointAccess" : {
+        "required" : [ "disabled", "name", "serviceAccountId", "via" ],
+        "type" : "object",
+        "properties" : {
+          "disabled" : {
+            "type" : "boolean"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "serviceAccountId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "via" : {
+            "type" : "string",
+            "enum" : [ "endpoint", "group" ]
+          }
+        }
+      },
       "EndpointDefinition" : {
         "required" : [ "limits", "pagination", "params", "task" ],
         "type" : "object",
@@ -2510,6 +2943,31 @@
             "type" : "string"
           },
           "severity" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Grant" : {
+        "required" : [ "grantedAt", "resourceId", "resourceName", "resourceType" ],
+        "type" : "object",
+        "properties" : {
+          "detail" : {
+            "type" : "string",
+            "description" : "Method and path, for an endpoint",
+            "nullable" : true
+          },
+          "grantedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "resourceId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "resourceName" : {
+            "type" : "string"
+          },
+          "resourceType" : {
             "type" : "string"
           }
         }
@@ -2666,6 +3124,19 @@
           },
           "slug" : {
             "type" : "string"
+          }
+        }
+      },
+      "NewClient" : {
+        "required" : [ "client", "clientSecret" ],
+        "type" : "object",
+        "properties" : {
+          "client" : {
+            "$ref" : "#/components/schemas/Client"
+          },
+          "clientSecret" : {
+            "type" : "string",
+            "description" : "Shown once; store it now"
           }
         }
       },
@@ -3009,6 +3480,20 @@
           }
         }
       },
+      "SaveGrant" : {
+        "required" : [ "resourceId", "resourceType" ],
+        "type" : "object",
+        "properties" : {
+          "resourceId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "resourceType" : {
+            "pattern" : "endpoint|group",
+            "type" : "string"
+          }
+        }
+      },
       "SaveGroup" : {
         "required" : [ "name" ],
         "type" : "object",
@@ -3047,6 +3532,84 @@
           }
         }
       },
+      "SaveServiceAccount" : {
+        "required" : [ "disabled", "name" ],
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "maxLength" : 1000,
+            "minLength" : 0,
+            "type" : "string",
+            "nullable" : true
+          },
+          "disabled" : {
+            "type" : "boolean"
+          },
+          "name" : {
+            "maxLength" : 120,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }
+      },
+      "ServiceAccount" : {
+        "required" : [ "clientCount", "createdAt", "disabled", "grantCount", "id", "name" ],
+        "type" : "object",
+        "properties" : {
+          "clientCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "description" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "disabled" : {
+            "type" : "boolean"
+          },
+          "grantCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "lastUsedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "nullable" : true
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ServiceAccountDetail" : {
+        "required" : [ "clients", "grants", "summary" ],
+        "type" : "object",
+        "properties" : {
+          "clients" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Client"
+            }
+          },
+          "grants" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Grant"
+            }
+          },
+          "summary" : {
+            "$ref" : "#/components/schemas/ServiceAccount"
+          }
+        }
+      },
       "Statement" : {
         "required" : [ "id", "template" ],
         "type" : "object",
@@ -3060,13 +3623,16 @@
         }
       },
       "SystemInfo" : {
-        "required" : [ "mode", "servingBaseUrl", "version" ],
+        "required" : [ "mode", "servingBaseUrl", "tokenUrl", "version" ],
         "type" : "object",
         "properties" : {
           "mode" : {
             "type" : "string"
           },
           "servingBaseUrl" : {
+            "type" : "string"
+          },
+          "tokenUrl" : {
             "type" : "string"
           },
           "version" : {

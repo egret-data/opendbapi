@@ -17,6 +17,12 @@
             <groupId>io.opendbapi</groupId>
             <artifactId>opendbapi-sql</artifactId>
         </dependency>
+        <!-- Access tokens for API callers (spec §8.1); same version Spring Security uses. -->
+        <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+            <version>9.37.3</version>
+        </dependency>
         <!-- Only to mark optional fields of API-facing records; no runtime behaviour. -->
         <dependency>
             <groupId>io.swagger.core.v3</groupId>
