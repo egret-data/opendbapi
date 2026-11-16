@@ -184,7 +184,7 @@ describe("Endpoints", () => {
       "GET /admin/api/ws/sales/endpoints/e1/access": () => json([]),
     });
     const user = userEvent.setup();
-    renderApp("/w/sales/endpoints/e1?tab=try");
+    renderApp("/w/sales/endpoints/e1/try");
 
     // Act
     expect(await screen.findByRole("button", { name: "Send" })).toBeDisabled();
@@ -198,6 +198,18 @@ describe("Endpoints", () => {
     const call = server.calls.find((c) => c.key === "POST /admin/api/ws/sales/endpoints/e1/try");
     expect(JSON.parse(String(call?.init?.body))).toEqual({ serviceAccountId: "sa1", params: { tier: "gold" }, page: null, size: null });
     await user.click(screen.getByRole("button", { name: "Grant access" }));
-    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("tab=access"));
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("/w/sales/endpoints/e1/access"));
+  });
+
+  it("opens a tab from its own URL", async () => {
+    // Arrange
+    mockServer({ ...common, "GET /admin/api/me": () => json(meAs("author")), "GET /admin/api/ws/sales/endpoints/e1": () => json(DETAIL) });
+
+    // Act
+    renderApp("/w/sales/endpoints/e1/settings");
+
+    // Assert
+    expect(await screen.findByLabelText("Allow streaming")).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute("aria-selected", "true");
   });
 });

@@ -1133,7 +1133,8 @@ management:
 8. ✅ (2026-11-17) OpenAPI tự sinh + Swagger UI.
 9. ✅ (2026-11-17) Stream NDJSON/CSV trên virtual threads.
 10. ✅ (2026-11-17) Metric, tracing, log query chậm, access log ra file, trang Activity cơ bản.
-11. UI theo §17: login, shell + workspace switcher, Endpoints (list/new/detail 5 tab), Datasources, Clients, Activity, Settings, Admin.
+11. ✅ (2026-11-17) UI theo §17: login, shell + workspace switcher, Endpoints (list/new/detail 5 tab), Datasources, Clients, Activity, Settings, Admin.
+    Chỗ khác §17 trong bản P1: tạo service account và client dùng dialog trên trang Clients, không có route `/clients/new` hay `/new-client` riêng. Dialog hiện secret không đóng được bằng Escape hay click ra ngoài. Rotate secret giữ nguyên client id. Danh sách datasource chưa hiện trạng thái của lần test kết nối gần nhất, vì kết quả test chưa được lưu. Các tab Datasource dùng `?tab=`. Nhóm Output/Cache và data policy thuộc P2.
 
 ---
 

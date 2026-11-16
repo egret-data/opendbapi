@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { Copy, MoreHorizontal } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -73,8 +73,10 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
   const dirty = JSON.stringify(form) !== JSON.stringify(saved);
   useUnsavedChangesWarning(dirty);
 
-  const [params, setParams] = useSearchParams();
-  const tab = TABS.includes(params.get("tab") as (typeof TABS)[number]) ? params.get("tab")! : "query";
+  // Each tab is a child route (spec §17.3): /w/:ws/endpoints/:id/settings survives a reload.
+  const { tab: tabParam } = useParams();
+  const tab = TABS.includes(tabParam as (typeof TABS)[number]) ? tabParam! : "query";
+  const goTab = (t: string) => navigate(`/w/${ws}/endpoints/${detail.summary.id}${t === "query" ? "" : `/${t}`}`, { replace: true });
   const qc = useQueryClient();
   const navigate = useNavigate();
   const info = useSystemInfo();
@@ -173,7 +175,7 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
           )
         }
       />
-      <Tabs value={tab} onValueChange={(t) => setParams({ tab: t }, { replace: true })}>
+      <Tabs value={tab} onValueChange={goTab}>
         <TabsList>
           <TabsTrigger value="query">Query</TabsTrigger>
           {canAuthor && <TabsTrigger value="try">Try it</TabsTrigger>}
@@ -211,7 +213,7 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
         </TabsContent>
         {canAuthor && (
           <TabsContent value="try" className="pt-4">
-            <TryItTab ws={ws} summary={s} onOpenAccess={() => setParams({ tab: "access" }, { replace: true })} />
+            <TryItTab ws={ws} summary={s} onOpenAccess={() => goTab("access")} />
           </TabsContent>
         )}
         <TabsContent value="access" className="pt-4">

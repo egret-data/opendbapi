@@ -735,6 +735,80 @@ export const useRevokeClient = <TError = unknown,
       > => {
       return useMutation(getRevokeClientMutationOptions(options), queryClient);
     }
+    export const getRotateClientSecretUrl = (ws: string,
+    id: string,
+    clientRowId: string,) => {
+
+
+
+
+  return `/admin/api/ws/${ws}/service-accounts/${id}/clients/${clientRowId}:rotate`
+}
+
+/**
+ * @summary Replace a client's secret; the old one stops working at once, issued tokens run out (admin)
+ */
+export const rotateClientSecret = async (ws: string,
+    id: string,
+    clientRowId: string, options?: Parameters<typeof customInstance>[1]): Promise<NewClient> => {
+
+  return customInstance<NewClient>(getRotateClientSecretUrl(ws,id,clientRowId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRotateClientSecretMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateClientSecret>>, TError,{ws: string;id: string;clientRowId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof rotateClientSecret>>, TError,{ws: string;id: string;clientRowId: string}, TContext> => {
+
+const mutationKey = ['rotateClientSecret'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rotateClientSecret>>, {ws: string;id: string;clientRowId: string}> = (props) => {
+          const {ws,id,clientRowId} = props ?? {};
+
+          return  rotateClientSecret(ws,id,clientRowId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RotateClientSecretMutationResult = NonNullable<Awaited<ReturnType<typeof rotateClientSecret>>>
+
+    export type RotateClientSecretMutationError = unknown
+
+    /**
+ * @summary Replace a client's secret; the old one stops working at once, issued tokens run out (admin)
+ */
+export const useRotateClientSecret = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rotateClientSecret>>, TError,{ws: string;id: string;clientRowId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof rotateClientSecret>>,
+        TError,
+        {ws: string;id: string;clientRowId: string},
+        TContext
+      > => {
+      return useMutation(getRotateClientSecretMutationOptions(options), queryClient);
+    }
     export const getGrantAccessUrl = (ws: string,
     id: string,) => {
 

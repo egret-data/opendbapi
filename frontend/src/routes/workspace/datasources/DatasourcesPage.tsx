@@ -1,6 +1,7 @@
 import { Link, useParams } from "react-router-dom";
 import { Database, Plus } from "lucide-react";
 
+import { useListEndpoints } from "@/api/generated/endpoints/endpoints";
 import { useListDatasources } from "@/api/generated/datasources/datasources";
 import { useAuth, effectiveRole, hasRole } from "@/auth/useAuth";
 import { QueryBoundary } from "@/components/QueryBoundary";
@@ -17,6 +18,9 @@ export default function DatasourcesPage() {
   const { me } = useAuth();
   const canManage = hasRole(effectiveRole(me, ws) ?? "viewer", "admin");
   const query = useListDatasources(ws);
+  const endpoints = useListEndpoints(ws, { trashed: false });
+  const usage = new Map<string, number>();
+  (endpoints.data ?? []).forEach((e) => e.datasourceId && usage.set(e.datasourceId, (usage.get(e.datasourceId) ?? 0) + 1));
   const newButton = canManage ? (
     <Button asChild>
       <Link to="new">
@@ -55,6 +59,7 @@ export default function DatasourcesPage() {
                     <TableHead>Database</TableHead>
                     <TableHead>Address</TableHead>
                     <TableHead>Access</TableHead>
+                    <TableHead className="text-right">Endpoints</TableHead>
                     <TableHead>Updated</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -74,6 +79,7 @@ export default function DatasourcesPage() {
                       <TableCell>
                         <StatusBadge tone={d.readOnly ? "neutral" : "highlight"}>{d.readOnly ? "Read only" : "Read & write"}</StatusBadge>
                       </TableCell>
+                      <TableCell className="text-right tabular-nums">{usage.get(d.id) ?? 0}</TableCell>
                       <TableCell className="tabular-nums">{formatDate(d.updatedAt)}</TableCell>
                     </TableRow>
                   ))}

@@ -65,7 +65,8 @@ export function PreviewPanel({ ws, id, form }: { ws: string; id: string; form: D
           <TabsList variant="underline">
             <TabsTrigger value="result">Result</TabsTrigger>
             <TabsTrigger value="sql">SQL & binds</TabsTrigger>
-            <TabsTrigger value="checks">Checks{result.findings.length ? ` (${result.findings.length})` : ""}</TabsTrigger>
+            <TabsTrigger value="checks">Warnings{result.findings.length ? ` (${result.findings.length})` : ""}</TabsTrigger>
+            <TabsTrigger value="schema">Output schema</TabsTrigger>
           </TabsList>
           <TabsContent value="result" className="pt-3">
             {result.affectedRows != null ? (
@@ -98,6 +99,28 @@ export function PreviewPanel({ ws, id, form }: { ws: string; id: string; form: D
                 <p className="font-mono text-xs text-muted-foreground">binds: {JSON.stringify(e.parameters)}</p>
               </div>
             ))}
+          </TabsContent>
+          <TabsContent value="schema" className="pt-3">
+            {result.columns.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No columns: the statement does not return rows.</p>
+            ) : (
+              <div className="max-w-xl overflow-x-auto rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow><TableHead>Column</TableHead><TableHead>Database type</TableHead></TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {result.columns.map((c) => (
+                      <TableRow key={c.name}>
+                        <TableCell className="font-mono text-xs">{c.name}</TableCell>
+                        <TableCell className="font-mono text-xs">{c.type}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+            <p className="mt-2 text-xs text-muted-foreground">Publishing freezes these columns into the version's API documentation.</p>
           </TabsContent>
           <TabsContent value="checks" className="pt-3">
             <FindingsList findings={result.findings} />

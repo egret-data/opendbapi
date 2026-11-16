@@ -8,18 +8,42 @@ import { QueryBoundary } from "@/components/QueryBoundary";
 import { EmptyState } from "@/components/list/EmptyState";
 import { MonacoDiffEditor } from "@/components/monaco/MonacoEditor";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorMessage } from "@/lib/errors";
 import { formatDateTime } from "@/lib/format";
 import { mainSql } from "./endpointForm";
 
+const DRAFT = "draft";
+
+function sqlOf(choice: string, versions: VersionView[], draftSql: string): string {
+  if (choice === DRAFT) return draftSql;
+  const v = versions.find((x) => String(x.version) === choice);
+  return v ? mainSql(v.definition) : "";
+}
+
+function VersionPicker({ label, value, onChange, versions, draft }: {
+  label: string; value: string; onChange: (v: string) => void; versions: VersionView[]; draft?: boolean;
+}) {
+  return (
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger className="h-8 w-36" aria-label={label}><SelectValue /></SelectTrigger>
+      <SelectContent>
+        {draft && <SelectItem value={DRAFT}>Saved draft</SelectItem>}
+        {versions.map((v) => <SelectItem key={v.version} value={String(v.version)}>v{v.version}{v.live ? " (live)" : ""}</SelectItem>)}
+      </SelectContent>
+    </Select>
+  );
+}
+
 export function VersionsTab({ ws, id, draftSql, canAuthor, onChanged }: {
   ws: string; id: string; draftSql: string; canAuthor: boolean; onChanged: () => void;
 }) {
   const query = useListEndpointVersions(ws, id);
   const rollback = useRollbackEndpoint();
-  const [comparing, setComparing] = useState<VersionView | null>(null);
+  const [left, setLeft] = useState<string | null>(null);
+  const [right, setRight] = useState<string>(DRAFT);
   const [target, setTarget] = useState<VersionView | null>(null);
 
   return (
@@ -50,8 +74,8 @@ export function VersionsTab({ ws, id, draftSql, canAuthor, onChanged }: {
                       <TableCell className="tabular-nums">{formatDateTime(v.publishedAt)}</TableCell>
                       <TableCell>{v.publishedBy ?? "—"}</TableCell>
                       <TableCell className="space-x-1 text-right">
-                        <Button variant="ghost" size="sm" onClick={() => setComparing(comparing?.version === v.version ? null : v)}>
-                          {comparing?.version === v.version ? "Hide diff" : "Diff with draft"}
+                        <Button variant="ghost" size="sm" onClick={() => { setLeft(String(v.version)); setRight(DRAFT); }}>
+                          Compare
                         </Button>
                         {canAuthor && !v.live && (
                           <Button variant="outline" size="sm" onClick={() => setTarget(v)}>Roll back</Button>
@@ -62,11 +86,17 @@ export function VersionsTab({ ws, id, draftSql, canAuthor, onChanged }: {
                 </TableBody>
               </Table>
             </div>
-            {comparing && (
-              <div className="space-y-1">
-                <p className="text-xs text-muted-foreground">Left: v{comparing.version} · Right: saved draft</p>
+            {left && (
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span>Compare</span>
+                  <VersionPicker label="Left side" value={left} onChange={setLeft} versions={versions} />
+                  <span>with</span>
+                  <VersionPicker label="Right side" value={right} onChange={setRight} versions={versions} draft />
+                  <Button variant="ghost" size="sm" onClick={() => setLeft(null)}>Close</Button>
+                </div>
                 <div className="h-72 overflow-hidden rounded-md border">
-                  <MonacoDiffEditor language="sql" original={mainSql(comparing.definition)} modified={draftSql}
+                  <MonacoDiffEditor language="sql" original={sqlOf(left, versions, draftSql)} modified={sqlOf(right, versions, draftSql)}
                     options={{ readOnly: true, renderSideBySide: true, minimap: { enabled: false }, fontSize: 12 }} />
                 </div>
               </div>

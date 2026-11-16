@@ -2592,6 +2592,49 @@
         "tags" : [ "service-accounts" ]
       }
     },
+    "/admin/api/ws/{ws}/service-accounts/{id}/clients/{clientRowId}:rotate" : {
+      "post" : {
+        "operationId" : "rotateClientSecret",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "clientRowId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/NewClient"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Replace a client's secret; the old one stops working at once, issued tokens run out (admin)",
+        "tags" : [ "service-accounts" ]
+      }
+    },
     "/admin/api/ws/{ws}/service-accounts/{id}/grants" : {
       "put" : {
         "operationId" : "grantAccess",

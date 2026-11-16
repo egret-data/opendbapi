@@ -20,7 +20,7 @@ export default function WorkspaceRoutes() {
       <Route index element={<Navigate to="endpoints" replace />} />
       <Route path="endpoints" element={<EndpointsPage />} />
       <Route path="endpoints/new" element={<RequireRole minimum="author"><NewEndpointPage /></RequireRole>} />
-      <Route path="endpoints/:id" element={<EndpointDetailPage />} />
+      <Route path="endpoints/:id/:tab?" element={<EndpointDetailPage />} />
       <Route path="datasources" element={<DatasourcesPage />} />
       <Route path="datasources/new" element={<RequireRole minimum="admin"><NewDatasourcePage /></RequireRole>} />
       <Route path="datasources/:id" element={<DatasourceDetailPage />} />

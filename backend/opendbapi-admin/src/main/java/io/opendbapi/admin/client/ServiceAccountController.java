@@ -179,6 +179,22 @@ public class ServiceAccountController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/service-accounts/{id}/clients/{clientRowId}:rotate")
+    @Operation(operationId = "rotateClientSecret",
+            summary = "Replace a client's secret; the old one stops working at once, issued tokens run out (admin)")
+    public NewClient rotate(@PathVariable String ws, @PathVariable UUID id, @PathVariable UUID clientRowId) {
+        var granted = access.require(ws, WorkspaceRole.ADMIN);
+        UUID wsId = granted.workspace().id();
+        String secret = ClientSecrets.newSecret();
+        return scope.call(wsId, () -> {
+            String clientId = store.rotateSecret(id, clientRowId, ClientSecrets.hash(secret))
+                    .orElseThrow(() -> ApiProblem.notFound("client_not_found", "No active client with that id."));
+            audit.record(wsId, granted.user().id(), "client.rotate", "service_account", id.toString(), Map.of("clientId", clientId));
+            Client client = store.clients(id).stream().filter(c -> c.id().equals(clientRowId)).findFirst().orElseThrow();
+            return new NewClient(client, secret);
+        });
+    }
+
     @PutMapping("/service-accounts/{id}/grants")
     @Operation(operationId = "grantAccess", summary = "Let the service account call an endpoint or every endpoint of a group (admin)")
     public ResponseEntity<Void> grant(@PathVariable String ws, @PathVariable UUID id, @Valid @RequestBody SaveGrant body) {

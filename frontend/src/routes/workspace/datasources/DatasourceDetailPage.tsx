@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ import {
   useListTables,
   useUpdateDatasource,
 } from "@/api/generated/datasources/datasources";
+import { useListEndpoints } from "@/api/generated/endpoints/endpoints";
 import type { DatasourceView } from "@/api/generated/model";
 import { useAuth, effectiveRole, hasRole } from "@/auth/useAuth";
 import { QueryBoundary } from "@/components/QueryBoundary";
@@ -38,7 +39,7 @@ export default function DatasourceDetailPage() {
   const role = effectiveRole(me, ws) ?? "viewer";
   const query = useGetDatasource(ws, id);
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") === "tables" ? "tables" : "settings";
+  const tab = params.get("tab") === "tables" || params.get("tab") === "usage" ? params.get("tab")! : "settings";
 
   return (
     <PageContainer>
@@ -55,7 +56,11 @@ export default function DatasourceDetailPage() {
               <TabsList>
                 <TabsTrigger value="settings">Settings</TabsTrigger>
                 <TabsTrigger value="tables">Tables</TabsTrigger>
+                <TabsTrigger value="usage">Usage</TabsTrigger>
               </TabsList>
+              <TabsContent value="usage" className="pt-4">
+                <UsageTab ws={ws} datasourceId={ds.id} />
+              </TabsContent>
               <TabsContent value="settings" className="pt-4">
                 <SettingsTab key={ds.updatedAt} ws={ws} ds={ds} canManage={hasRole(role, "admin")} />
               </TabsContent>
@@ -258,6 +263,41 @@ function TablesTab({ ws, ds }: { ws: string; ds: DatasourceView }) {
           </div>
         </div>
       )}
+    </QueryBoundary>
+  );
+}
+
+/** Endpoints whose draft runs on this datasource (spec §17.4). */
+function UsageTab({ ws, datasourceId }: { ws: string; datasourceId: string }) {
+  const query = useListEndpoints(ws, { datasourceId, trashed: false });
+  return (
+    <QueryBoundary query={query} what="endpoints">
+      {(rows) =>
+        rows.length === 0 ? (
+          <EmptyState title="No endpoint uses this datasource" />
+        ) : (
+          <div className="overflow-x-auto rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Endpoint</TableHead>
+                  <TableHead>Route</TableHead>
+                  <TableHead>State</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((e) => (
+                  <TableRow key={e.id}>
+                    <TableCell><Link className="font-medium hover:underline" to={`/w/${ws}/endpoints/${e.id}`}>{e.name}</Link></TableCell>
+                    <TableCell className="font-mono text-xs">{e.method} /{e.path}</TableCell>
+                    <TableCell className="capitalize">{e.state}{e.liveVersion != null ? ` · v${e.liveVersion}` : ""}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )
+      }
     </QueryBoundary>
   );
 }

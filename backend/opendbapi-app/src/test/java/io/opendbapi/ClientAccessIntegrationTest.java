@@ -183,6 +183,22 @@ class ClientAccessIntegrationTest extends AppTestSupport {
     }
 
     @Test
+    void rotatingTheSecretKeepsTheClientIdAndRetiresTheOldSecret() {
+        // Arrange
+        Credentials c = newClient("rotating");
+
+        // Act
+        JsonNode rotated = admin.post(ws("/service-accounts/" + c.saId() + "/clients/" + c.clientRowId() + ":rotate"), null)
+                .expect(200).json();
+        Credentials fresh = new Credentials(c.saId(), c.clientRowId(), c.clientId(), rotated.path("clientSecret").asText());
+
+        // Assert
+        assertThat(rotated.path("client").path("clientId").asText()).isEqualTo(c.clientId());
+        token(c).expect(401);
+        token(fresh).expect(200);
+    }
+
+    @Test
     void removingTheGrantForbidsTheCall() {
         // Arrange
         Credentials c = newClient("ungranted");
