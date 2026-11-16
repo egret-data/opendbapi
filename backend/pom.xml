@@ -18,6 +18,7 @@
     <name>OpenDBAPI</name>
 
     <modules>
+        <module>opendbapi-sql</module>
         <module>opendbapi-core</module>
         <module>opendbapi-admin</module>
         <module>opendbapi-serving</module>
@@ -28,10 +29,16 @@
         <java.version>21</java.version>
         <testcontainers.version>1.20.3</testcontainers.version>
         <springdoc.version>2.6.0</springdoc.version>
+        <jsqlparser.version>5.0</jsqlparser.version>
     </properties>
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>io.opendbapi</groupId>
+                <artifactId>opendbapi-sql</artifactId>
+                <version>${project.version}</version>
+            </dependency>
             <dependency>
                 <groupId>io.opendbapi</groupId>
                 <artifactId>opendbapi-core</artifactId>

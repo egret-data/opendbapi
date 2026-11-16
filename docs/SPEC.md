@@ -112,7 +112,8 @@ Theo đúng stack của Egret để dùng lại quy ước và component:
 opendbapi/
 ├── backend/
 │   ├── opendbapi-plugin-api/   # (P2) SPI plugin (phát hành riêng)
-│   ├── opendbapi-core/         # domain, store, SQL engine, executor, pipeline
+│   ├── opendbapi-sql/          # SQL template, ngôn ngữ biểu thức, kiểm tra tĩnh, phân trang (Java thuần)
+│   ├── opendbapi-core/         # domain, store, executor, pipeline
 │   ├── opendbapi-admin/        # REST quản trị /admin/api/**
 │   ├── opendbapi-serving/      # /{context}/**, OAuth2 token, MCP
 │   ├── opendbapi-cli/          # (P3) lệnh plan/apply cấu hình dưới dạng code
@@ -363,9 +364,17 @@ Nhiều câu SQL chạy tuần tự trên cùng một connection. Với `transac
 | `<choose>/<when>/<otherwise>` | |
 | `<bind name value>` | |
 
-- `#{x}` → `?`.
-- **Không hỗ trợ `${}`**. Sắp xếp/lọc động dùng `<orderBy param="sort" allow="created_at,name"/>`: chỉ nhận giá trị nằm trong `allow`, kèm `asc|desc`.
-- Biểu thức `test`/`bind` chạy bằng Spring SpEL với `SimpleEvaluationContext` (chỉ đọc thuộc tính, không gọi method tuỳ ý).
+- `#{x}` → `?`. Hỗ trợ đường dẫn (`#{filter.from}`, `#{ids[0]}`) và bỏ qua gợi ý kiểu kiểu MyBatis (`#{d, jdbcType=DATE}`).
+- `#{x}` với `x` là danh sách/mảng tự bung thành `?, ?, ?`, nên `id in (#{ids})` dùng được ngay. Danh sách rỗng thành `NULL` (`id in (NULL)` hợp lệ và không khớp dòng nào), thay vì `in ()` gây lỗi cú pháp.
+- **Không hỗ trợ `${}`**: compile báo lỗi. Sắp xếp động dùng `<orderBy param="sort" allow="created_at, name" default="created_at desc"/>`: chỉ nhận cột nằm trong `allow` (không phân biệt hoa thường, xuất ra đúng tên trong `allow`), kèm `asc|desc`, nhiều cột cách nhau bằng dấu phẩy. `default` được kiểm tra ngay lúc compile.
+- Viết thẳng `<`, `<=`, `<>`, `&&` trong SQL và trong `test` mà không cần `&lt;`/CDATA: engine tự escape mọi `<` không mở một thẻ của engine. CDATA và entity vẫn dùng được.
+- Thẻ gõ sai (`<iff test="…">`) báo lỗi kèm số dòng, không bị coi là chữ SQL. DOCTYPE/ENTITY bị từ chối (chặn XXE).
+- **Biểu thức `test`/`bind` dùng ngôn ngữ riêng, không dùng SpEL.** Muốn gọi được `ids.size()` thì SpEL phải bật gọi method trên object, mà như vậy mở ra đường `x.getClass().forName(…)`. Ngôn ngữ riêng (`opendbapi-sql/expr`) chỉ có:
+  - đọc biến và key/index của Map/List (không gọi getter Java);
+  - so sánh `== != < <= > >=` và alias OGNL `eq neq lt lte gt gte`; so sánh số theo `BigDecimal`, `status == 1` khớp `"1"`;
+  - `and or not && || !`, phép toán `+ - * / %` (cộng với chuỗi thì nối chuỗi, `null` thành chuỗi rỗng);
+  - chỉ ba method `size()`, `length()`, `isEmpty()`. Gọi method khác, `new`, `T(...)` đều là lỗi cú pháp.
+  - Giá trị đúng/sai: `null`, `false`, `0`, `""`, collection rỗng đều là false.
 
 ### 7.3 Kiến trúc chung
 
@@ -429,7 +438,10 @@ Phân tích câu SQL đã render với tham số mẫu bằng JSqlParser:
 | `UPDATE`/`DELETE` không có `WHERE` | Lỗi |
 | Nhiều câu lệnh trong một statement (`;`) | Lỗi |
 | `SELECT *` | Cảnh báo (`output_schema` có thể đổi ngầm) |
-| Không phân tích được (cú pháp riêng của DB) | Cảnh báo, cho publish nếu người viết xác nhận |
+| Không phân tích được (cú pháp riêng của DB) | Cảnh báo, cho publish nếu người viết xác nhận. **Nhưng** nếu trong SQL (đã bỏ chuỗi và comment) có từ khoá ghi dữ liệu như `DELETE`, `UPDATE`, `DROP`… thì vẫn là Lỗi ở GET/datasource chỉ đọc. Ví dụ: CTE ghi dữ liệu của PostgreSQL `WITH d AS (DELETE …) SELECT …`, mà JSqlParser 5.0 không parse được |
+| DDL (`CREATE/ALTER/DROP/TRUNCATE…`) | Cảnh báo (ngay cả ở POST) |
+| `SELECT … INTO` | Tính là ghi dữ liệu |
+| `SELECT … FOR UPDATE/SHARE` | Cảnh báo (khoá dòng tới hết request) |
 
 ---
 
@@ -566,9 +578,10 @@ Các dòng `id, name, order_id, order_total` trở thành `{id, name, orders: [{
 ### 9.3 Phân trang (P1)
 
 - Bật bằng `pagination.enabled`. Bên gọi gửi `page` (bắt đầu từ 1), `size`, và tuỳ chọn `sort` nếu template có `<orderBy>`.
-- Engine bọc câu SQL đã render:
-  - count: `select count(*) from (<sql>) t`. Có thể tắt bằng `pagination.count = false` để nhanh hơn; khi đó trả `hasNext` thay cho `total`.
-  - data: thêm `LIMIT/OFFSET` theo dialect (`OFFSET … FETCH` cho SQL Server/Oracle).
+- Engine (`opendbapi-sql/page/Paginator`) xử lý câu SQL đã render:
+  - data: nếu tầng ngoài cùng của câu chưa tự giới hạn (không có LIMIT/OFFSET/FETCH/TOP) thì **nối** mệnh đề phân trang; ngược lại, hoặc khi không parse được, thì **bọc** `SELECT * FROM (<sql>) page_q`. Cách bọc luôn đúng. Theo dialect: `LIMIT ? OFFSET ?` (PostgreSQL, MySQL, MariaDB, SQLite, H2, ClickHouse, không rõ); `OFFSET ? ROWS FETCH NEXT ? ROWS ONLY` (Oracle, DB2); SQL Server thêm `ORDER BY (SELECT NULL)` khi câu chưa có ORDER BY, vì OFFSET bắt buộc đi sau ORDER BY.
+  - count: `SELECT COUNT(*) FROM (<sql>) count_q`. Bỏ ORDER BY ở tầng ngoài nếu an toàn: câu không tự giới hạn và ORDER BY không chứa tham số. Lý do: thứ tự không đổi kết quả đếm, và SQL Server không cho ORDER BY trong derived table. Có thể tắt count bằng `pagination.count = false` để nhanh hơn; khi đó trả `hasNext` thay cho `total`.
+  - Dialect suy ra từ JDBC URL.
 - `mode: keyset` (P2): `after=<cursor>`, với cursor được mã hoá từ giá trị của các cột sắp xếp.
 
 ### 9.4 Envelope
@@ -1095,7 +1108,7 @@ management:
 
 1. ✅ (2026-11-16) Khung repo: Maven multi-module, Docker Compose (PostgreSQL, OpenLDAP, Keycloak cho dev), khung frontend copy từ Egret theo §17.1, Flyway schema §4 với RLS.
 2. ✅ (2026-11-16) Workspace + user + đăng nhập nội bộ/LDAP/OIDC + role theo workspace + group mapping.
-3. Engine template + kiểm tra SQL tĩnh + phân trang (TDD).
+3. ✅ (2026-11-16) Engine template + kiểm tra SQL tĩnh + phân trang (TDD), module `opendbapi-sql`, đã chạy thử trên PostgreSQL và MySQL thật.
 4. Datasource registry + CRUD + test kết nối.
 5. Endpoint draft/validate/publish/rollback + registry + pipeline serving (§9.1, bước 1–7, 10–14, 16).
 6. Service account, client, OAuth2 token, cấp quyền.
