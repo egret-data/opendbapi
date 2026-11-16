@@ -72,6 +72,13 @@ public class ProblemHandler extends ResponseEntityExceptionHandler {
     @Override
     protected ResponseEntity<Object> handleHttpMessageNotReadable(HttpMessageNotReadableException e, HttpHeaders headers,
                                                                   HttpStatusCode status, WebRequest request) {
+        // A record constructor that validates (e.g. an IP range) throws ApiProblem while Jackson
+        // builds the body; keep its code instead of a generic invalid_body.
+        for (Throwable t = e; t != null; t = t.getCause()) {
+            if (t instanceof ApiProblem p) {
+                return widen(problem(HttpStatus.valueOf(p.status()), p.code(), p.getMessage(), null));
+            }
+        }
         String reason = e.getMostSpecificCause().getMessage();
         int cut = reason == null ? -1 : reason.indexOf(" (");
         String detail = reason == null ? "The request body is not valid JSON." : (cut > 0 ? reason.substring(0, cut) : reason);

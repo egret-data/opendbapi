@@ -11,7 +11,7 @@ the full design is in [`docs/SPEC.md`](docs/SPEC.md).
 > tests and a table browser; endpoints with drafts, validation, preview (always rolled
 > back), publish, versions and rollback, served at `/api/{workspace}/{path}`; service
 > accounts with OAuth2 client-credentials tokens (`POST /oauth2/token`) and per-endpoint or
-> per-group grants for private endpoints.
+> per-group grants for private endpoints; per-workspace IP firewall and rate limits.
 
 ## Layout
 

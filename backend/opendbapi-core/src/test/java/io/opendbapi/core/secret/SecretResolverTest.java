@@ -18,7 +18,7 @@ class SecretResolverTest {
     private static SecretResolver resolver(String masterKey, MockEnvironment env) {
         var auth = new OpenDbApiProperties.Auth(true, 5, Duration.ofMinutes(15), "", "/");
         var props = new OpenDbApiProperties(OpenDbApiProperties.Mode.STANDALONE, masterKey,
-                new OpenDbApiProperties.Serving("api", ""), auth, new OpenDbApiProperties.Datasources(null, null));
+                new OpenDbApiProperties.Serving("api", "", null), auth, new OpenDbApiProperties.Datasources(null, null));
         return new SecretResolver(env, props);
     }
 

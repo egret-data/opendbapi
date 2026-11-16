@@ -103,17 +103,28 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
         }
     }
 
-    public record Limits(int timeoutSeconds, int maxRows) {
+    /**
+     * @param ratePerMinute calls per minute this endpoint answers across all callers, per
+     *     instance (spec §14); null = no endpoint limit
+     */
+    public record Limits(int timeoutSeconds, int maxRows,
+                         @Schema(nullable = true, description = "Calls per minute across all callers; null = unlimited")
+                         Integer ratePerMinute) {
         public static final int MAX_TIMEOUT_SECONDS = 300;
         public static final int MAX_ROWS = 100_000;
 
         public Limits {
             timeoutSeconds = timeoutSeconds <= 0 ? 30 : Math.min(timeoutSeconds, MAX_TIMEOUT_SECONDS);
             maxRows = maxRows <= 0 ? 10_000 : Math.min(maxRows, MAX_ROWS);
+            ratePerMinute = ratePerMinute == null || ratePerMinute <= 0 ? null : Math.min(ratePerMinute, 1_000_000);
+        }
+
+        public Limits(int timeoutSeconds, int maxRows) {
+            this(timeoutSeconds, maxRows, null);
         }
 
         public static Limits defaults() {
-            return new Limits(30, 10_000);
+            return new Limits(30, 10_000, null);
         }
     }
 }

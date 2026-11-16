@@ -83,6 +83,11 @@ export function SettingsTab({ ws, form, onChange, live, disabled }: {
           <Input id="ep-rows" type="number" min={1} max={100000} className="w-32 tabular-nums" value={def.limits.maxRows}
             onChange={(e) => setDef({ limits: { ...def.limits, maxRows: int(e.target.value, 10000) } })} />
         </ConfigTableRow>
+        <ConfigTableRow label="Rate limit" htmlFor="ep-rate" unit="calls / minute"
+          details="Across all callers of this endpoint, per server instance. Empty = no limit. Takes effect when published.">
+          <Input id="ep-rate" type="number" min={1} className="w-32 tabular-nums" value={def.limits.ratePerMinute ?? ""}
+            onChange={(e) => setDef({ limits: { ...def.limits, ratePerMinute: e.target.value === "" ? null : int(e.target.value, 60) } })} />
+        </ConfigTableRow>
         <ConfigTableRow label="Transaction" htmlFor="ep-tx" details="Run all statements in one transaction; any failure rolls them all back">
           <Switch id="ep-tx" checked={def.task.transaction} onCheckedChange={(v) => setDef({ task: { ...def.task, transaction: v } })} />
         </ConfigTableRow>
