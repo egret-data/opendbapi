@@ -112,7 +112,7 @@ public class ServingDispatcher {
         Datasource ds = scope.call(ws.id(), () -> datasources.find(route.task().datasourceId()))
                 .orElseThrow(() -> new ApiProblem(503, "datasource_missing", "This endpoint's datasource is not available."));
 
-        QueryExecutor.Result result = executor.run(ds, route.task(), params, page, def.limits(), QueryExecutor.Mode.SERVE);
+        QueryExecutor.QueryResult result = executor.run(ds, route.task(), params, page, def.limits(), QueryExecutor.RunMode.SERVE);
 
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("version", route.version());

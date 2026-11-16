@@ -41,7 +41,7 @@ public class EndpointValidator {
         }
     }
 
-    public record Validation(List<Finding> findings, List<String> detectedParameters, List<QueryExecutor.Column> outputColumns) {
+    public record Validation(List<Finding> findings, List<String> detectedParameters, List<QueryExecutor.ResultColumn> outputColumns) {
         public boolean ok() {
             return findings.stream().noneMatch(f -> "error".equals(f.severity()));
         }
@@ -93,7 +93,7 @@ public class EndpointValidator {
         }
 
         Map<String, Object> sample = sampleValues(def.params());
-        List<QueryExecutor.Column> output = List.of();
+        List<QueryExecutor.ResultColumn> output = List.of();
         boolean readOnlyEndpoint = "GET".equals(method);
         boolean readOnlyDatasource = datasource != null && datasource.readOnly();
         for (int i = 0; i < task.statements().size(); i++) {
@@ -104,7 +104,7 @@ public class EndpointValidator {
                 findings.add(Finding.error("template", e.getMessage()));
                 continue;
             }
-            for (SqlInspector.Finding f : SqlInspector.inspect(bound.sql(), new SqlInspector.Context(readOnlyEndpoint, readOnlyDatasource))) {
+            for (SqlInspector.SqlFinding f : SqlInspector.inspect(bound.sql(), new SqlInspector.Context(readOnlyEndpoint, readOnlyDatasource))) {
                 findings.add(new Finding(f.severity().name().toLowerCase(), f.code(), f.message()));
             }
             if (i == task.mainIndex() && datasource != null) {
@@ -178,15 +178,15 @@ public class EndpointValidator {
         return out;
     }
 
-    private List<QueryExecutor.Column> describe(Datasource ds, BoundSql bound, List<Finding> findings) {
+    private List<QueryExecutor.ResultColumn> describe(Datasource ds, BoundSql bound, List<Finding> findings) {
         try (Connection c = registry.connection(ds); PreparedStatement ps = c.prepareStatement(bound.sql())) {
             ResultSetMetaData meta = ps.getMetaData();
             if (meta == null) {
                 return List.of();
             }
-            List<QueryExecutor.Column> columns = new ArrayList<>();
+            List<QueryExecutor.ResultColumn> columns = new ArrayList<>();
             for (int i = 1; i <= meta.getColumnCount(); i++) {
-                columns.add(new QueryExecutor.Column(meta.getColumnLabel(i), meta.getColumnTypeName(i)));
+                columns.add(new QueryExecutor.ResultColumn(meta.getColumnLabel(i), meta.getColumnTypeName(i)));
             }
             return columns;
         } catch (Exception e) {

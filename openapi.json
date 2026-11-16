@@ -1024,7 +1024,7 @@
                 "schema" : {
                   "type" : "array",
                   "items" : {
-                    "$ref" : "#/components/schemas/Column"
+                    "$ref" : "#/components/schemas/TableColumn"
                   }
                 }
               }
@@ -2199,18 +2199,6 @@
           }
         }
       },
-      "Column" : {
-        "required" : [ "name", "type" ],
-        "type" : "object",
-        "properties" : {
-          "name" : {
-            "type" : "string"
-          },
-          "type" : {
-            "type" : "string"
-          }
-        }
-      },
       "CreateEndpoint" : {
         "required" : [ "access", "datasourceId", "method", "name", "path" ],
         "type" : "object",
@@ -2823,7 +2811,7 @@
           "columns" : {
             "type" : "array",
             "items" : {
-              "$ref" : "#/components/schemas/Column"
+              "$ref" : "#/components/schemas/ResultColumn"
             }
           },
           "durationMs" : {
@@ -2950,6 +2938,18 @@
         "type" : "object",
         "properties" : {
           "password" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ResultColumn" : {
+        "required" : [ "name", "type" ],
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "type" : {
             "type" : "string"
           }
         }
@@ -3086,6 +3086,29 @@
           },
           "schema" : {
             "type" : "string"
+          },
+          "type" : {
+            "type" : "string"
+          }
+        }
+      },
+      "TableColumn" : {
+        "required" : [ "name", "nullable", "position", "size", "type" ],
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "nullable" : {
+            "type" : "boolean"
+          },
+          "position" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32"
           },
           "type" : {
             "type" : "string"
@@ -3326,7 +3349,7 @@
           "outputColumns" : {
             "type" : "array",
             "items" : {
-              "$ref" : "#/components/schemas/Column"
+              "$ref" : "#/components/schemas/ResultColumn"
             }
           }
         }

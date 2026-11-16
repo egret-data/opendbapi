@@ -23,7 +23,7 @@ public class EndpointService {
                         EndpointDefinition definition) {
     }
 
-    public record Preview(QueryExecutor.Result result, List<EndpointValidator.Finding> findings) {
+    public record Preview(QueryExecutor.QueryResult result, List<EndpointValidator.Finding> findings) {
     }
 
     private final WorkspaceScope scope;
@@ -211,8 +211,8 @@ public class EndpointService {
                             Math.min(size == null ? definition.pagination().defaultSize() : size, definition.pagination().maxSize()),
                             definition.pagination().count())
                     : null;
-            QueryExecutor.Result result = executor.run(ds, task, params, pageRequest,
-                    new EndpointDefinition.Limits(Math.min(definition.limits().timeoutSeconds(), 10), 100), QueryExecutor.Mode.PREVIEW);
+            QueryExecutor.QueryResult result = executor.run(ds, task, params, pageRequest,
+                    new EndpointDefinition.Limits(Math.min(definition.limits().timeoutSeconds(), 10), 100), QueryExecutor.RunMode.PREVIEW);
             return new Preview(result, validation.findings());
         });
     }

@@ -152,7 +152,7 @@ class DatasourceRegistryTest extends PostgresTestSupport {
         assertThat(tables.items()).extracting(DataSourceRegistry.Table::name, DataSourceRegistry.Table::type)
                 .contains(org.assertj.core.groups.Tuple.tuple("orders", "TABLE"),
                         org.assertj.core.groups.Tuple.tuple("big_orders", "VIEW"));
-        assertThat(columns).extracting(DataSourceRegistry.Column::name).containsExactly("id", "customer", "amount");
+        assertThat(columns).extracting(DataSourceRegistry.TableColumn::name).containsExactly("id", "customer", "amount");
         assertThat(columns.get(1).nullable()).isFalse();
         assertThat(columns.get(2).type()).isEqualTo("numeric");
     }

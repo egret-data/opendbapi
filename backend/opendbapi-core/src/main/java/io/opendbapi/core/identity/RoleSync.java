@@ -32,7 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class RoleSync {
 
     /** What changed, for the audit log. */
-    public record Result(List<String> changes) {
+    public record SyncResult(List<String> changes) {
     }
 
     private final IdentityProviderStore providers;
@@ -46,7 +46,7 @@ public class RoleSync {
     }
 
     @Transactional
-    public Result sync(UserAccount user, Collection<String> groups) {
+    public SyncResult sync(UserAccount user, Collection<String> groups) {
         Set<String> held = groups.stream().map(g -> g.toLowerCase(Locale.ROOT)).collect(Collectors.toSet());
         List<GroupRoleMapping> all = providers.mappings(user.idpId());
         List<GroupRoleMapping> matching = all.stream()
@@ -100,6 +100,6 @@ public class RoleSync {
                 changes.add(shouldBeAdmin ? "granted system admin" : "revoked system admin");
             }
         }
-        return new Result(changes);
+        return new SyncResult(changes);
     }
 }

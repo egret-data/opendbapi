@@ -21,9 +21,10 @@ class ApiSchemaNamesTest {
     void dtoSimpleNamesAreUnique() throws Exception {
         // Arrange
         List<Class<?>> types = new ArrayList<>();
-        for (Resource r : new PathMatchingResourcePatternResolver().getResources("classpath*:io/opendbapi/admin/**/*.class")) {
+        // Core and sql records appear in the API too (e.g. EndpointDefinition, result columns).
+        for (Resource r : new PathMatchingResourcePatternResolver().getResources("classpath*:io/opendbapi/**/*.class")) {
             String path = r.getURL().getPath();
-            String name = path.substring(path.indexOf("io/opendbapi/admin/")).replace('/', '.').replace(".class", "");
+            String name = path.substring(path.indexOf("io/opendbapi/")).replace('/', '.').replace(".class", "");
             Class<?> type = Class.forName(name, false, getClass().getClassLoader());
             if ((type.isRecord() || type.isEnum()) && java.lang.reflect.Modifier.isPublic(type.getModifiers())) {
                 types.add(type);

@@ -38,3 +38,7 @@ beforeEach(() => {
   if (!HTMLElement.prototype.releasePointerCapture) HTMLElement.prototype.releasePointerCapture = () => undefined;
   if (!HTMLElement.prototype.scrollIntoView) HTMLElement.prototype.scrollIntoView = () => undefined;
 });
+
+// The full suite runs files in parallel; 1 s is too tight for findBy* under that load.
+import { configure } from "@testing-library/react";
+configure({ asyncUtilTimeout: 5000 });

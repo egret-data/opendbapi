@@ -6,4 +6,7 @@
  * OpenAPI spec version: v1
  */
 
-export interface JsonNode { [key: string]: unknown }
+/**
+ * @nullable
+ */
+export type JsonNode = { [key: string]: unknown } | null;

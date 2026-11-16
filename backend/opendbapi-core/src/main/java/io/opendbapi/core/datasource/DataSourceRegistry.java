@@ -35,7 +35,7 @@ public class DataSourceRegistry implements DisposableBean {
     public record Tables(List<Table> items, boolean truncated) {
     }
 
-    public record Column(String name, String type, int size, boolean nullable, int position) {
+    public record TableColumn(String name, String type, int size, boolean nullable, int position) {
     }
 
     private static final int MAX_TABLES = 2000;
@@ -133,12 +133,12 @@ public class DataSourceRegistry implements DisposableBean {
         });
     }
 
-    public List<Column> columns(Datasource ds, String schema, String table) {
+    public List<TableColumn> columns(Datasource ds, String schema, String table) {
         return withMetadata(ds, (meta, cfg) -> {
-            List<Column> out = new ArrayList<>();
+            List<TableColumn> out = new ArrayList<>();
             try (ResultSet rs = meta.getColumns(catalog(cfg), schemaPattern(cfg, schema), escape(meta, table), "%")) {
                 while (rs.next()) {
-                    out.add(new Column(rs.getString("COLUMN_NAME"), rs.getString("TYPE_NAME"), rs.getInt("COLUMN_SIZE"),
+                    out.add(new TableColumn(rs.getString("COLUMN_NAME"), rs.getString("TYPE_NAME"), rs.getInt("COLUMN_SIZE"),
                             rs.getInt("NULLABLE") != DatabaseMetaData.columnNoNulls, rs.getInt("ORDINAL_POSITION")));
                 }
             }

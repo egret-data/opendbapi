@@ -25,13 +25,13 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
-  Column,
   DatasourceTestResult,
   DatasourceView,
   DialectInfo,
   ListColumnsParams,
   ListTablesParams,
   SaveDatasource,
+  TableColumn,
   Tables,
   TestDatasource
 } from '../model';
@@ -675,9 +675,9 @@ export const useUpdateDatasource = <TError = unknown,
  */
 export const listColumns = async (ws: string,
     id: string,
-    params: ListColumnsParams, options?: Parameters<typeof customInstance>[1]): Promise<Column[]> => {
+    params: ListColumnsParams, options?: Parameters<typeof customInstance>[1]): Promise<TableColumn[]> => {
 
-  return customInstance<Column[]>(getListColumnsUrl(ws,id,params),
+  return customInstance<TableColumn[]>(getListColumnsUrl(ws,id,params),
   {
     ...options,
     method: 'GET'

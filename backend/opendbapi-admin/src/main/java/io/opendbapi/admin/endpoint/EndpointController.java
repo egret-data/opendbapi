@@ -96,7 +96,7 @@ public class EndpointController {
     }
 
     public record ValidationView(boolean ok, List<EndpointValidator.Finding> findings, List<String> detectedParameters,
-                                 List<QueryExecutor.Column> outputColumns) {
+                                 List<QueryExecutor.ResultColumn> outputColumns) {
         static ValidationView of(EndpointValidator.Validation v) {
             return new ValidationView(v.ok(), v.findings(), v.detectedParameters(), v.outputColumns());
         }
@@ -127,7 +127,7 @@ public class EndpointController {
     }
 
     public record PreviewResponse(
-            List<QueryExecutor.Column> columns,
+            List<QueryExecutor.ResultColumn> columns,
             List<Map<String, Object>> rows,
             @Schema(nullable = true) Long affectedRows,
             boolean truncated,
@@ -287,7 +287,7 @@ public class EndpointController {
         endpoints.get(granted.workspace().id(), id);
         EndpointService.Preview p = endpoints.preview(granted.workspace().id(), body.method(), body.path(), body.definition(),
                 body.params(), body.page(), body.size());
-        QueryExecutor.Result r = p.result();
+        QueryExecutor.QueryResult r = p.result();
         return new PreviewResponse(r.columns(), r.rows(), r.affectedRows(), r.truncated(), r.total(), r.hasNext(), r.durationMs(),
                 r.executed().stream().map(b -> new ExecutedSql(b.sql(), b.parameters())).toList(), p.findings());
     }
