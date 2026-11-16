@@ -112,6 +112,14 @@ public class ServiceAccountStore {
                 .params(id, serviceAccountId).query(String.class).optional();
     }
 
+    /** New secret for an active client; returns the client id, if it existed and was active. */
+    public Optional<String> rotateSecret(UUID serviceAccountId, UUID id, String secretHash) {
+        return jdbc.sql("""
+                update oauth_client set secret_hash = ?
+                where id = ? and service_account_id = ? and revoked_at is null returning client_id""")
+                .params(secretHash, id, serviceAccountId).query(String.class).optional();
+    }
+
     public Optional<ClientLogin> login(String clientId) {
         return jdbc.sql("""
                 select c.service_account_id, c.client_id, c.secret_hash, sa.disabled, c.expires_at, c.revoked_at

@@ -7,7 +7,7 @@ import { ME_ALICE, json, mockServer, renderApp } from "./testServer";
 const meAs = (role: "admin" | "viewer") => ({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role }] });
 const POLICY = { firewall: { mode: "off", entries: [] }, rateLimits: { perClientPerMinute: null, perIpPerMinute: null } };
 
-describe("Firewall & limits", () => {
+describe("Security settings", () => {
   it("saves a deny list and an IP rate limit", async () => {
     // Arrange
     const server = mockServer({
@@ -16,7 +16,7 @@ describe("Firewall & limits", () => {
       "PUT /admin/api/ws/sales/serving-policy": (init) => json(JSON.parse(String(init?.body))),
     });
     const user = userEvent.setup();
-    renderApp("/w/sales/settings/serving");
+    renderApp("/w/sales/settings/security");
 
     // Act
     await user.click(await screen.findByLabelText("Deny list"));
@@ -38,7 +38,7 @@ describe("Firewall & limits", () => {
     mockServer({ "GET /admin/api/me": () => json(meAs("viewer")), "GET /admin/api/ws/sales/serving-policy": () => json(POLICY) });
 
     // Act
-    renderApp("/w/sales/settings/serving");
+    renderApp("/w/sales/settings/security");
 
     // Assert
     expect(await screen.findByLabelText("Per client")).toBeDisabled();

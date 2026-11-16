@@ -15,6 +15,7 @@ import {
   useGrantAccess,
   useRevokeAccess,
   useRevokeClient,
+  useRotateClientSecret,
   useUpdateServiceAccount,
 } from "@/api/generated/service-accounts/service-accounts";
 import { useSystemInfo } from "@/api/generated/system/system";
@@ -159,8 +160,10 @@ function ClientsSection({ ws, saId, clients, isAdmin, onChanged }: {
   const revoke = useRevokeClient();
   const [expiresInDays, setExpiresInDays] = useState("");
   const [creating, setCreating] = useState(false);
-  const [created, setCreated] = useState<NewClient | null>(null);
+  const [created, setCreated] = useState<ShownSecret | null>(null);
   const [revoking, setRevoking] = useState<Client | null>(null);
+  const [rotating, setRotating] = useState<Client | null>(null);
+  const rotate = useRotateClientSecret();
 
   return (
     <section aria-labelledby="clients-heading" className="space-y-3">
@@ -185,7 +188,7 @@ function ClientsSection({ ws, saId, clients, isAdmin, onChanged }: {
                 <TableHead>Created</TableHead>
                 <TableHead>Expires</TableHead>
                 <TableHead>Last token</TableHead>
-                <TableHead className="w-24"><span className="sr-only">Actions</span></TableHead>
+                <TableHead className="w-56"><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -200,7 +203,10 @@ function ClientsSection({ ws, saId, clients, isAdmin, onChanged }: {
                     <TableCell className="tabular-nums">{c.lastUsedAt ? formatDateTime(c.lastUsedAt) : "Never"}</TableCell>
                     <TableCell className="text-right">
                       {isAdmin && !c.revokedAt && (
-                        <Button variant="ghost" size="sm" onClick={() => setRevoking(c)}>Revoke</Button>
+                        <span className="inline-flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => setRotating(c)}>Rotate secret</Button>
+                          <Button variant="ghost" size="sm" onClick={() => setRevoking(c)}>Revoke</Button>
+                        </span>
                       )}
                     </TableCell>
                   </TableRow>
@@ -240,6 +246,19 @@ function ClientsSection({ ws, saId, clients, isAdmin, onChanged }: {
       <SecretDialog created={created} onClose={() => setCreated(null)} ws={ws} />
 
       <ConfirmDialog
+        open={rotating !== null}
+        onOpenChange={(o) => !o && setRotating(null)}
+        title="Rotate this client's secret?"
+        description={<p>The current secret of <span className="font-mono">{rotating?.clientId}</span> stops working at once. Update the systems that use it.</p>}
+        confirmLabel="Rotate"
+        pending={rotate.isPending}
+        onConfirm={() => rotating && rotate.mutate({ ws, id: saId, clientRowId: rotating.id }, {
+          onSuccess: (c) => { setRotating(null); setCreated({ ...c, rotated: true }); onChanged(); },
+          onError: (e) => toast.error(errorMessage(e)),
+        })}
+      />
+
+      <ConfirmDialog
         open={revoking !== null}
         onOpenChange={(o) => !o && setRevoking(null)}
         title="Revoke this client?"
@@ -256,7 +275,9 @@ function ClientsSection({ ws, saId, clients, isAdmin, onChanged }: {
   );
 }
 
-function SecretDialog({ created, onClose, ws }: { created: NewClient | null; onClose: () => void; ws: string }) {
+type ShownSecret = NewClient & { rotated?: boolean };
+
+function SecretDialog({ created, onClose, ws }: { created: ShownSecret | null; onClose: () => void; ws: string }) {
   const info = useSystemInfo();
   const tokenUrl = info.data?.tokenUrl ?? "/oauth2/token";
   const copy = (text: string, what: string) => navigator.clipboard?.writeText(text).then(() => toast.success(`${what} copied.`));
@@ -266,10 +287,12 @@ function SecretDialog({ created, onClose, ws }: { created: NewClient | null; onC
 # then
 curl -H "Authorization: Bearer <access_token>" ${info.data?.servingBaseUrl ?? ""}/${ws}/<path>`;
   return (
-    <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-2xl">
+    // Not closable by Escape, outside click or an X: the secret is gone once this closes (spec §17.4).
+    <Dialog open>
+      <DialogContent className="sm:max-w-2xl" showCloseButton={false}
+        onEscapeKeyDown={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle>Client created</DialogTitle>
+          <DialogTitle>{created.rotated ? "Secret rotated" : "Client created"}</DialogTitle>
           <DialogDescription>Copy the secret now. It is not stored in a readable form and cannot be shown again.</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
@@ -279,7 +302,13 @@ curl -H "Authorization: Bearer <access_token>" ${info.data?.servingBaseUrl ?? ""
             <p className="text-sm font-medium">Get a token and call an endpoint</p>
             <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">{example}</pre>
           </div>
-          <Alert><AlertDescription>The service account also needs a grant on each endpoint or group it calls.</AlertDescription></Alert>
+          <Alert>
+            <AlertDescription>
+              {created.rotated
+                ? "The old secret no longer works. Tokens already issued stay valid until they expire (15 minutes)."
+                : "The service account also needs a grant on each endpoint or group it calls."}
+            </AlertDescription>
+          </Alert>
         </div>
         <DialogFooter>
           <Button onClick={onClose}>I have stored the secret</Button>

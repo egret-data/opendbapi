@@ -61,6 +61,10 @@ describe("Clients", () => {
     const post = server.calls.find((c) => c.key === "POST /admin/api/ws/sales/service-accounts/sa1/clients");
     expect(JSON.parse(String(post?.init?.body))).toEqual({ expiresInDays: 30 });
 
+    // Act + Assert: Escape does not close it; only the explicit button does
+    await user.keyboard("{Escape}");
+    expect(screen.getByRole("dialog", { name: "Client created" })).toBeInTheDocument();
+
     // Act: closing forgets the secret
     await user.click(within(dialog).getByRole("button", { name: "I have stored the secret" }));
     await waitFor(() => expect(screen.queryByText("ods_s3cret")).not.toBeInTheDocument());
@@ -83,5 +87,27 @@ describe("Clients", () => {
     // Assert
     await waitFor(() =>
       expect(server.calls.some((c) => c.key === "DELETE /admin/api/ws/sales/service-accounts/sa1/grants/endpoint/e1")).toBe(true));
+  });
+
+  it("rotates a client's secret after confirmation and shows the new one once", async () => {
+    // Arrange
+    mockServer({
+      ...common,
+      "GET /admin/api/me": () => json(meAs("admin")),
+      "GET /admin/api/ws/sales/service-accounts/sa1": () => json(DETAIL),
+      "POST /admin/api/ws/sales/service-accounts/sa1/clients/c1:rotate": () =>
+        json({ client: DETAIL.clients[0], clientSecret: "ods_rotated" }),
+    });
+    const user = userEvent.setup();
+    renderApp("/w/sales/clients/sa1");
+
+    // Act
+    await user.click(await screen.findByRole("button", { name: "Rotate secret" }));
+    await user.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Rotate" }));
+
+    // Assert
+    const dialog = await screen.findByRole("dialog", { name: "Secret rotated" });
+    expect(within(dialog).getByText("ods_rotated")).toBeInTheDocument();
+    expect(within(dialog).getByText(/old secret no longer works/)).toBeInTheDocument();
   });
 });

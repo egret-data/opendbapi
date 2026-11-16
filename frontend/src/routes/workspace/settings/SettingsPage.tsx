@@ -30,14 +30,14 @@ export default function SettingsPage() {
       <nav aria-label="Settings sections" className={`${tabsListClass("pill")} mt-4`}>
         {tab(`/w/${ws}/settings`, "General")}
         {tab(`/w/${ws}/settings/members`, "Members")}
-        {tab(`/w/${ws}/settings/serving`, "Firewall & limits")}
+        {tab(`/w/${ws}/settings/security`, "Security")}
         {isAdmin && tab(`/w/${ws}/settings/audit`, "Audit log")}
       </nav>
       <div className="pt-4">
         <Routes>
           <Route index element={<GeneralSection ws={ws} role={role} />} />
           <Route path="members" element={<MembersSection ws={ws} role={role} />} />
-          <Route path="serving" element={<ServingPolicySection ws={ws} role={role} />} />
+          <Route path="security" element={<ServingPolicySection ws={ws} role={role} />} />
           <Route
             path="audit"
             element={isAdmin ? <AuditSection ws={ws} /> : <Forbidden reason="The audit log is for workspace admins." />}

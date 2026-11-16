@@ -45,8 +45,10 @@ export default function EndpointsPage() {
   const trashed = params.get("view") === "trash";
   const state = params.get("state") ?? "";
   const group = params.get("group") ?? "";
+  const datasource = params.get("ds") ?? "";
   const [q, setQ] = useState("");
   const query = useListEndpoints(ws, { trashed });
+  const trashCount = useListEndpoints(ws, { trashed: true }, { query: { enabled: !trashed } }).data?.length ?? 0;
   const groups = useListGroups(ws);
   const datasources = useListDatasources(ws);
   const info = useSystemInfo();
@@ -94,10 +96,21 @@ export default function EndpointsPage() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={datasource || ALL} onValueChange={(v) => set({ ds: v === ALL ? "" : v })}>
+            <SelectTrigger className="w-44" aria-label="Datasource">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All datasources</SelectItem>
+              {(datasources.data ?? []).map((d) => (
+                <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {!trashed && (
             <>
               <Button variant="ghost" size="sm" onClick={() => set({ view: "trash" })}>
-                Trash
+                Trash{trashCount > 0 ? ` (${trashCount})` : ""}
               </Button>
               <Button asChild variant="ghost" size="sm">
                 <a href={`${info.data?.servingBaseUrl ?? "/api"}/${ws}/docs.html`} target="_blank" rel="noreferrer">
@@ -122,6 +135,7 @@ export default function EndpointsPage() {
             (e) =>
               (!state || e.state === state) &&
               (!group || e.groupId === group) &&
+              (!datasource || e.datasourceId === datasource) &&
               (!needle || e.name.toLowerCase().includes(needle) || e.path.toLowerCase().includes(needle)),
           );
           if (all.length === 0) {
@@ -198,6 +212,11 @@ export default function EndpointsPage() {
                                     <DropdownMenuItem onSelect={() => navigator.clipboard?.writeText(url(e)).then(() => toast.success("URL copied."))}>
                                       Copy URL
                                     </DropdownMenuItem>
+                                    {e.liveVersion != null && (
+                                      <DropdownMenuItem asChild>
+                                        <a href={`/admin/api/ws/${ws}/endpoints/${e.id}/openapi.json`} download>Download OpenAPI</a>
+                                      </DropdownMenuItem>
+                                    )}
                                     <DropdownMenuItem onSelect={() => duplicate.mutate({ ws, id: e.id }, { onSuccess: (c) => toast.success(`Copied as /${c.summary.path}.`) })}>
                                       Duplicate
                                     </DropdownMenuItem>
