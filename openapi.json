@@ -1441,6 +1441,51 @@
         "tags" : [ "endpoints" ]
       }
     },
+    "/admin/api/ws/{ws}/endpoints/{id}/try" : {
+      "post" : {
+        "operationId" : "tryEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TryRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TryResponse"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Call the live version through the serving pipeline (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
     "/admin/api/ws/{ws}/endpoints/{id}/versions" : {
       "get" : {
         "operationId" : "listEndpointVersions",
@@ -3855,6 +3900,71 @@
           "username" : {
             "type" : "string",
             "nullable" : true
+          }
+        }
+      },
+      "TryRequest" : {
+        "type" : "object",
+        "properties" : {
+          "page" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "params" : {
+            "type" : "object",
+            "additionalProperties" : true,
+            "nullable" : true
+          },
+          "serviceAccountId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "nullable" : true
+          },
+          "size" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          }
+        }
+      },
+      "TryResponse" : {
+        "required" : [ "curl", "durationMs", "headers", "method", "status", "url" ],
+        "type" : "object",
+        "properties" : {
+          "body" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "curl" : {
+            "type" : "string"
+          },
+          "durationMs" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "headers" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string"
+            }
+          },
+          "method" : {
+            "type" : "string"
+          },
+          "serviceAccountName" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "text" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "url" : {
+            "type" : "string"
           }
         }
       },

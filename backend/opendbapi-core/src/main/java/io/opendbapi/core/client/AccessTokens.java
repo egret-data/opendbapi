@@ -51,6 +51,15 @@ public class AccessTokens {
     }
 
     public Issued issue(UUID serviceAccountId, String clientId, UUID workspaceId) {
+        return issue(serviceAccountId, clientId, workspaceId, ttl);
+    }
+
+    /** A short-lived token for Try-it (spec §11.2): never leaves the server. */
+    public Issued issueForTryIt(UUID serviceAccountId, UUID actorUserId, UUID workspaceId) {
+        return issue(serviceAccountId, TryItRelay.CLIENT_PREFIX + actorUserId, workspaceId, Duration.ofSeconds(60));
+    }
+
+    private Issued issue(UUID serviceAccountId, String clientId, UUID workspaceId, Duration lifetime) {
         Instant now = clock.instant();
         RSAKey key = keys.current();
         JWTClaimsSet claims = new JWTClaimsSet.Builder()
@@ -59,7 +68,7 @@ public class AccessTokens {
                 .claim("cid", clientId)
                 .claim("ws", workspaceId.toString())
                 .issueTime(Date.from(now))
-                .expirationTime(Date.from(now.plus(ttl)))
+                .expirationTime(Date.from(now.plus(lifetime)))
                 .jwtID(UUID.randomUUID().toString())
                 .build();
         SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(key.getKeyID()).type(TYPE).build(), claims);
@@ -68,7 +77,7 @@ public class AccessTokens {
         } catch (JOSEException e) {
             throw new IllegalStateException("Cannot sign access token", e);
         }
-        return new Issued(jwt.serialize(), ttl.toSeconds());
+        return new Issued(jwt.serialize(), lifetime.toSeconds());
     }
 
     /** Verifies signature, type, issuer and lifetime; throws 401 {@code invalid_token} otherwise. */

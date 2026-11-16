@@ -657,13 +657,13 @@ Cache dùng khoá `(endpointId, version, paramsHash, scope)`. `scope = client` s
 
 ### 11.2 Try-it [E]
 
-`POST /admin/api/endpoints/{id}/try`, body `{ serviceAccountId, params }`:
+`POST /admin/api/ws/{ws}/endpoints/{id}/try`, body `{ serviceAccountId, params, page, size }`:
 
-- Server tạo một token thật, sống 60 giây, cho service account đó, rồi **gọi chính pipeline serving trong cùng tiến trình** (cùng filter chain và handler). Không viết một đường xử lý "tương đương" riêng.
+- Server tạo một token thật, sống 60 giây, cho service account đó (claim `cid = tryit:<userId>`), rồi **gọi chính pipeline serving trong cùng tiến trình** bằng một request HTTP loopback (cùng filter chain và handler). Không viết một đường xử lý "tương đương" riêng. Request mang header nội bộ `X-OpenDBAPI-Try-It`, ký bằng bí mật ngẫu nhiên của tiến trình, cho biết người bấm và IP thật của họ; firewall và rate limit áp dụng theo IP đó. Token `tryit:` không dùng được nếu thiếu header này.
 - Không bỏ qua bước kiểm tra nào: chưa cấp quyền thì nhận 403 `not_granted` thật, và UI hiển thị link sang tab Access để sửa.
 - Request Try-it có tính vào rate limit và có ghi access log với `actor_user_id` (được lọc khỏi thống kê). Ghi thêm một dòng `audit_log`.
 - Token không bao giờ được gửi xuống trình duyệt. UI hiển thị `Authorization: Bearer ••••` và một khối `curl` dùng biến `$TOKEN`.
-- Quyền cần có: `endpoint:manage`.
+- Quyền cần có: role `author` trở lên. Chỉ gọi được bản đang live.
 
 ### 11.3 Bộ test case cho từng endpoint (P2)
 
@@ -1124,7 +1124,7 @@ management:
 5. ✅ (2026-11-16) Endpoint draft/validate/publish/rollback + registry + pipeline serving (§9.1, bước 1, 3, 7, 10–14, 16).
 6. ✅ (2026-11-17) Service account, client, OAuth2 token, cấp quyền (§9.1 bước 4–5). Token endpoint `POST /oauth2/token`, khoá công khai tại `GET /oauth2/jwks`; khoá ký RS256 lưu trong bảng `signing_key`, private key niêm phong bằng master key. Bảng `oauth_client_directory` (không RLS, không chứa secret) cho token endpoint biết client thuộc workspace nào.
 6b. ✅ (2026-11-17) Firewall IP/CIDR và rate limit (§14, §9.1 bước 2 và 6): cấu hình theo workspace (cột `workspace.serving_policy`), giới hạn riêng từng endpoint ở `limits.ratePerMinute`. Token bucket chạy trong bộ nhớ nên giới hạn được đếm riêng ở mỗi instance. Header `X-Forwarded-For` chỉ được tin khi request đến từ `opendbapi.serving.trusted-proxies`.
-7. Preview + Try-it (gọi pipeline thật trong cùng tiến trình).
+7. ✅ (2026-11-17) Preview + Try-it (gọi pipeline thật trong cùng tiến trình). Preview đã có từ bước 5. Lời gọi Try-it được ghi vào access log dạng dòng JSON (`actorUserId`); bảng `access_log` thuộc bước 10.
 8. OpenAPI tự sinh + Swagger UI.
 9. Stream NDJSON/CSV trên virtual threads.
 10. Metric, tracing, log query chậm, access log ra file, trang Activity cơ bản.

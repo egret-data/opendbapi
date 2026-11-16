@@ -32,6 +32,8 @@ import type {
   PreviewRequest,
   PreviewResponse,
   PublishRequest,
+  TryRequest,
+  TryResponse,
   UpdateEndpoint,
   ValidationView,
   VersionView
@@ -570,6 +572,79 @@ export const usePreviewEndpoint = <TError = unknown,
         TContext
       > => {
       return useMutation(getPreviewEndpointMutationOptions(options), queryClient);
+    }
+    export const getTryEndpointUrl = (ws: string,
+    id: string,) => {
+
+
+
+
+  return `/admin/api/ws/${ws}/endpoints/${id}/try`
+}
+
+/**
+ * @summary Call the live version through the serving pipeline (author)
+ */
+export const tryEndpoint = async (ws: string,
+    id: string,
+    tryRequest: TryRequest, options?: Parameters<typeof customInstance>[1]): Promise<TryResponse> => {
+
+  return customInstance<TryResponse>(getTryEndpointUrl(ws,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(tryRequest)
+  }
+);}
+
+
+
+
+
+export const getTryEndpointMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tryEndpoint>>, TError,{ws: string;id: string;data: TryRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof tryEndpoint>>, TError,{ws: string;id: string;data: TryRequest}, TContext> => {
+
+const mutationKey = ['tryEndpoint'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof tryEndpoint>>, {ws: string;id: string;data: TryRequest}> = (props) => {
+          const {ws,id,data} = props ?? {};
+
+          return  tryEndpoint(ws,id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type TryEndpointMutationResult = NonNullable<Awaited<ReturnType<typeof tryEndpoint>>>
+    export type TryEndpointMutationBody = TryRequest
+    export type TryEndpointMutationError = unknown
+
+    /**
+ * @summary Call the live version through the serving pipeline (author)
+ */
+export const useTryEndpoint = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof tryEndpoint>>, TError,{ws: string;id: string;data: TryRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof tryEndpoint>>,
+        TError,
+        {ws: string;id: string;data: TryRequest},
+        TContext
+      > => {
+      return useMutation(getTryEndpointMutationOptions(options), queryClient);
     }
     export const getListEndpointVersionsUrl = (ws: string,
     id: string,) => {

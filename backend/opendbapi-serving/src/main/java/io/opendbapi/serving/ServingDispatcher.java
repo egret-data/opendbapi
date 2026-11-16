@@ -3,6 +3,7 @@ package io.opendbapi.serving;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.opendbapi.core.client.AccessTokens;
 import io.opendbapi.core.client.CallerAuthorizer;
+import io.opendbapi.core.client.TryItRelay;
 import io.opendbapi.core.client.ServiceAccountStore.CallerStatus;
 import io.opendbapi.core.datasource.Datasource;
 import io.opendbapi.core.datasource.DatasourceStore;
@@ -62,11 +63,13 @@ public class ServingDispatcher {
     private final AccessTokens tokens;
     private final CallerAuthorizer authorizer;
     private final ServingGuard guard;
+    private final TryItRelay relay;
 
     public ServingDispatcher(WorkspaceStore workspaces, EndpointRegistry registry, WorkspaceScope scope,
                              DatasourceStore datasources, QueryExecutor executor, AccessTokens tokens,
-                             CallerAuthorizer authorizer, ServingGuard guard) {
+                             CallerAuthorizer authorizer, ServingGuard guard, TryItRelay relay) {
         this.guard = guard;
+        this.relay = relay;
         this.workspaces = workspaces;
         this.registry = registry;
         this.scope = scope;
@@ -84,6 +87,10 @@ public class ServingDispatcher {
         String path = endpointPath(request.getRequestURI(), request.getContextPath(), workspaceSlug);
         Outcome outcome = new Outcome();
         outcome.ip = guard.clientIp(request.getRemoteAddr(), request.getHeader("X-Forwarded-For"));
+        relay.read(request.getHeader(TryItRelay.HEADER)).ifPresent(r -> {
+            outcome.actorUserId = r.actorUserId().toString();
+            outcome.ip = r.clientIp();
+        });
         try {
             ResponseEntity<?> response = serve(workspaceSlug, method, path, request, requestId, outcome);
             outcome.status = response.getStatusCode().value();
@@ -115,10 +122,10 @@ public class ServingDispatcher {
                     "The query failed. Give the endpoint's owner this request id: " + requestId + ".", requestId);
         } finally {
             access.info("{\"requestId\":\"{}\",\"ws\":\"{}\",\"method\":\"{}\",\"path\":\"{}\",\"endpointId\":{},\"version\":{},"
-                            + "\"status\":{},\"durationMs\":{},\"rows\":{},\"error\":{},\"clientId\":{},\"ip\":\"{}\"}",
+                            + "\"status\":{},\"durationMs\":{},\"rows\":{},\"error\":{},\"clientId\":{},\"actorUserId\":{},\"ip\":\"{}\"}",
                     requestId, workspaceSlug, method, path, quote(outcome.endpointId), outcome.version, outcome.status,
                     (System.nanoTime() - start) / 1_000_000, outcome.rows, quote(outcome.errorCode), quote(outcome.clientId),
-                    outcome.ip);
+                    quote(outcome.actorUserId), outcome.ip);
         }
     }
 
@@ -182,7 +189,10 @@ public class ServingDispatcher {
         if (!caller.workspaceId().equals(ws.id())) {
             throw new ApiProblem(401, "invalid_token", "The token was issued for another workspace.");
         }
-        CallerStatus status = authorizer.check(ws.id(), caller.clientId(), route.endpointId());
+        if (TryItRelay.isTryItClient(caller.clientId()) && outcome.actorUserId == null) {
+            throw new ApiProblem(401, "invalid_token", "This token is only valid for Try-it.");
+        }
+        CallerStatus status = authorizer.check(ws.id(), caller, route.endpointId());
         if (status == CallerStatus.INVALID) {
             throw new ApiProblem(401, "invalid_token", "The client was revoked or its service account disabled.");
         }
@@ -322,5 +332,6 @@ public class ServingDispatcher {
         String clientId;
         String serviceAccountId;
         String ip;
+        String actorUserId;
     }
 }

@@ -32,7 +32,12 @@ public class CallerAuthorizer {
         this.scope = scope;
     }
 
-    public ServiceAccountStore.CallerStatus check(UUID workspaceId, String clientId, UUID endpointId) {
+    public ServiceAccountStore.CallerStatus check(UUID workspaceId, AccessTokens.Caller caller, UUID endpointId) {
+        String clientId = caller.clientId();
+        if (TryItRelay.isTryItClient(clientId)) {
+            // Try-it tokens live 60 s and are rare: always ask the database.
+            return scope.call(workspaceId, () -> store.serviceAccountStatus(caller.serviceAccountId(), endpointId));
+        }
         Key key = new Key(workspaceId, clientId, endpointId);
         long now = System.nanoTime();
         Entry hit = cache.get(key);
