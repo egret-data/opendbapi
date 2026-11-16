@@ -95,9 +95,19 @@ export default function EndpointsPage() {
             </SelectContent>
           </Select>
           {!trashed && (
-            <Button variant="ghost" size="sm" onClick={() => set({ view: "trash" })}>
-              Trash
-            </Button>
+            <>
+              <Button variant="ghost" size="sm" onClick={() => set({ view: "trash" })}>
+                Trash
+              </Button>
+              <Button asChild variant="ghost" size="sm">
+                <a href={`${info.data?.servingBaseUrl ?? "/api"}/${ws}/docs.html`} target="_blank" rel="noreferrer">
+                  API docs
+                </a>
+              </Button>
+              <Button asChild variant="ghost" size="sm">
+                <a href={`/admin/api/ws/${ws}/openapi.json`} download={`${ws}-openapi.json`}>Download OpenAPI</a>
+              </Button>
+            </>
           )}
         </div>
       }

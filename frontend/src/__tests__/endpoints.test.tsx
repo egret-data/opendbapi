@@ -71,6 +71,8 @@ describe("Endpoints", () => {
     expect(within(row).getByText("v2")).toBeInTheDocument();
     expect(within(row).getByText(/unpublished changes/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /1\s*drafts?/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "API docs" })).toHaveAttribute("href", "http://h/api/sales/docs.html");
+    expect(screen.getByRole("link", { name: "Download OpenAPI" })).toHaveAttribute("href", "/admin/api/ws/sales/openapi.json");
   });
 
   it("creates an endpoint and opens its editor", async () => {

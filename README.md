@@ -4,7 +4,7 @@ Publish SQL as versioned, access-controlled REST APIs, with workspaces for multi
 sign-in through local accounts, LDAP or SSO. A clean-room rewrite of the ideas behind DBAPI;
 the full design is in [`docs/SPEC.md`](docs/SPEC.md).
 
-> **Status:** roadmap steps 1–7 done: schema with per-workspace row-level security,
+> **Status:** roadmap steps 1–8 done: schema with per-workspace row-level security,
 > sign-in (local, LDAP, SSO/OIDC) with group → role mapping, workspaces, members, users,
 > identity providers and audit log; the SQL template engine with static checks and
 > pagination; datasources (PostgreSQL, MySQL, MariaDB, SQL Server, Oracle) with connection
@@ -12,7 +12,7 @@ the full design is in [`docs/SPEC.md`](docs/SPEC.md).
 > back), publish, versions and rollback, served at `/api/{workspace}/{path}`; service
 > accounts with OAuth2 client-credentials tokens (`POST /oauth2/token`) and per-endpoint or
 > per-group grants for private endpoints; per-workspace IP firewall and rate limits; Try-it
-> through the real serving pipeline.
+> through the real serving pipeline; generated OpenAPI 3.1 and Swagger UI per workspace.
 
 ## Layout
 
