@@ -18,6 +18,10 @@ function safeNext(next: string | null): string {
 export function LoginPage() {
   const [params] = useSearchParams();
   const next = safeNext(params.get("next"));
+  // Set by the backend when SSO fails: /login?error=sso&reason=...
+  const ssoError = params.get("error") === "sso" ? (params.get("reason") ?? "Single sign-on failed.") : null;
+  // Break-glass: local sign-in stays reachable for system admins even when it is not offered.
+  const forceLocal = params.get("local") === "1";
   const me = useMe();
   const providers = useAuthProviders();
   const login = useLogin();
@@ -33,7 +37,9 @@ export function LoginPage() {
   if (me.data) return <Navigate to={next} replace />;
 
   const passwordSources: { value: string; label: string; source: LoginSource }[] = [
-    ...(providers.data?.local ? [{ value: "local", label: "Local account", source: { kind: "local" } as const }] : []),
+    ...(providers.data?.local || forceLocal
+      ? [{ value: "local", label: "Local account", source: { kind: "local" } as const }]
+      : []),
     ...(providers.data?.ldap ?? []).map((p) => ({
       value: `ldap:${p.id}`,
       label: p.name,
@@ -70,6 +76,11 @@ export function LoginPage() {
           <h1 className="text-xl font-semibold">Sign in to OpenDBAPI</h1>
         </div>
 
+        {ssoError && (
+          <p role="alert" className="text-sm text-destructive">
+            Single sign-on did not complete: {ssoError}
+          </p>
+        )}
         {providers.isError ? (
           <p role="alert" className="text-sm text-destructive">
             Could not load sign-in options: {providers.error.message}. Reload the page to try again.

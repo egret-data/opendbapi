@@ -1,36 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { ApiError, UnauthorizedError, apiFetch, apiJson } from "./client";
+import { ApiError, UnauthorizedError } from "./client";
+import { getAuthProviders, login, logout } from "./generated/auth/auth";
+import { getMe } from "./generated/me/me";
+import type { AuthProviders, Me, MyWorkspace, MyWorkspaceRole } from "./generated/model";
 import { clearUserScopedCache } from "./queryClient";
 
 /**
- * Session and sign-in (spec §21.1). Hand-written until the backend's auth endpoints
- * land (roadmap step 2); then these become thin wrappers over the generated hooks.
+ * Session and sign-in (spec §21.1), on top of the generated client. Wrapped rather than
+ * used raw because a 401 from `/me` is an answer ("signed out"), not an error, and
+ * because the cache must be cleared whenever the identity changes.
  */
-export type WorkspaceRole = "owner" | "admin" | "script_author" | "author" | "viewer";
-
-export interface MyWorkspace {
-  id: string;
-  slug: string;
-  name: string;
-  role: WorkspaceRole;
-}
-
-export interface Me {
-  id: string;
-  username: string;
-  displayName: string | null;
-  email: string | null;
-  source: "local" | "ldap" | "oidc";
-  systemAdmin: boolean;
-  workspaces: MyWorkspace[];
-}
-
-export interface AuthProviders {
-  local: boolean;
-  ldap: { id: string; name: string }[];
-  oidc: { id: string; name: string }[];
-}
+export type { AuthProviders, Me, MyWorkspace };
+export type WorkspaceRole = MyWorkspaceRole;
 
 export type LoginSource = { kind: "local" } | { kind: "ldap"; idpId: string };
 
@@ -39,13 +21,13 @@ export const authKeys = {
   providers: ["auth-providers"] as const,
 };
 
-/** `null` when signed out; a 401 is an answer here, not an error. */
+/** `null` when signed out. */
 export function useMe() {
   return useQuery({
     queryKey: authKeys.me,
     queryFn: async (): Promise<Me | null> => {
       try {
-        return await apiJson<Me>("/me");
+        return await getMe();
       } catch (err) {
         if (err instanceof UnauthorizedError) return null;
         throw err;
@@ -56,29 +38,22 @@ export function useMe() {
 }
 
 export function useAuthProviders() {
-  return useQuery({
-    queryKey: authKeys.providers,
-    queryFn: () => apiJson<AuthProviders>("/auth/providers"),
-    staleTime: Infinity,
-  });
+  return useQuery({ queryKey: authKeys.providers, queryFn: () => getAuthProviders(), staleTime: Infinity });
 }
 
 export function useLogin() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (input: { source: LoginSource; username: string; password: string }) => {
-      const body =
-        input.source.kind === "ldap"
-          ? { source: "ldap", idpId: input.source.idpId, username: input.username, password: input.password }
-          : { source: "local", username: input.username, password: input.password };
       try {
-        await apiFetch("/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
+        await login({
+          source: input.source.kind,
+          idpId: input.source.kind === "ldap" ? input.source.idpId : null,
+          username: input.username,
+          password: input.password,
         });
       } catch (err) {
-        // A wrong password is a 401 from the login endpoint, not a lost session.
+        // A refused sign-in is a 401 from this endpoint, not a lost session.
         if (err instanceof UnauthorizedError) throw new ApiError(401, "Invalid username or password.");
         throw err;
       }
@@ -93,7 +68,7 @@ export function useLogin() {
 export function useLogout() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => apiFetch("/auth/logout", { method: "POST" }),
+    mutationFn: () => logout(),
     onSettled: () => {
       clearUserScopedCache(qc);
       qc.setQueryData(authKeys.me, null);
@@ -101,7 +76,7 @@ export function useLogout() {
   });
 }
 
-/** Where an SSO button sends the browser; the backend answers with the IdP redirect. */
+/** Where an SSO button sends the browser; the backend redirects on to the identity provider. */
 export function oidcStartUrl(idpId: string): string {
-  return `/admin/api/auth/oidc/${encodeURIComponent(idpId)}/start`;
+  return `/admin/api/auth/oidc/${encodeURIComponent(idpId)}`;
 }

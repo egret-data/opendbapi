@@ -2,16 +2,10 @@ import { API_BASE, apiFetch } from "./client";
 
 /**
  * Orval custom mutator. Generated hooks call `customInstance<T>(url, init)` with the
- * spec's absolute path (`/admin/api/...`) and expect `{ status, data, headers }` back.
+ * spec's absolute path (`/admin/api/...`) and get the response body back as `T`.
  * The request itself goes through {@link apiFetch}, so generated and hand-written calls
- * share credentials, CSRF and error handling; `apiFetch` throws on non-2xx, so only the
- * success envelope is ever returned.
+ * share credentials, CSRF and error handling; `apiFetch` throws on non-2xx.
  */
-export interface FetchResponse<T> {
-  status: number;
-  data: T;
-  headers: Headers;
-}
 
 export const customInstance = async <T>(url: string, options: RequestInit = {}): Promise<T> => {
   const path = url.startsWith(API_BASE) ? url.slice(API_BASE.length) : url;
@@ -24,12 +18,9 @@ export const customInstance = async <T>(url: string, options: RequestInit = {}):
 
   const res = await apiFetch(path, { ...options, headers });
 
-  let data: unknown = undefined;
-  if (res.status !== 204 && res.headers.get("content-length") !== "0") {
-    const contentType = res.headers.get("content-type") ?? "";
-    data = contentType.includes("json") ? await res.json() : await res.text();
-  }
-  return { status: res.status, data, headers: res.headers } as T;
+  if (res.status === 204 || res.headers.get("content-length") === "0") return undefined as T;
+  const contentType = res.headers.get("content-type") ?? "";
+  return (contentType.includes("json") ? await res.json() : await res.text()) as T;
 };
 
 export default customInstance;

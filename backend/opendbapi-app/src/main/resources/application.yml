@@ -1,5 +1,10 @@
 opendbapi:
   mode: standalone
+  # Base64 of 32 random bytes (openssl rand -base64 32). Needed to store secrets as enc:.
+  master-key: ${OPENDBAPI_MASTER_KEY:}
+  auth:
+    local-enabled: true
+    bootstrap-admin-password: ${OPENDBAPI_BOOTSTRAP_ADMIN_PASSWORD:}
   serving:
     context: api
     url-base: ""
@@ -24,9 +29,14 @@ spring:
     schemas: opendbapi
     placeholders:
       app_role: ${OPENDBAPI_DB_USER:opendbapi_app}
-  mvc:
-    problemdetails:
-      enabled: true
+  # Directories are configured per identity provider (spec §8.5), never as one global LDAP.
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.ldap.LdapAutoConfiguration
+  jackson:
+    deserialization:
+      # A misspelled field is an error, not a silently ignored setting (spec §5.2).
+      fail-on-unknown-properties: true
 
 springdoc:
   # The committed ../openapi.json documents the management API only; it feeds
@@ -39,6 +49,14 @@ springdoc:
 server:
   port: 8520
   shutdown: graceful
+  servlet:
+    session:
+      timeout: 8h
+      cookie:
+        name: OPENDBAPI_SESSION
+        http-only: true
+        same-site: lax
+        secure: ${OPENDBAPI_SECURE_COOKIES:false}
 
 management:
   endpoints:
@@ -49,3 +67,6 @@ management:
     health:
       probes:
         enabled: true
+  health:
+    ldap:
+      enabled: false

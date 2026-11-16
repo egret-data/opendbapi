@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { LogOut, Moon, Sun } from "lucide-react";
+import { KeyRound, LogOut, Moon, Sun } from "lucide-react";
 
 import { useLogout } from "@/api/auth";
 import { useAuth } from "@/auth/useAuth";
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useIsDark } from "@/hooks/useIsDark";
 import { useIsNarrowViewport } from "@/lib/useIsNarrowViewport";
+import { ChangePasswordDialog } from "./ChangePasswordDialog";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
 
 function initials(name: string): string {
@@ -32,6 +34,7 @@ export function Header() {
   const narrow = useIsNarrowViewport();
   const { ws } = useParams();
   const display = me.displayName ?? me.username;
+  const [changingPassword, setChangingPassword] = useState(false);
 
   return (
     <header
@@ -65,12 +68,19 @@ export function Header() {
             <span className="text-xs font-normal text-muted-foreground">via {me.source.toUpperCase()}</span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
+          {me.source === "local" && (
+            <DropdownMenuItem onSelect={() => setChangingPassword(true)}>
+              <KeyRound className="mr-2 h-4 w-4" />
+              Change password
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => logout.mutate()}>
             <LogOut className="mr-2 h-4 w-4" />
             Log out
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <ChangePasswordDialog open={changingPassword} onOpenChange={setChangingPassword} />
     </header>
   );
 }

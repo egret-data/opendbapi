@@ -9,6 +9,389 @@
     "url" : "/"
   } ],
   "paths" : {
+    "/admin/api/audit" : {
+      "get" : {
+        "operationId" : "listAudit",
+        "parameters" : [ {
+          "in" : "query",
+          "name" : "action",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "before",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AuditEntry"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "System-wide audit log, newest first (system admin)",
+        "tags" : [ "audit" ]
+      }
+    },
+    "/admin/api/auth/login" : {
+      "post" : {
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/LoginRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Sign in with a local account or an LDAP directory",
+        "tags" : [ "auth" ]
+      }
+    },
+    "/admin/api/auth/logout" : {
+      "post" : {
+        "operationId" : "logout",
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "End the session",
+        "tags" : [ "auth" ]
+      }
+    },
+    "/admin/api/auth/providers" : {
+      "get" : {
+        "operationId" : "getAuthProviders",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AuthProviders"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Sign-in methods to offer on the login page",
+        "tags" : [ "auth" ]
+      }
+    },
+    "/admin/api/identity-providers" : {
+      "get" : {
+        "operationId" : "listIdentityProviders",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ProviderView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Every sign-in provider",
+        "tags" : [ "identityProviders" ]
+      },
+      "post" : {
+        "operationId" : "createIdentityProvider",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveProvider"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProviderView"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Add an LDAP directory or OIDC issuer",
+        "tags" : [ "identityProviders" ]
+      }
+    },
+    "/admin/api/identity-providers/{id}" : {
+      "delete" : {
+        "operationId" : "deleteIdentityProvider",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Remove a provider nobody has signed in through",
+        "tags" : [ "identityProviders" ]
+      },
+      "get" : {
+        "operationId" : "getIdentityProvider",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProviderView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "One sign-in provider",
+        "tags" : [ "identityProviders" ]
+      },
+      "patch" : {
+        "operationId" : "updateIdentityProvider",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveProvider"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProviderView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Change a provider; omit secret to keep it",
+        "tags" : [ "identityProviders" ]
+      }
+    },
+    "/admin/api/identity-providers/{id}/group-mappings" : {
+      "get" : {
+        "operationId" : "getGroupMappings",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/MappingView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Directory group → role mappings",
+        "tags" : [ "identityProviders" ]
+      },
+      "put" : {
+        "operationId" : "replaceGroupMappings",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "type" : "array",
+                "items" : {
+                  "$ref" : "#/components/schemas/MappingView"
+                }
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/MappingView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Replace all mappings; applied at each user's next sign-in",
+        "tags" : [ "identityProviders" ]
+      }
+    },
+    "/admin/api/identity-providers/{id}:test" : {
+      "post" : {
+        "operationId" : "testIdentityProvider",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/TestRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TestResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Check connectivity; for LDAP optionally sign a test user in",
+        "tags" : [ "identityProviders" ]
+      }
+    },
+    "/admin/api/me" : {
+      "get" : {
+        "operationId" : "getMe",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Me"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "The signed-in user and their workspaces",
+        "tags" : [ "me" ]
+      }
+    },
+    "/admin/api/me/password" : {
+      "post" : {
+        "operationId" : "changeMyPassword",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChangePassword"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Change your own local password",
+        "tags" : [ "me" ]
+      }
+    },
     "/admin/api/system/info" : {
       "get" : {
         "operationId" : "systemInfo",
@@ -27,11 +410,899 @@
         "summary" : "Version, run mode and the public serving base URL",
         "tags" : [ "system" ]
       }
+    },
+    "/admin/api/users" : {
+      "get" : {
+        "operationId" : "listUsers",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/UserView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Every user",
+        "tags" : [ "users" ]
+      },
+      "post" : {
+        "operationId" : "createUser",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateUser"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserView"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Create a local user",
+        "tags" : [ "users" ]
+      }
+    },
+    "/admin/api/users/{id}" : {
+      "patch" : {
+        "operationId" : "updateUser",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateUser"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/UserView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Edit, disable or promote a user",
+        "tags" : [ "users" ]
+      }
+    },
+    "/admin/api/users/{id}:reset-password" : {
+      "post" : {
+        "operationId" : "resetUserPassword",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ResetPassword"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Set a new password for a local user",
+        "tags" : [ "users" ]
+      }
+    },
+    "/admin/api/workspaces" : {
+      "get" : {
+        "operationId" : "listWorkspaces",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/WorkspaceView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Every workspace, archived included (system admin)",
+        "tags" : [ "workspaces" ]
+      },
+      "post" : {
+        "operationId" : "createWorkspace",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateWorkspace"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkspaceView"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Create a workspace with its first owner (system admin)",
+        "tags" : [ "workspaces" ]
+      }
+    },
+    "/admin/api/workspaces/{ws}" : {
+      "get" : {
+        "operationId" : "getWorkspace",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkspaceView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "One workspace (any member)",
+        "tags" : [ "workspaces" ]
+      },
+      "patch" : {
+        "operationId" : "updateWorkspace",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateWorkspace"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkspaceView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Rename or change quotas (workspace owner)",
+        "tags" : [ "workspaces" ]
+      }
+    },
+    "/admin/api/workspaces/{ws}:archive" : {
+      "post" : {
+        "operationId" : "archiveWorkspace",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkspaceView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Stop serving and hide a workspace (system admin)",
+        "tags" : [ "workspaces" ]
+      }
+    },
+    "/admin/api/workspaces/{ws}:restore" : {
+      "post" : {
+        "operationId" : "restoreWorkspace",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/WorkspaceView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Bring an archived workspace back (system admin)",
+        "tags" : [ "workspaces" ]
+      }
+    },
+    "/admin/api/ws/{ws}/audit" : {
+      "get" : {
+        "operationId" : "listWorkspaceAudit",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "action",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "before",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }, {
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AuditEntry"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "One workspace's audit log (workspace admin)",
+        "tags" : [ "audit" ]
+      }
+    },
+    "/admin/api/ws/{ws}/members" : {
+      "get" : {
+        "operationId" : "listMembers",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/MemberView"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Members and their roles (any member)",
+        "tags" : [ "members" ]
+      },
+      "post" : {
+        "operationId" : "addMember",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AddMember"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MemberView"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Add a user to the workspace (workspace admin)",
+        "tags" : [ "members" ]
+      }
+    },
+    "/admin/api/ws/{ws}/members/{userId}" : {
+      "delete" : {
+        "operationId" : "removeMember",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "userId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Remove a member (workspace admin)",
+        "tags" : [ "members" ]
+      },
+      "patch" : {
+        "operationId" : "changeMemberRole",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "userId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/ChangeRole"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MemberView"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Change a member's role (workspace admin)",
+        "tags" : [ "members" ]
+      }
+    },
+    "/admin/api/ws/{ws}/user-search" : {
+      "get" : {
+        "operationId" : "searchUsers",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "q",
+          "required" : true,
+          "schema" : {
+            "maxLength" : 100,
+            "minLength" : 1,
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/UserMatch"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Find users to add (workspace admin)",
+        "tags" : [ "members" ]
+      }
     }
   },
   "components" : {
     "schemas" : {
+      "AddMember" : {
+        "required" : [ "role", "userId" ],
+        "type" : "object",
+        "properties" : {
+          "role" : {
+            "type" : "string",
+            "enum" : [ "owner", "admin", "script_author", "author", "viewer" ]
+          },
+          "userId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "AuditEntry" : {
+        "required" : [ "action", "detail", "id", "ts" ],
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "type" : "string"
+          },
+          "detail" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "targetId" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "targetType" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "ts" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "username" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "workspaceId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "nullable" : true
+          }
+        }
+      },
+      "AuthProviders" : {
+        "required" : [ "ldap", "local", "oidc" ],
+        "type" : "object",
+        "properties" : {
+          "ldap" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ProviderRef"
+            }
+          },
+          "local" : {
+            "type" : "boolean"
+          },
+          "oidc" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ProviderRef"
+            }
+          }
+        }
+      },
+      "ChangePassword" : {
+        "required" : [ "currentPassword", "newPassword" ],
+        "type" : "object",
+        "properties" : {
+          "currentPassword" : {
+            "type" : "string"
+          },
+          "newPassword" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ChangeRole" : {
+        "required" : [ "role" ],
+        "type" : "object",
+        "properties" : {
+          "role" : {
+            "type" : "string",
+            "enum" : [ "owner", "admin", "script_author", "author", "viewer" ]
+          }
+        }
+      },
+      "CreateUser" : {
+        "required" : [ "password", "systemAdmin", "username" ],
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "maxLength" : 120,
+            "minLength" : 0,
+            "type" : "string",
+            "nullable" : true
+          },
+          "email" : {
+            "maxLength" : 254,
+            "minLength" : 0,
+            "type" : "string",
+            "nullable" : true
+          },
+          "password" : {
+            "type" : "string"
+          },
+          "systemAdmin" : {
+            "type" : "boolean"
+          },
+          "username" : {
+            "maxLength" : 64,
+            "minLength" : 0,
+            "pattern" : "^[A-Za-z0-9._@-]+$",
+            "type" : "string"
+          }
+        }
+      },
+      "CreateWorkspace" : {
+        "required" : [ "name", "slug" ],
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "maxLength" : 120,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "ownerUserId" : {
+            "type" : "string",
+            "description" : "First owner; defaults to the caller",
+            "format" : "uuid",
+            "nullable" : true
+          },
+          "slug" : {
+            "pattern" : "^[a-z0-9][a-z0-9-]{1,62}$",
+            "type" : "string"
+          }
+        }
+      },
+      "JsonNode" : {
+        "type" : "object"
+      },
+      "LoginRequest" : {
+        "required" : [ "password", "source", "username" ],
+        "type" : "object",
+        "properties" : {
+          "idpId" : {
+            "type" : "string",
+            "description" : "Required when source is ldap",
+            "format" : "uuid",
+            "nullable" : true
+          },
+          "password" : {
+            "maxLength" : 256,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "source" : {
+            "type" : "string",
+            "enum" : [ "local", "ldap" ]
+          },
+          "username" : {
+            "maxLength" : 256,
+            "minLength" : 0,
+            "type" : "string"
+          }
+        }
+      },
+      "MappingView" : {
+        "required" : [ "externalGroup", "managed", "role" ],
+        "type" : "object",
+        "properties" : {
+          "externalGroup" : {
+            "maxLength" : 256,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "managed" : {
+            "type" : "boolean"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "system_admin", "owner", "admin", "script_author", "author", "viewer" ]
+          },
+          "workspace" : {
+            "type" : "string",
+            "description" : "Workspace slug; null only for system_admin",
+            "nullable" : true
+          }
+        }
+      },
+      "Me" : {
+        "required" : [ "id", "source", "systemAdmin", "username", "workspaces" ],
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "email" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "systemAdmin" : {
+            "type" : "boolean"
+          },
+          "username" : {
+            "type" : "string"
+          },
+          "workspaces" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/MyWorkspace"
+            }
+          }
+        }
+      },
+      "MemberView" : {
+        "required" : [ "createdAt", "fromMapping", "role", "source", "userId", "username" ],
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "displayName" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "email" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "fromMapping" : {
+            "type" : "boolean"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "owner", "admin", "script_author", "author", "viewer" ]
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "userId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        }
+      },
+      "MyWorkspace" : {
+        "required" : [ "id", "name", "role", "slug" ],
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "owner", "admin", "script_author", "author", "viewer" ]
+          },
+          "slug" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ProviderRef" : {
+        "required" : [ "id", "name" ],
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ProviderView" : {
+        "required" : [ "config", "createdAt", "enabled", "hasSecret", "id", "name", "type", "updatedAt" ],
+        "type" : "object",
+        "properties" : {
+          "config" : {
+            "type" : "object",
+            "additionalProperties" : true,
+            "description" : "Provider settings without secrets"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "hasSecret" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "secretEnv" : {
+            "type" : "string",
+            "description" : "env: references are shown; sealed values are not",
+            "nullable" : true
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "ldap", "oidc" ]
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ResetPassword" : {
+        "required" : [ "password" ],
+        "type" : "object",
+        "properties" : {
+          "password" : {
+            "type" : "string"
+          }
+        }
+      },
+      "SaveProvider" : {
+        "required" : [ "config", "enabled", "name", "type" ],
+        "type" : "object",
+        "properties" : {
+          "config" : {
+            "type" : "object",
+            "additionalProperties" : true
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "name" : {
+            "maxLength" : 120,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "secret" : {
+            "type" : "string",
+            "description" : "Plain secret (sealed on save) or an env:NAME reference; omit to keep",
+            "nullable" : true
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "ldap", "oidc" ]
+          }
+        }
+      },
       "SystemInfo" : {
+        "required" : [ "mode", "servingBaseUrl", "version" ],
         "type" : "object",
         "properties" : {
           "mode" : {
@@ -43,8 +1314,174 @@
           "version" : {
             "type" : "string"
           }
-        },
-        "required" : [ "mode", "servingBaseUrl", "version" ]
+        }
+      },
+      "TestRequest" : {
+        "type" : "object",
+        "properties" : {
+          "password" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "username" : {
+            "type" : "string",
+            "nullable" : true
+          }
+        }
+      },
+      "TestResult" : {
+        "required" : [ "messages", "ok" ],
+        "type" : "object",
+        "properties" : {
+          "messages" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "ok" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "UpdateUser" : {
+        "type" : "object",
+        "properties" : {
+          "disabled" : {
+            "type" : "boolean",
+            "nullable" : true
+          },
+          "displayName" : {
+            "maxLength" : 120,
+            "minLength" : 0,
+            "type" : "string",
+            "nullable" : true
+          },
+          "email" : {
+            "maxLength" : 254,
+            "minLength" : 0,
+            "type" : "string",
+            "nullable" : true
+          },
+          "systemAdmin" : {
+            "type" : "boolean",
+            "nullable" : true
+          }
+        }
+      },
+      "UpdateWorkspace" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "maxLength" : 120,
+            "minLength" : 1,
+            "type" : "string",
+            "nullable" : true
+          },
+          "quotas" : {
+            "type" : "object",
+            "additionalProperties" : true,
+            "nullable" : true
+          }
+        }
+      },
+      "UserMatch" : {
+        "required" : [ "id", "source", "username" ],
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "email" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        }
+      },
+      "UserView" : {
+        "required" : [ "createdAt", "disabled", "id", "locked", "source", "systemAdmin", "username" ],
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "disabled" : {
+            "type" : "boolean"
+          },
+          "displayName" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "email" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "lastLoginAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "nullable" : true
+          },
+          "locked" : {
+            "type" : "boolean"
+          },
+          "source" : {
+            "type" : "string"
+          },
+          "systemAdmin" : {
+            "type" : "boolean"
+          },
+          "username" : {
+            "type" : "string"
+          }
+        }
+      },
+      "WorkspaceView" : {
+        "required" : [ "createdAt", "id", "name", "quotas", "slug", "status" ],
+        "type" : "object",
+        "properties" : {
+          "archivedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "nullable" : true
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "quotas" : {
+            "type" : "object",
+            "additionalProperties" : true
+          },
+          "slug" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "string"
+          }
+        }
       }
     }
   }

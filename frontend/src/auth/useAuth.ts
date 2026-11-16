@@ -23,3 +23,12 @@ export function hasRole(role: WorkspaceRole, minimum: WorkspaceRole): boolean {
 export function findWorkspace(me: Me, slug: string | undefined): MyWorkspace | undefined {
   return slug ? me.workspaces.find((w) => w.slug === slug) : undefined;
 }
+
+/**
+ * The caller's role in a workspace, as the server decides it: system admins act as
+ * owners everywhere (backend `WorkspaceAccess`). `undefined` when not a member.
+ */
+export function effectiveRole(me: Me, slug: string | undefined): WorkspaceRole | undefined {
+  if (me.systemAdmin) return "owner";
+  return findWorkspace(me, slug)?.role;
+}

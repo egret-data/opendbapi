@@ -5,12 +5,9 @@ import { defineConfig } from "orval";
  * (`../openapi.json`, kept in sync by the backend's ApplicationIntegrationTest).
  * One file per OpenAPI tag; react-query hooks; every request goes through
  * `src/api/mutator.ts#customInstance` (credentials, CSRF, RFC 9457 errors).
+ * operationIds are globally unique in the backend, so hooks are named after them
+ * (`listWorkspaces` → `useListWorkspaces`) and resolve to the response body itself.
  */
-function toCamel(input: string): string {
-  return input
-    .replace(/[^a-zA-Z0-9]+(.)?/g, (_m, c: string | undefined) => (c ? c.toUpperCase() : ""))
-    .replace(/^(.)/, (m) => m.toLowerCase());
-}
 
 export default defineConfig({
   opendbapi: {
@@ -23,8 +20,7 @@ export default defineConfig({
       prettier: false,
       override: {
         mutator: { path: "src/api/mutator.ts", name: "customInstance" },
-        // Tag-prefix operations so short operationIds (`list`, `create`) stay unique.
-        operationName: (operation) => toCamel(`${operation.tags?.[0] ?? "api"}-${operation.operationId ?? "op"}`),
+        fetch: { includeHttpResponseReturnType: false },
       },
     },
   },

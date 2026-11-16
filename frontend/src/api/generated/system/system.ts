@@ -46,19 +46,7 @@ const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKe
   return result;
 };
 
-export type systemSystemInfoResponse200 = {
-  data: SystemInfo
-  status: 200
-}
-
-export type systemSystemInfoResponseSuccess = (systemSystemInfoResponse200) & {
-  headers: Headers;
-};
-;
-
-export type systemSystemInfoResponse = (systemSystemInfoResponseSuccess)
-
-export const getSystemSystemInfoUrl = () => {
+export const getSystemInfoUrl = () => {
 
 
 
@@ -69,9 +57,9 @@ export const getSystemSystemInfoUrl = () => {
 /**
  * @summary Version, run mode and the public serving base URL
  */
-export const systemSystemInfo = async ( options?: Parameters<typeof customInstance>[1]): Promise<systemSystemInfoResponse> => {
+export const systemInfo = async ( options?: Parameters<typeof customInstance>[1]): Promise<SystemInfo> => {
 
-  return customInstance<systemSystemInfoResponse>(getSystemSystemInfoUrl(),
+  return customInstance<SystemInfo>(getSystemInfoUrl(),
   {
     ...options,
     method: 'GET'
@@ -84,69 +72,69 @@ export const systemSystemInfo = async ( options?: Parameters<typeof customInstan
 
 
 
-export const getSystemSystemInfoQueryKey = () => {
+export const getSystemInfoQueryKey = () => {
     return [
     `/admin/api/system/info`
     ] as const;
     }
 
 
-export const getSystemSystemInfoQueryOptions = <TData = Awaited<ReturnType<typeof systemSystemInfo>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof systemSystemInfo>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export const getSystemInfoQueryOptions = <TData = Awaited<ReturnType<typeof systemInfo>>, TError = unknown>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof systemInfo>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getSystemSystemInfoQueryKey();
+  const queryKey =  queryOptions?.queryKey ?? getSystemInfoQueryKey();
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof systemSystemInfo>>> = ({ signal }) => systemSystemInfo({ signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof systemInfo>>> = ({ signal }) => systemInfo({ signal, ...requestOptions });
 
 
 
 
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof systemSystemInfo>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof systemInfo>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
 }
 
-export type SystemSystemInfoQueryResult = NonNullable<Awaited<ReturnType<typeof systemSystemInfo>>>
-export type SystemSystemInfoQueryError = unknown
+export type SystemInfoQueryResult = NonNullable<Awaited<ReturnType<typeof systemInfo>>>
+export type SystemInfoQueryError = unknown
 
 
-export function useSystemSystemInfo<TData = Awaited<ReturnType<typeof systemSystemInfo>>, TError = unknown>(
-  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof systemSystemInfo>>, TError, TData>> & Pick<
+export function useSystemInfo<TData = Awaited<ReturnType<typeof systemInfo>>, TError = unknown>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof systemInfo>>, TError, TData>> & Pick<
         DefinedInitialDataOptions<
-          Awaited<ReturnType<typeof systemSystemInfo>>,
+          Awaited<ReturnType<typeof systemInfo>>,
           TError,
-          Awaited<ReturnType<typeof systemSystemInfo>>
+          Awaited<ReturnType<typeof systemInfo>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useSystemSystemInfo<TData = Awaited<ReturnType<typeof systemSystemInfo>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof systemSystemInfo>>, TError, TData>> & Pick<
+export function useSystemInfo<TData = Awaited<ReturnType<typeof systemInfo>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof systemInfo>>, TError, TData>> & Pick<
         UndefinedInitialDataOptions<
-          Awaited<ReturnType<typeof systemSystemInfo>>,
+          Awaited<ReturnType<typeof systemInfo>>,
           TError,
-          Awaited<ReturnType<typeof systemSystemInfo>>
+          Awaited<ReturnType<typeof systemInfo>>
         > , 'initialData'
       >, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
-export function useSystemSystemInfo<TData = Awaited<ReturnType<typeof systemSystemInfo>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof systemSystemInfo>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useSystemInfo<TData = Awaited<ReturnType<typeof systemInfo>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof systemInfo>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Version, run mode and the public serving base URL
  */
 
-export function useSystemSystemInfo<TData = Awaited<ReturnType<typeof systemSystemInfo>>, TError = unknown>(
-  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof systemSystemInfo>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+export function useSystemInfo<TData = Awaited<ReturnType<typeof systemInfo>>, TError = unknown>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof systemInfo>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
  , queryClient?: QueryClient
  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const queryOptions = getSystemSystemInfoQueryOptions(options)
+  const queryOptions = getSystemInfoQueryOptions(options)
 
   const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 

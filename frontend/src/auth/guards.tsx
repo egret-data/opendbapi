@@ -5,7 +5,7 @@ import { useMe } from "@/api/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Forbidden } from "@/routes/Forbidden";
-import { findWorkspace } from "./useAuth";
+import { effectiveRole } from "./useAuth";
 
 function FullPageSkeleton() {
   return (
@@ -48,11 +48,11 @@ export function RequireAuth({ children }: { children: ReactNode }) {
   return <div className="h-screen">{children}</div>;
 }
 
-/** The `:ws` in the URL must be a workspace the user is a member of. */
+/** The `:ws` in the URL must be a workspace the user is a member of (system admins: any). */
 export function RequireWorkspaceMember() {
   const { data: me } = useMe();
   const { ws } = useParams();
-  if (!me || !findWorkspace(me, ws)) {
+  if (!me || !effectiveRole(me, ws)) {
     return <Forbidden reason="You are not a member of this workspace, or it does not exist." />;
   }
   return <Outlet />;
