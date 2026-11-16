@@ -151,6 +151,11 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
                   <Button variant="ghost" size="icon" aria-label="More actions"><MoreHorizontal className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
+                  {s.liveVersion != null && (
+                    <DropdownMenuItem asChild>
+                      <a href={`/admin/api/ws/${ws}/endpoints/${s.id}/openapi.json`} download>Download OpenAPI</a>
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onSelect={() => duplicate.mutate({ ws, id: s.id }, {
                     onSuccess: (c) => navigate(`/w/${ws}/endpoints/${c.summary.id}`) })}>
                     Duplicate

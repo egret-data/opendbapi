@@ -634,14 +634,15 @@ Cache dùng khoá `(endpointId, version, paramsHash, scope)`. `scope = client` s
 
 ## 10. OpenAPI tự sinh (P1)
 
-- `GET /{context}/openapi.json`: tài liệu OpenAPI 3.1 gồm các endpoint live mà token hiện tại được phép gọi (endpoint public luôn có mặt).
-- `GET /admin/api/endpoints/{id}/openapi`: tài liệu của một endpoint, tải về từ UI [E].
+- `GET /{context}/{ws}/openapi.json`: tài liệu OpenAPI 3.1 của một workspace, gồm các endpoint live mà token hiện tại được phép gọi (endpoint public luôn có mặt). Path của endpoint không chứa dấu chấm nên không trùng với route này.
+- `GET /admin/api/ws/{ws}/openapi.json` (mọi endpoint live, kể cả private) và `GET /admin/api/ws/{ws}/endpoints/{id}/openapi.json`: thành viên workspace tải về từ UI [E].
 - Nguồn dữ liệu cho tài liệu:
   - Tham số: lấy từ `definition.params` (gồm cả `enum`, `min`/`max`, `pattern`).
   - Request body: lấy JSON Schema trong `definition.body`.
   - Response: lấy từ `output_schema` đã chốt khi publish, sau khi áp dụng map kết quả và che dữ liệu, kèm envelope và lỗi RFC 9457.
   - Security scheme: OAuth2 `clientCredentials` (tokenUrl `/oauth2/token`).
-- Swagger UI tại `/{context}/docs`, có thể tắt bằng cấu hình.
+- Swagger UI tại `/{context}/{ws}/docs.html`, phục vụ từ webjar trong jar (chạy được khi không có internet), tắt bằng `opendbapi.serving.docs-ui=false`.
+- Kiểu của cột trả về lấy từ metadata mà driver báo lúc validate; nếu DB không mô tả được câu SQL, validate báo cảnh báo `describe_failed` và tài liệu không có danh sách cột.
 
 ---
 
@@ -1125,7 +1126,7 @@ management:
 6. ✅ (2026-11-17) Service account, client, OAuth2 token, cấp quyền (§9.1 bước 4–5). Token endpoint `POST /oauth2/token`, khoá công khai tại `GET /oauth2/jwks`; khoá ký RS256 lưu trong bảng `signing_key`, private key niêm phong bằng master key. Bảng `oauth_client_directory` (không RLS, không chứa secret) cho token endpoint biết client thuộc workspace nào.
 6b. ✅ (2026-11-17) Firewall IP/CIDR và rate limit (§14, §9.1 bước 2 và 6): cấu hình theo workspace (cột `workspace.serving_policy`), giới hạn riêng từng endpoint ở `limits.ratePerMinute`. Token bucket chạy trong bộ nhớ nên giới hạn được đếm riêng ở mỗi instance. Header `X-Forwarded-For` chỉ được tin khi request đến từ `opendbapi.serving.trusted-proxies`.
 7. ✅ (2026-11-17) Preview + Try-it (gọi pipeline thật trong cùng tiến trình). Preview đã có từ bước 5. Lời gọi Try-it được ghi vào access log dạng dòng JSON (`actorUserId`); bảng `access_log` thuộc bước 10.
-8. OpenAPI tự sinh + Swagger UI.
+8. ✅ (2026-11-17) OpenAPI tự sinh + Swagger UI.
 9. Stream NDJSON/CSV trên virtual threads.
 10. Metric, tracing, log query chậm, access log ra file, trang Activity cơ bản.
 11. UI theo §17: login, shell + workspace switcher, Endpoints (list/new/detail 5 tab), Datasources, Clients, Activity, Settings, Admin.

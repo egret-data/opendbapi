@@ -27,6 +27,7 @@ import type {
 import type {
   CreateEndpoint,
   EndpointDetail,
+  EndpointOpenApi200,
   EndpointSummary,
   ListEndpointsParams,
   PreviewRequest,
@@ -36,7 +37,8 @@ import type {
   TryResponse,
   UpdateEndpoint,
   ValidationView,
-  VersionView
+  VersionView,
+  WorkspaceOpenApi200
 } from '../model';
 
 import { customInstance } from '../../mutator';
@@ -500,7 +502,115 @@ export const useUpdateEndpoint = <TError = unknown,
       > => {
       return useMutation(getUpdateEndpointMutationOptions(options), queryClient);
     }
-    export const getPreviewEndpointUrl = (ws: string,
+    export const getEndpointOpenApiUrl = (ws: string,
+    id: string,) => {
+
+
+
+
+  return `/admin/api/ws/${ws}/endpoints/${id}/openapi.json`
+}
+
+/**
+ * @summary OpenAPI 3.1 document of one endpoint's live version
+ */
+export const endpointOpenApi = async (ws: string,
+    id: string, options?: Parameters<typeof customInstance>[1]): Promise<EndpointOpenApi200> => {
+
+  return customInstance<EndpointOpenApi200>(getEndpointOpenApiUrl(ws,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getEndpointOpenApiQueryKey = (ws: string,
+    id: string,) => {
+    return [
+    `/admin/api/ws/${ws}/endpoints/${id}/openapi.json`
+    ] as const;
+    }
+
+
+export const getEndpointOpenApiQueryOptions = <TData = Awaited<ReturnType<typeof endpointOpenApi>>, TError = unknown>(ws: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof endpointOpenApi>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getEndpointOpenApiQueryKey(ws,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof endpointOpenApi>>> = ({ signal }) => endpointOpenApi(ws,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: ws !== null && ws !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof endpointOpenApi>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type EndpointOpenApiQueryResult = NonNullable<Awaited<ReturnType<typeof endpointOpenApi>>>
+export type EndpointOpenApiQueryError = unknown
+
+
+export function useEndpointOpenApi<TData = Awaited<ReturnType<typeof endpointOpenApi>>, TError = unknown>(
+ ws: string,
+    id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof endpointOpenApi>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof endpointOpenApi>>,
+          TError,
+          Awaited<ReturnType<typeof endpointOpenApi>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useEndpointOpenApi<TData = Awaited<ReturnType<typeof endpointOpenApi>>, TError = unknown>(
+ ws: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof endpointOpenApi>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof endpointOpenApi>>,
+          TError,
+          Awaited<ReturnType<typeof endpointOpenApi>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useEndpointOpenApi<TData = Awaited<ReturnType<typeof endpointOpenApi>>, TError = unknown>(
+ ws: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof endpointOpenApi>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary OpenAPI 3.1 document of one endpoint's live version
+ */
+
+export function useEndpointOpenApi<TData = Awaited<ReturnType<typeof endpointOpenApi>>, TError = unknown>(
+ ws: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof endpointOpenApi>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getEndpointOpenApiQueryOptions(ws,id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getPreviewEndpointUrl = (ws: string,
     id: string,) => {
 
 
@@ -1449,3 +1559,103 @@ export const useValidateEndpoint = <TError = unknown,
       > => {
       return useMutation(getValidateEndpointMutationOptions(options), queryClient);
     }
+    export const getWorkspaceOpenApiUrl = (ws: string,) => {
+
+
+
+
+  return `/admin/api/ws/${ws}/openapi.json`
+}
+
+/**
+ * @summary OpenAPI 3.1 document of every live endpoint
+ */
+export const workspaceOpenApi = async (ws: string, options?: Parameters<typeof customInstance>[1]): Promise<WorkspaceOpenApi200> => {
+
+  return customInstance<WorkspaceOpenApi200>(getWorkspaceOpenApiUrl(ws),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getWorkspaceOpenApiQueryKey = (ws: string,) => {
+    return [
+    `/admin/api/ws/${ws}/openapi.json`
+    ] as const;
+    }
+
+
+export const getWorkspaceOpenApiQueryOptions = <TData = Awaited<ReturnType<typeof workspaceOpenApi>>, TError = unknown>(ws: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof workspaceOpenApi>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getWorkspaceOpenApiQueryKey(ws);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof workspaceOpenApi>>> = ({ signal }) => workspaceOpenApi(ws, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: ws !== null && ws !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof workspaceOpenApi>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type WorkspaceOpenApiQueryResult = NonNullable<Awaited<ReturnType<typeof workspaceOpenApi>>>
+export type WorkspaceOpenApiQueryError = unknown
+
+
+export function useWorkspaceOpenApi<TData = Awaited<ReturnType<typeof workspaceOpenApi>>, TError = unknown>(
+ ws: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof workspaceOpenApi>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof workspaceOpenApi>>,
+          TError,
+          Awaited<ReturnType<typeof workspaceOpenApi>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useWorkspaceOpenApi<TData = Awaited<ReturnType<typeof workspaceOpenApi>>, TError = unknown>(
+ ws: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof workspaceOpenApi>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof workspaceOpenApi>>,
+          TError,
+          Awaited<ReturnType<typeof workspaceOpenApi>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useWorkspaceOpenApi<TData = Awaited<ReturnType<typeof workspaceOpenApi>>, TError = unknown>(
+ ws: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof workspaceOpenApi>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary OpenAPI 3.1 document of every live endpoint
+ */
+
+export function useWorkspaceOpenApi<TData = Awaited<ReturnType<typeof workspaceOpenApi>>, TError = unknown>(
+ ws: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof workspaceOpenApi>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getWorkspaceOpenApiQueryOptions(ws,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+

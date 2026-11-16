@@ -210,6 +210,15 @@ public class ServiceAccountStore {
                 .optional().orElse(CallerStatus.INVALID);
     }
 
+    /** Endpoints a service account may call, directly or through their group. */
+    public java.util.Set<UUID> grantedEndpoints(UUID serviceAccountId) {
+        return new java.util.HashSet<>(jdbc.sql("""
+                select e.id from endpoint e join endpoint_grant g on g.service_account_id = ?
+                  and ((g.resource_type = 'endpoint' and g.resource_id = e.id)
+                    or (g.resource_type = 'group' and g.resource_id = e.group_id))""")
+                .param(serviceAccountId).query(UUID.class).list());
+    }
+
     public enum CallerStatus { GRANTED, NOT_GRANTED, INVALID }
 
     private static ServiceAccount account(ResultSet rs, int i) throws SQLException {
