@@ -196,6 +196,20 @@ public class ServiceAccountStore {
                 .optional().orElse(CallerStatus.INVALID);
     }
 
+    /** Same check for a Try-it token, which names the service account but no client. */
+    public CallerStatus serviceAccountStatus(UUID serviceAccountId, UUID endpointId) {
+        return jdbc.sql("""
+                select sa.disabled,
+                       exists (select 1 from endpoint_grant g where g.service_account_id = sa.id and (
+                           (g.resource_type = 'endpoint' and g.resource_id = ?)
+                        or (g.resource_type = 'group' and g.resource_id = (select group_id from endpoint where id = ?)))) as granted
+                from service_account sa where sa.id = ?""")
+                .params(endpointId, endpointId, serviceAccountId)
+                .query((rs, i) -> rs.getBoolean("disabled") ? CallerStatus.INVALID
+                        : rs.getBoolean("granted") ? CallerStatus.GRANTED : CallerStatus.NOT_GRANTED)
+                .optional().orElse(CallerStatus.INVALID);
+    }
+
     public enum CallerStatus { GRANTED, NOT_GRANTED, INVALID }
 
     private static ServiceAccount account(ResultSet rs, int i) throws SQLException {

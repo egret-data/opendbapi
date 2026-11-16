@@ -39,10 +39,11 @@ import { AccessTab } from "./AccessTab";
 import { ParamsEditor } from "./ParamsEditor";
 import { FindingsList, PreviewPanel } from "./PreviewPanel";
 import { SettingsTab } from "./SettingsTab";
+import { TryItTab } from "./TryItTab";
 import { VersionsTab } from "./VersionsTab";
 import { STATE_LABEL, STATE_TONE, formFrom, mainSql, toUpdate, withMainSql, type DraftForm } from "./endpointForm";
 
-const TABS = ["query", "settings", "access", "versions"] as const;
+const TABS = ["query", "try", "settings", "access", "versions"] as const;
 
 export default function EndpointDetailPage() {
   const { ws = "", id = "" } = useParams();
@@ -170,6 +171,7 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
       <Tabs value={tab} onValueChange={(t) => setParams({ tab: t }, { replace: true })}>
         <TabsList>
           <TabsTrigger value="query">Query</TabsTrigger>
+          {canAuthor && <TabsTrigger value="try">Try it</TabsTrigger>}
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="access">Access</TabsTrigger>
           <TabsTrigger value="versions">Versions</TabsTrigger>
@@ -202,6 +204,11 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
         <TabsContent value="settings" className="pt-4">
           <SettingsTab ws={ws} form={form} onChange={setForm} live={s.state === "live"} disabled={!canAuthor} />
         </TabsContent>
+        {canAuthor && (
+          <TabsContent value="try" className="pt-4">
+            <TryItTab ws={ws} summary={s} onOpenAccess={() => setParams({ tab: "access" }, { replace: true })} />
+          </TabsContent>
+        )}
         <TabsContent value="access" className="pt-4">
           <AccessTab ws={ws} endpointId={s.id} isPublic={s.access === "public"} isAdmin={isAdmin} />
         </TabsContent>

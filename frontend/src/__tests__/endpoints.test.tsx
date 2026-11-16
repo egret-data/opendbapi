@@ -162,4 +162,39 @@ describe("Endpoints", () => {
     expect(body.params).toEqual({ tier: "gold" });
     expect(body.definition.task.statements[0].template).toContain("#{tier}");
   });
+
+  it("Try it calls the live version as a service account and points to Access on a 403", async () => {
+    // Arrange
+    const server = mockServer({
+      ...common,
+      "GET /admin/api/me": () => json(meAs("author")),
+      "GET /admin/api/ws/sales/endpoints/e1": () => json(DETAIL),
+      "GET /admin/api/ws/sales/endpoints/e1/versions": () =>
+        json([{ version: 2, live: true, note: null, publishedAt: "2026-11-17T00:00:00Z", publishedBy: "alice",
+          method: "GET", path: "customers", access: "private", definition: DETAIL.definition }]),
+      "GET /admin/api/ws/sales/service-accounts": () =>
+        json([{ id: "sa1", name: "billing", disabled: false, createdAt: "2026-11-17T00:00:00Z", clientCount: 1, grantCount: 0 }]),
+      "POST /admin/api/ws/sales/endpoints/e1/try": () =>
+        json({ status: 403, durationMs: 5, method: "GET", url: "http://h/api/sales/customers?tier=gold", headers: {},
+          body: { code: "not_granted" }, curl: "curl 'http://h/api/sales/customers?tier=gold' -H \"Authorization: Bearer $TOKEN\"",
+          serviceAccountName: "billing" }),
+      "GET /admin/api/ws/sales/endpoints/e1/access": () => json([]),
+    });
+    const user = userEvent.setup();
+    renderApp("/w/sales/endpoints/e1?tab=try");
+
+    // Act
+    expect(await screen.findByRole("button", { name: "Send" })).toBeDisabled();
+    await user.click(screen.getByRole("combobox", { name: "Call as" }));
+    await user.click(await screen.findByRole("option", { name: "billing" }));
+    await user.type(screen.getByLabelText(/tier/), "gold");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    // Assert
+    expect(await screen.findByText(/Authorization: Bearer ••••/)).toBeInTheDocument();
+    const call = server.calls.find((c) => c.key === "POST /admin/api/ws/sales/endpoints/e1/try");
+    expect(JSON.parse(String(call?.init?.body))).toEqual({ serviceAccountId: "sa1", params: { tier: "gold" }, page: null, size: null });
+    await user.click(screen.getByRole("button", { name: "Grant access" }));
+    await waitFor(() => expect(screen.getByTestId("location")).toHaveTextContent("tab=access"));
+  });
 });
