@@ -12,18 +12,43 @@ import java.util.UUID;
  * parameters, pagination and limits.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record EndpointDefinition(List<Param> params, Task task, Pagination pagination, Limits limits) {
+public record EndpointDefinition(List<Param> params, Task task, Pagination pagination, Limits limits, Streaming streaming) {
 
     public EndpointDefinition {
         params = params == null ? List.of() : List.copyOf(params);
         task = task == null ? Task.empty() : task;
         pagination = pagination == null ? Pagination.off() : pagination;
         limits = limits == null ? Limits.defaults() : limits;
+        streaming = streaming == null ? Streaming.off() : streaming;
+    }
+
+    public EndpointDefinition(List<Param> params, Task task, Pagination pagination, Limits limits) {
+        this(params, task, pagination, limits, null);
     }
 
     public static EndpointDefinition starter(UUID datasourceId) {
         return new EndpointDefinition(List.of(), new Task("sql", datasourceId, false,
-                List.of(new Statement("main", "select 1 as ok"))), Pagination.off(), Limits.defaults());
+                List.of(new Statement("main", "select 1 as ok"))), Pagination.off(), Limits.defaults(), Streaming.off());
+    }
+
+    public enum StreamFormat { ndjson, csv }
+
+    /**
+     * Streamed responses (spec §9.6): the caller asks with {@code ?format=} or {@code Accept}.
+     * Rows are written as they are read, without pagination, up to {@code limits.streamMaxRows}.
+     */
+    public record Streaming(boolean allowed, List<StreamFormat> formats) {
+        public Streaming {
+            formats = formats == null || formats.isEmpty() ? List.of(StreamFormat.ndjson, StreamFormat.csv) : List.copyOf(formats);
+        }
+
+        public static Streaming off() {
+            return new Streaming(false, null);
+        }
+
+        public boolean allows(StreamFormat f) {
+            return allowed && formats.contains(f);
+        }
     }
 
     public enum ParamIn { path, query, header, body }
@@ -109,22 +134,30 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
      */
     public record Limits(int timeoutSeconds, int maxRows,
                          @Schema(nullable = true, description = "Calls per minute across all callers; null = unlimited")
-                         Integer ratePerMinute) {
+                         Integer ratePerMinute,
+                         @Schema(nullable = true, description = "Most rows a streamed response returns; null = maxRows")
+                         Integer streamMaxRows) {
         public static final int MAX_TIMEOUT_SECONDS = 300;
         public static final int MAX_ROWS = 100_000;
+        public static final int MAX_STREAM_ROWS = 10_000_000;
 
         public Limits {
             timeoutSeconds = timeoutSeconds <= 0 ? 30 : Math.min(timeoutSeconds, MAX_TIMEOUT_SECONDS);
             maxRows = maxRows <= 0 ? 10_000 : Math.min(maxRows, MAX_ROWS);
             ratePerMinute = ratePerMinute == null || ratePerMinute <= 0 ? null : Math.min(ratePerMinute, 1_000_000);
+            streamMaxRows = streamMaxRows == null || streamMaxRows <= 0 ? null : Math.min(streamMaxRows, MAX_STREAM_ROWS);
         }
 
         public Limits(int timeoutSeconds, int maxRows) {
-            this(timeoutSeconds, maxRows, null);
+            this(timeoutSeconds, maxRows, null, null);
         }
 
         public static Limits defaults() {
-            return new Limits(30, 10_000, null);
+            return new Limits(30, 10_000, null, null);
+        }
+
+        public int streamRowLimit() {
+            return streamMaxRows == null ? maxRows : streamMaxRows;
         }
     }
 }

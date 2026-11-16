@@ -2994,7 +2994,7 @@
         }
       },
       "EndpointDefinition" : {
-        "required" : [ "limits", "pagination", "params", "task" ],
+        "required" : [ "limits", "pagination", "params", "streaming", "task" ],
         "type" : "object",
         "properties" : {
           "limits" : {
@@ -3008,6 +3008,9 @@
             "items" : {
               "$ref" : "#/components/schemas/Param"
             }
+          },
+          "streaming" : {
+            "$ref" : "#/components/schemas/Streaming"
           },
           "task" : {
             "$ref" : "#/components/schemas/Task"
@@ -3172,6 +3175,12 @@
           "ratePerMinute" : {
             "type" : "integer",
             "description" : "Calls per minute across all callers; null = unlimited",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "streamMaxRows" : {
+            "type" : "integer",
+            "description" : "Most rows a streamed response returns; null = maxRows",
             "format" : "int32",
             "nullable" : true
           },
@@ -3837,6 +3846,22 @@
           },
           "template" : {
             "type" : "string"
+          }
+        }
+      },
+      "Streaming" : {
+        "required" : [ "allowed", "formats" ],
+        "type" : "object",
+        "properties" : {
+          "allowed" : {
+            "type" : "boolean"
+          },
+          "formats" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string",
+              "enum" : [ "ndjson", "csv" ]
+            }
           }
         }
       },

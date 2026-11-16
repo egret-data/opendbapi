@@ -80,7 +80,8 @@ public class ServingDispatcher {
     }
 
     @RequestMapping(WS_PREFIX_PATTERN + "**")
-    public ResponseEntity<?> dispatch(@PathVariable("ws") String workspaceSlug, HttpServletRequest request) {
+    public ResponseEntity<?> dispatch(@PathVariable("ws") String workspaceSlug, HttpServletRequest request,
+                                      jakarta.servlet.http.HttpServletResponse servletResponse) {
         long start = System.nanoTime();
         String requestId = UUID.randomUUID().toString();
         String method = request.getMethod().toUpperCase(Locale.ROOT);
@@ -92,9 +93,17 @@ public class ServingDispatcher {
             outcome.ip = r.clientIp();
         });
         try {
-            ResponseEntity<?> response = serve(workspaceSlug, method, path, request, requestId, outcome);
+            ResponseEntity<?> response = serve(workspaceSlug, method, path, request, servletResponse, requestId, outcome);
+            if (response == null) { // streamed straight to the servlet response
+                outcome.status = servletResponse.getStatus();
+                return null;
+            }
             outcome.status = response.getStatusCode().value();
             return response;
+        } catch (QueryExecutor.ClientGone e) {
+            outcome.status = 499;
+            outcome.errorCode = "client_gone";
+            return null;
         } catch (ServingGuard.RateLimited e) {
             outcome.status = 429;
             outcome.errorCode = e.code();
@@ -116,6 +125,11 @@ public class ServingDispatcher {
             return answer;
         } catch (QueryExecutor.QueryFailedException e) {
             log.warn("Query failed [request {}] {} {}: {}", requestId, method, path, e.getMessage());
+            if (servletResponse.isCommitted()) { // mid-stream: the writer already said so in-band
+                outcome.status = servletResponse.getStatus();
+                outcome.errorCode = "query_failed";
+                return null;
+            }
             outcome.status = 500;
             outcome.errorCode = "query_failed";
             return problem(HttpStatus.INTERNAL_SERVER_ERROR, "query_failed",
@@ -129,8 +143,8 @@ public class ServingDispatcher {
         }
     }
 
-    private ResponseEntity<?> serve(String slug, String method, String path, HttpServletRequest request, String requestId,
-                                    Outcome outcome) {
+    private ResponseEntity<?> serve(String slug, String method, String path, HttpServletRequest request,
+                                    jakarta.servlet.http.HttpServletResponse servletResponse, String requestId, Outcome outcome) {
         Workspace ws = workspaces.findBySlug(slug).filter(Workspace::active).orElseThrow(() -> notFound(method, path, slug));
         guard.checkFirewall(ws.id(), outcome.ip);
         EndpointRegistry.Match match = registry.resolve(ws.id(), method, path).orElseThrow(() -> notFound(method, path, slug));
@@ -148,9 +162,15 @@ public class ServingDispatcher {
         Set<String> reserved = def.pagination().enabled() ? EndpointValidator.RESERVED : Set.of("format");
         Map<String, Object> params = ParamBinder.bind(def.params(), new ParamBinder.Request(match.pathVariables(),
                 query(request), headers(request), body(request, def)), reserved);
-        QueryExecutor.PageRequest page = pageRequest(def.pagination(), request);
+        EndpointDefinition.StreamFormat stream = streamFormat(def, request);
+        QueryExecutor.PageRequest page = stream == null ? pageRequest(def.pagination(), request) : null;
         Datasource ds = scope.call(ws.id(), () -> datasources.find(route.task().datasourceId()))
                 .orElseThrow(() -> new ApiProblem(503, "datasource_missing", "This endpoint's datasource is not available."));
+
+        if (stream != null) {
+            streamTo(servletResponse, stream, ds, route, params, def, rate, requestId, outcome);
+            return null;
+        }
 
         QueryExecutor.QueryResult result = executor.run(ds, route.task(), params, page, def.limits(), QueryExecutor.RunMode.SERVE);
 
@@ -199,6 +219,98 @@ public class ServingDispatcher {
         if (status == CallerStatus.NOT_GRANTED) {
             throw new ApiProblem(403, "not_granted", "This client has not been granted access to the endpoint.");
         }
+    }
+
+    /** Spec §9.6: {@code ?format=ndjson|csv} or an Accept header asking for one of them. */
+    private static EndpointDefinition.StreamFormat streamFormat(EndpointDefinition def, HttpServletRequest request) {
+        String format = request.getParameter("format");
+        EndpointDefinition.StreamFormat wanted = null;
+        if (format != null && !format.isBlank() && !"json".equalsIgnoreCase(format.strip())) {
+            try {
+                wanted = EndpointDefinition.StreamFormat.valueOf(format.strip().toLowerCase(Locale.ROOT));
+            } catch (IllegalArgumentException e) {
+                throw ApiProblem.badRequest("invalid_param", "format must be json, ndjson or csv.");
+            }
+        } else if (format == null) {
+            String accept = request.getHeader("Accept");
+            String first = accept == null ? "" : accept.split(",")[0].split(";")[0].strip().toLowerCase(Locale.ROOT);
+            if (first.equals("application/x-ndjson") || first.equals("application/ndjson")) {
+                wanted = EndpointDefinition.StreamFormat.ndjson;
+            } else if (first.equals("text/csv")) {
+                wanted = EndpointDefinition.StreamFormat.csv;
+            }
+        }
+        if (wanted != null && !def.streaming().allows(wanted)) {
+            throw new ApiProblem(406, "not_acceptable", "This endpoint does not stream %s; ask for JSON.".formatted(wanted));
+        }
+        return wanted;
+    }
+
+    private void streamTo(jakarta.servlet.http.HttpServletResponse response, EndpointDefinition.StreamFormat format, Datasource ds,
+                          EndpointRegistry.Route route, Map<String, Object> params, EndpointDefinition def,
+                          RateLimiter.Decision rate, String requestId, Outcome outcome) {
+        // Headers are set by the sink's start(), i.e. only after the query ran: an early failure
+        // still becomes an ordinary problem response.
+        java.io.OutputStream out = new java.io.OutputStream() {
+            private java.io.OutputStream target;
+
+            private java.io.OutputStream target() throws IOException {
+                if (target == null) {
+                    response.setStatus(200);
+                    response.setContentType(format == EndpointDefinition.StreamFormat.csv
+                            ? "text/csv; charset=utf-8" : "application/x-ndjson; charset=utf-8");
+                    if (format == EndpointDefinition.StreamFormat.csv) {
+                        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + route.endpointId() + ".csv\"");
+                    }
+                    response.setHeader("X-Request-Id", requestId);
+                    response.setHeader("X-OpenDBAPI-Version", Integer.toString(route.version()));
+                    rateHeaders(rate).forEach((k, v) -> v.forEach(value -> response.addHeader(k, value)));
+                    target = response.getOutputStream();
+                }
+                return target;
+            }
+
+            @Override
+            public void write(int b) throws IOException {
+                target().write(b);
+            }
+
+            @Override
+            public void write(byte[] b, int off, int len) throws IOException {
+                target().write(b, off, len);
+            }
+
+            @Override
+            public void flush() throws IOException {
+                target().flush();
+            }
+        };
+        QueryExecutor.RowSink sink = format == EndpointDefinition.StreamFormat.csv
+                ? StreamWriters.csv(out, RequestJson.MAPPER) : StreamWriters.ndjson(out, RequestJson.MAPPER, requestId);
+        QueryExecutor.RowSink committing = new QueryExecutor.RowSink() {
+            @Override
+            public void start(List<QueryExecutor.ResultColumn> columns) throws IOException {
+                sink.start(columns);
+                out.flush(); // commits status and headers once the query has run
+            }
+
+            @Override
+            public void row(Object[] values) throws IOException {
+                sink.row(values);
+            }
+
+            @Override
+            public void end(boolean truncated) throws IOException {
+                sink.end(truncated);
+                outcome.truncated = truncated;
+            }
+
+            @Override
+            public void failed(String code) throws IOException {
+                sink.failed(code);
+            }
+        };
+        outcome.rows = executor.stream(ds, route.task(), params, def.limits(), committing);
     }
 
     /** IETF draft RateLimit header fields, for the tightest limit that applied. */
@@ -333,5 +445,6 @@ public class ServingDispatcher {
         String serviceAccountId;
         String ip;
         String actorUserId;
+        boolean truncated;
     }
 }

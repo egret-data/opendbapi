@@ -8,11 +8,13 @@
 import type { Limits } from './limits';
 import type { Pagination } from './pagination';
 import type { Param } from './param';
+import type { Streaming } from './streaming';
 import type { Task } from './task';
 
 export interface EndpointDefinition {
   limits: Limits;
   pagination: Pagination;
   params: Param[];
+  streaming: Streaming;
   task: Task;
 }

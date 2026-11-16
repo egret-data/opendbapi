@@ -117,6 +117,16 @@ public final class OpenApiBuilder {
             parameters.add(intParam("page", "Page number, from 1", 1, null, 1));
             parameters.add(intParam("size", "Rows per page", 1, def.pagination().maxSize(), def.pagination().defaultSize()));
         }
+        if (def.streaming().allowed()) {
+            ObjectNode format = parameters.addObject();
+            format.put("name", "format");
+            format.put("in", "query");
+            format.put("required", false);
+            format.put("description", "Stream the rows instead of a JSON envelope (no pagination); Accept works too");
+            ArrayNode values = format.putObject("schema").put("type", "string").put("default", "json").putArray("enum");
+            values.add("json");
+            def.streaming().formats().forEach(f -> values.add(f.name()));
+        }
         if (!bodyProps.isEmpty()) {
             ObjectNode schema = F.objectNode().put("type", "object");
             schema.set("properties", bodyProps);
@@ -131,7 +141,15 @@ public final class OpenApiBuilder {
         ObjectNode responses = op.putObject("responses");
         ObjectNode ok = responses.putObject("200");
         ok.put("description", "OK");
-        ok.putObject("content").putObject("application/json").set("schema", envelope(e, def));
+        ObjectNode content = ok.putObject("content");
+        content.putObject("application/json").set("schema", envelope(e, def));
+        if (def.streaming().allows(EndpointDefinition.StreamFormat.ndjson)) {
+            content.putObject("application/x-ndjson").putObject("schema").put("type", "string")
+                    .put("description", "One row object per line; a last {\"_meta\":{...}} line when cut short");
+        }
+        if (def.streaming().allows(EndpointDefinition.StreamFormat.csv)) {
+            content.putObject("text/csv").putObject("schema").put("type", "string").put("description", "Header row, then one line per row");
+        }
         problem(responses, "400", "A parameter is missing or invalid (code invalid_param)");
         boolean isPrivate = !"public".equals(e.snapshot().access());
         if (isPrivate) {
