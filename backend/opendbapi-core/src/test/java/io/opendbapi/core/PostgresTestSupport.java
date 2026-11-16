@@ -14,7 +14,7 @@ public abstract class PostgresTestSupport {
     public static final String APP_ROLE = "opendbapi_app";
 
     @SuppressWarnings("resource") // lives for the whole JVM, stopped by Ryuk
-    private static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16.4-alpine")
+    protected static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16.4-alpine")
             .withDatabaseName("opendbapi")
             .withCopyFileToContainer(
                     MountableFile.forClasspathResource("db/init-roles.sql"),

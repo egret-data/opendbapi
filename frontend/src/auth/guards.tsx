@@ -5,7 +5,8 @@ import { useMe } from "@/api/auth";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Forbidden } from "@/routes/Forbidden";
-import { effectiveRole } from "./useAuth";
+import { effectiveRole, hasRole } from "./useAuth";
+import type { WorkspaceRole } from "@/api/auth";
 
 function FullPageSkeleton() {
   return (
@@ -64,4 +65,15 @@ export function RequireSystemAdmin() {
     return <Forbidden reason="This area is for system administrators." />;
   }
   return <Outlet />;
+}
+
+/** Pages that need a minimum workspace role, such as create pages for admins. */
+export function RequireRole({ minimum, children }: { minimum: WorkspaceRole; children: ReactNode }) {
+  const { data: me } = useMe();
+  const { ws } = useParams();
+  const mine = me ? effectiveRole(me, ws) : undefined;
+  if (!mine || !hasRole(mine, minimum)) {
+    return <Forbidden reason={`This page needs the ${minimum} role in this workspace.`} />;
+  }
+  return <>{children}</>;
 }

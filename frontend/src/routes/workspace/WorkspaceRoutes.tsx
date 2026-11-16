@@ -3,6 +3,10 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { NotBuiltYet } from "@/routes/NotBuiltYet";
 import { NotFound } from "@/routes/NotFound";
 import SettingsPage from "./settings/SettingsPage";
+import DatasourceDetailPage from "./datasources/DatasourceDetailPage";
+import DatasourcesPage from "./datasources/DatasourcesPage";
+import NewDatasourcePage from "./datasources/NewDatasourcePage";
+import { RequireRole } from "@/auth/guards";
 
 /** Everything under `/w/:ws` (spec §17.3). Loaded lazily from `App.tsx`. */
 export default function WorkspaceRoutes() {
@@ -19,12 +23,9 @@ export default function WorkspaceRoutes() {
           />
         }
       />
-      <Route
-        path="datasources/*"
-        element={
-          <NotBuiltYet title="Datasources" step={4} summary="JDBC connections this workspace's endpoints query." />
-        }
-      />
+      <Route path="datasources" element={<DatasourcesPage />} />
+      <Route path="datasources/new" element={<RequireRole minimum="admin"><NewDatasourcePage /></RequireRole>} />
+      <Route path="datasources/:id" element={<DatasourceDetailPage />} />
       <Route
         path="clients/*"
         element={

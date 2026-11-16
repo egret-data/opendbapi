@@ -26,10 +26,10 @@ import type {
 
 import type {
   MappingView,
+  ProviderTestResult,
   ProviderView,
   SaveProvider,
-  TestRequest,
-  TestResult
+  TestRequest
 } from '../model';
 
 import { customInstance } from '../../mutator';
@@ -648,9 +648,9 @@ export const useReplaceGroupMappings = <TError = unknown,
  * @summary Check connectivity; for LDAP optionally sign a test user in
  */
 export const testIdentityProvider = async (id: string,
-    testRequest?: TestRequest, options?: Parameters<typeof customInstance>[1]): Promise<TestResult> => {
+    testRequest?: TestRequest, options?: Parameters<typeof customInstance>[1]): Promise<ProviderTestResult> => {
 
-  return customInstance<TestResult>(getTestIdentityProviderUrl(id),
+  return customInstance<ProviderTestResult>(getTestIdentityProviderUrl(id),
   {
     ...options,
     method: 'POST',

@@ -236,22 +236,33 @@ Schema mới trong PostgreSQL, schema `opendbapi`. Dữ liệu DBAPI được nh
 ### 4.6 Cấu hình datasource
 
 ```jsonc
-// type = jdbc
+// type = jdbc (P1)
 {
-  "dialect": "postgresql",            // postgresql | mysql | sqlserver | oracle | clickhouse | sqlite | other
-  "url": "jdbc:postgresql://db:5432/app",
-  "driver": "org.postgresql.Driver",
+  "dialect": "POSTGRESQL",             // POSTGRESQL | MYSQL | MARIADB | SQLSERVER | ORACLE
+  "host": "db.corp.local",             // chỉ tên host hoặc IP, không kèm port/path/tham số
+  "port": null,                        // null = cổng mặc định của dialect
+  "database": "sales",                 // Oracle: service name
   "username": "api_reader",
-  "pool": { "maximumPoolSize": 10, "connectionTimeoutMs": 30000 },
-  "tableSql": null                     // null = dùng DatabaseMetaData
+  "properties": { "sslmode": "require" },   // chỉ các thuộc tính trong danh sách trắng của dialect
+  "pool": { "maximumPoolSize": 10, "minimumIdle": 0, "connectionTimeoutMs": 10000 }
 }
-// type = elasticsearch
+// type = elasticsearch (P2)
 { "hosts": ["http://es1:9200"], "username": "elastic" }
-// type = http
+// type = http (P2)
 { "baseUrl": "https://upstream.example.com", "headers": { "X-Source": "opendbapi" } }
 ```
 
 Mật khẩu không nằm trong `config` mà ở `secret_ref`. API không bao giờ trả mật khẩu về UI.
+
+**Bảo mật datasource.** Datasource do admin của *workspace* (không phải admin hệ thống) cấu hình, nên chuỗi kết nối được coi là đầu vào không tin cậy:
+
+- **Không cho nhập URL JDBC thô.** Server tự dựng URL từ các trường có cấu trúc; host, database và giá trị thuộc tính bị kiểm tra để không chèn được `?`, `;`, `&` hay `/`.
+- **Danh sách trắng thuộc tính driver theo dialect.** Những thuộc tính khiến driver nạp class, đọc file hoặc deserialize đều bị từ chối, ví dụ PostgreSQL `socketFactory`/`sslfactory` (lớp lỗ hổng CVE-2022-21724), MySQL `autoDeserialize`/`allowLoadLocalInfile`. Mỗi kết nối còn luôn kèm thuộc tính an toàn: MySQL `allowLoadLocalInfile=false`, `autoDeserialize=false`; MariaDB `allowLocalInfile=false`.
+- **Chỉ có driver PostgreSQL, MySQL, MariaDB, SQL Server, Oracle.** Không có H2, SQLite hay các DB dạng file/chạy trong tiến trình, vì URL của chúng đọc được file hoặc chạy được script trên server. ClickHouse để P2.
+- **Chặn host.** Mặc định chặn endpoint metadata của cloud (`169.254.0.0/16`, `fd00:ec2::254`, `100.100.100.200`, `metadata.google.internal`). Operator thêm được bằng `opendbapi.datasources.extra-denied-hosts`, hoặc giới hạn bằng `allowed-hosts` (tên host, `*.suffix`, CIDR). Tên host được resolve trước khi so khớp. DNS vẫn có thể đổi giữa lúc kiểm tra và lúc kết nối, nên network policy là lớp bảo vệ chính; đây là lớp bổ sung.
+- **Nên đặt database khách hàng ở server khác với metadata DB của OpenDBAPI.** Nếu dùng chung một server PostgreSQL, tài khoản của datasource vẫn *nhìn thấy tên* các bảng metadata (driver liệt kê mọi bảng bất kể quyền), dù không đọc được dữ liệu nhờ phân quyền và RLS. Khi buộc phải dùng chung, thêm host đó vào `extra-denied-hosts`.
+- **`read_only`:** chặn publish SQL có ghi dữ liệu (§7.5) và mở session ở chế độ chỉ đọc. Với PostgreSQL điều này thật sự được ép (`readOnlyMode=always`), vì `setReadOnly` của JDBC không có tác dụng khi autocommit bật. MySQL/MariaDB được ép bằng `SET SESSION TRANSACTION READ ONLY` mỗi khi mở kết nối (driver MariaDB không đẩy `setReadOnly` xuống server). Cả ba đã được kiểm chứng trên DB thật (`ReadOnlyEnforcementTest`). SQL Server và Oracle không ép được ở mức session, nên bảo đảm thật sự vẫn là một tài khoản DB chỉ có quyền đọc.
+- **Pool:** HikariCP, tối đa 50 kết nối, timeout lấy kết nối 250 ms–60 s. Pool được tạo lần đầu khi dùng và đóng/tạo lại khi datasource đổi hoặc bị xoá.
 
 ---
 
@@ -1000,7 +1011,7 @@ Quyền tối thiểu theo bảng §8.4.
 | Thành viên | `GET/POST /members`, `PATCH/DELETE /members/{userId}`, `GET /user-search?q=` (tìm user để thêm); role đến từ mapping thì trả 409 `managed_by_directory`, owner cuối cùng thì 409 `last_owner` |
 | Audit | `GET /audit` (admin workspace) |
 | Nhóm (thư mục) | `GET/POST /groups`, `PATCH/DELETE /groups/{id}` |
-| Datasource | `GET/POST /datasources`, `GET/PATCH/DELETE /datasources/{id}`, `POST /datasources/{id}/test`, `POST /datasources/test` (chưa lưu), `GET /datasources/{id}/tables`, `GET /datasources/{id}/tables/{table}/columns`, `POST /datasources/{id}/pool:reset` |
+| Datasource | `GET/POST /datasources`, `GET /datasources/dialects`, `GET/PATCH/DELETE /datasources/{id}` (xoá bị từ chối khi endpoint đang dùng), `POST /datasources/{id}:test` (author), `POST /datasources/test` (cấu hình chưa lưu, `existingId` để dùng lại mật khẩu đã lưu; admin), `GET /datasources/{id}/schemas`, `GET /datasources/{id}/tables?schema=`, `GET /datasources/{id}/columns?schema=&table=` (author). Hạn mức `quotas.datasources` của workspace được kiểm tra khi tạo |
 | Endpoint | `GET/POST /endpoints` (lọc `state`, `groupId`, `datasourceId`, `q`, `trashed`), `GET/PATCH /endpoints/{id}`, `POST /endpoints/{id}:validate`, `:publish`, `:disable`, `:enable`, `:trash`, `:restore`, `:duplicate`, `:new-major`, `DELETE /endpoints/{id}` (chỉ khi đã ở thùng rác) |
 | Phiên bản | `GET /endpoints/{id}/versions`, `GET /endpoints/{id}/versions/{v}`, `POST /endpoints/{id}/versions/{v}:rollback`, `GET /endpoints/{id}/versions/{a}/diff/{b}` |
 | Viết & kiểm thử | `POST /endpoints/{id}/preview`, `POST /endpoints/{id}/try`, `GET/POST /endpoints/{id}/tests`, `PATCH/DELETE /endpoints/{id}/tests/{tid}`, `POST /endpoints/{id}/tests:run` |
@@ -1109,7 +1120,7 @@ management:
 1. ✅ (2026-11-16) Khung repo: Maven multi-module, Docker Compose (PostgreSQL, OpenLDAP, Keycloak cho dev), khung frontend copy từ Egret theo §17.1, Flyway schema §4 với RLS.
 2. ✅ (2026-11-16) Workspace + user + đăng nhập nội bộ/LDAP/OIDC + role theo workspace + group mapping.
 3. ✅ (2026-11-16) Engine template + kiểm tra SQL tĩnh + phân trang (TDD), module `opendbapi-sql`, đã chạy thử trên PostgreSQL và MySQL thật.
-4. Datasource registry + CRUD + test kết nối.
+4. ✅ (2026-11-16) Datasource registry + CRUD + test kết nối + duyệt schema/bảng/cột, cùng màn hình Datasources.
 5. Endpoint draft/validate/publish/rollback + registry + pipeline serving (§9.1, bước 1–7, 10–14, 16).
 6. Service account, client, OAuth2 token, cấp quyền.
 7. Preview + Try-it (gọi pipeline thật trong cùng tiến trình).

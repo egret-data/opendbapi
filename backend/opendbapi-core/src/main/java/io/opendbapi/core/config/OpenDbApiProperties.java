@@ -11,7 +11,8 @@ public record OpenDbApiProperties(
         /** Base64 of 32 random bytes; seals secrets stored as {@code enc:} references. */
         @DefaultValue("") String masterKey,
         @DefaultValue Serving serving,
-        @DefaultValue Auth auth) {
+        @DefaultValue Auth auth,
+        @DefaultValue Datasources datasources) {
 
     public enum Mode {
         STANDALONE,
@@ -25,6 +26,20 @@ public record OpenDbApiProperties(
     public record Serving(
             @DefaultValue("api") String context,
             @DefaultValue("") String urlBase) {
+    }
+
+    /**
+     * Where datasources may connect (spec §4.6). Cloud metadata endpoints are always denied.
+     *
+     * @param extraDeniedHosts host names, {@code *.suffix} wildcards or CIDR ranges denied in
+     *     addition to the defaults, e.g. the network of the metadata database
+     * @param allowedHosts when not empty, the only hosts datasources may reach
+     */
+    public record Datasources(java.util.List<String> extraDeniedHosts, java.util.List<String> allowedHosts) {
+        public Datasources {
+            extraDeniedHosts = extraDeniedHosts == null ? java.util.List.of() : extraDeniedHosts;
+            allowedHosts = allowedHosts == null ? java.util.List.of() : allowedHosts;
+        }
     }
 
     /**

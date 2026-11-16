@@ -77,7 +77,7 @@ public class IdentityProviderController {
     public record TestRequest(@Schema(nullable = true) String username, @Schema(nullable = true) String password) {
     }
 
-    public record TestResult(boolean ok, List<String> messages) {
+    public record ProviderTestResult(boolean ok, List<String> messages) {
     }
 
     public enum MappingRole { system_admin, owner, admin, script_author, author, viewer }
@@ -169,22 +169,22 @@ public class IdentityProviderController {
 
     @PostMapping("/{id}:test")
     @Operation(operationId = "testIdentityProvider", summary = "Check connectivity; for LDAP optionally sign a test user in")
-    public TestResult test(@PathVariable UUID id, @RequestBody(required = false) TestRequest body) {
+    public ProviderTestResult test(@PathVariable UUID id, @RequestBody(required = false) TestRequest body) {
         currentUser.requireSystemAdmin();
         IdentityProvider idp = find(id);
         try {
             if (IdentityProvider.LDAP.equals(idp.type())) {
-                return new TestResult(true, ldap.test(idp,
+                return new ProviderTestResult(true, ldap.test(idp,
                         body == null ? null : body.username(), body == null ? null : body.password()));
             }
             var registration = oidc.build(idp);
-            return new TestResult(true, List.of(
+            return new ProviderTestResult(true, List.of(
                     "Discovery document loaded from " + registration.getProviderDetails().getIssuerUri() + ".",
                     "Authorization endpoint: " + registration.getProviderDetails().getAuthorizationUri()));
         } catch (ApiProblem e) {
-            return new TestResult(false, List.of(e.getMessage()));
+            return new ProviderTestResult(false, List.of(e.getMessage()));
         } catch (RuntimeException e) {
-            return new TestResult(false, List.of("Failed: " + e.getMessage()));
+            return new ProviderTestResult(false, List.of("Failed: " + e.getMessage()));
         }
     }
 
