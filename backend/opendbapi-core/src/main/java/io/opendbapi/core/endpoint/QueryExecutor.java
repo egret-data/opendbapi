@@ -111,6 +111,112 @@ public class QueryExecutor {
         }
     }
 
+    /** Receives a streamed result. {@link #start} is called only once the query has run. */
+    public interface RowSink {
+        void start(List<ResultColumn> columns) throws java.io.IOException;
+
+        void row(Object[] values) throws java.io.IOException;
+
+        /** @param truncated more rows existed than the stream limit */
+        void end(boolean truncated) throws java.io.IOException;
+
+        /** The query failed after rows were sent: there is no status code left to change. */
+        void failed(String code) throws java.io.IOException;
+    }
+
+    /** Thrown when the caller went away mid-stream; nothing more can be sent. */
+    public static final class ClientGone extends RuntimeException {
+        ClientGone(java.io.IOException cause) {
+            super(cause);
+        }
+    }
+
+    /**
+     * Streams the main statement (spec §9.6): forward-only cursor with a fetch size, rows handed
+     * to the sink as they are read. Errors before the first row surface as usual (problem
+     * responses); later ones go to {@link RowSink#failed}. Returns the number of rows sent.
+     */
+    public long stream(Datasource ds, CompiledTask task, Map<String, Object> params, EndpointDefinition.Limits limits,
+                       RowSink sink) {
+        int limit = limits.streamRowLimit();
+        try (Connection c = registry.connection(ds)) {
+            c.setAutoCommit(false); // PostgreSQL only uses a cursor (fetch size) inside a transaction
+            boolean started = false;
+            try {
+                for (int i = 0; i < task.statements().size(); i++) {
+                    BoundSql bound = render(task.statements().get(i), params);
+                    if (i != task.mainIndex()) {
+                        execute(c, bound, limits);
+                        continue;
+                    }
+                    try (PreparedStatement ps = c.prepareStatement(bound.sql(), ResultSet.TYPE_FORWARD_ONLY,
+                            ResultSet.CONCUR_READ_ONLY)) {
+                        ps.setQueryTimeout(limits.timeoutSeconds());
+                        ps.setFetchSize(1000);
+                        ps.setMaxRows(limit + 1);
+                        for (int p = 0; p < bound.parameters().size(); p++) {
+                            ps.setObject(p + 1, bound.parameters().get(p));
+                        }
+                        if (!ps.execute()) {
+                            throw ApiProblem.badRequest("not_a_query", "Only a query that returns rows can be streamed.");
+                        }
+                        try (ResultSet rs = ps.getResultSet()) {
+                            ResultSetMetaData meta = rs.getMetaData();
+                            int n = meta.getColumnCount();
+                            List<ResultColumn> columns = new ArrayList<>(n);
+                            for (int k = 1; k <= n; k++) {
+                                columns.add(new ResultColumn(meta.getColumnLabel(k), meta.getColumnTypeName(k)));
+                            }
+                            sink.start(columns);
+                            started = true;
+                            long sent = 0;
+                            Object[] values = new Object[n];
+                            boolean truncated = false;
+                            while (rs.next()) {
+                                if (sent == limit) {
+                                    truncated = true;
+                                    break;
+                                }
+                                for (int k = 1; k <= n; k++) {
+                                    values[k - 1] = JdbcValues.read(rs, k);
+                                }
+                                sink.row(values);
+                                sent++;
+                            }
+                            c.commit();
+                            sink.end(truncated);
+                            return sent;
+                        }
+                    }
+                }
+                throw new IllegalStateException("No main statement");
+            } catch (java.io.IOException e) {
+                rollbackQuietly(c);
+                throw new ClientGone(e);
+            } catch (SQLException | RuntimeException e) {
+                rollbackQuietly(c);
+                if (started && e instanceof SQLException) {
+                    try {
+                        sink.failed(isTimeout((SQLException) e) ? "query_timeout" : "query_failed");
+                    } catch (java.io.IOException ignored) {
+                        // the caller is gone too
+                    }
+                    throw new QueryFailedException(e.getMessage(), (SQLException) e);
+                }
+                throw e;
+            }
+        } catch (SQLTimeoutException e) {
+            throw new ApiProblem(504, "query_timeout",
+                    "The query did not finish within %d seconds.".formatted(limits.timeoutSeconds()));
+        } catch (SQLException e) {
+            if (isTimeout(e)) {
+                throw new ApiProblem(504, "query_timeout",
+                        "The query did not finish within %d seconds.".formatted(limits.timeoutSeconds()));
+            }
+            throw new QueryFailedException(e.getMessage(), e);
+        }
+    }
+
     private static BoundSql render(CompiledTask.CompiledStatement s, Map<String, Object> params) {
         try {
             return s.template().render(params);

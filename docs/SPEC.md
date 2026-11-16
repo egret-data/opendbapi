@@ -628,7 +628,10 @@ Cache dùng khoá `(endpointId, version, paramsHash, scope)`. `scope = client` s
 - Bên gọi chọn định dạng bằng `Accept: application/x-ndjson` hoặc `text/csv`, hoặc tham số `?format=ndjson|csv`. Endpoint phải khai báo `streaming.allowed`.
 - Engine dùng `ResultSet` forward-only với `fetchSize` (ví dụ 1.000), ghi thẳng ra output stream. Chạy trên virtual thread nên không giữ platform thread.
 - Ở chế độ stream, các tính năng sau bị tắt: `nest`, cache, transform plugin. Validate sẽ báo nếu cấu hình mâu thuẫn.
-- `maxRows` vẫn áp dụng. Riêng với stream có thể đặt giới hạn cao hơn qua `limits.streamMaxRows`.
+- `maxRows` vẫn áp dụng. Riêng với stream có thể đặt giới hạn cao hơn qua `limits.streamMaxRows` (tối đa 10.000.000).
+- Stream bỏ qua phân trang. Status và header chỉ được gửi sau khi câu SQL đã chạy, nên lỗi xảy ra trước dòng đầu tiên vẫn trả problem response như bình thường. Lỗi xảy ra giữa chừng: NDJSON ghi thêm một dòng cuối `{"_meta":{"error":"query_failed","requestId":...}}`; CSV dừng lại, nguyên nhân nằm trong log. Khi bị cắt ở giới hạn số dòng, NDJSON ghi dòng cuối `{"_meta":{"truncated":true,...}}`.
+- Định dạng không được phép trả 406 `not_acceptable`; giá trị `format` không hợp lệ trả 400 `invalid_param`.
+- Đo trên PostgreSQL dev (2026-11-17): 1 triệu dòng NDJSON chạy hết khoảng 6 giây, CSV khoảng 5 giây, JVM giới hạn `-Xmx128m` vẫn chạy được, live heap sau GC không đổi.
 
 ---
 
@@ -1127,7 +1130,7 @@ management:
 6b. ✅ (2026-11-17) Firewall IP/CIDR và rate limit (§14, §9.1 bước 2 và 6): cấu hình theo workspace (cột `workspace.serving_policy`), giới hạn riêng từng endpoint ở `limits.ratePerMinute`. Token bucket chạy trong bộ nhớ nên giới hạn được đếm riêng ở mỗi instance. Header `X-Forwarded-For` chỉ được tin khi request đến từ `opendbapi.serving.trusted-proxies`.
 7. ✅ (2026-11-17) Preview + Try-it (gọi pipeline thật trong cùng tiến trình). Preview đã có từ bước 5. Lời gọi Try-it được ghi vào access log dạng dòng JSON (`actorUserId`); bảng `access_log` thuộc bước 10.
 8. ✅ (2026-11-17) OpenAPI tự sinh + Swagger UI.
-9. Stream NDJSON/CSV trên virtual threads.
+9. ✅ (2026-11-17) Stream NDJSON/CSV trên virtual threads.
 10. Metric, tracing, log query chậm, access log ra file, trang Activity cơ bản.
 11. UI theo §17: login, shell + workspace switcher, Endpoints (list/new/detail 5 tab), Datasources, Clients, Activity, Settings, Admin.
 

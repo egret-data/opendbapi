@@ -1,5 +1,6 @@
 import { useListGroups } from "@/api/generated/groups/groups";
 import { ConfigTable, ConfigTableGroup, ConfigTableRow } from "@/components/config/ConfigTable";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -72,6 +73,32 @@ export function SettingsTab({ ws, form, onChange, live, disabled }: {
         <ConfigTableRow label="Count total" htmlFor="ep-count" details="Adds a COUNT query per call; off returns only hasNext">
           <Switch id="ep-count" checked={def.pagination.count} disabled={disabled || !def.pagination.enabled}
             onCheckedChange={(v) => setDef({ pagination: { ...def.pagination, count: v } })} />
+        </ConfigTableRow>
+
+        <ConfigTableGroup label="Streaming" />
+        <ConfigTableRow label="Allow streaming" htmlFor="ep-stream"
+          details="Callers ask with ?format=ndjson|csv or an Accept header. Streams skip pagination and are written row by row.">
+          <Switch id="ep-stream" checked={def.streaming.allowed}
+            onCheckedChange={(v) => setDef({ streaming: { ...def.streaming, allowed: v } })} />
+        </ConfigTableRow>
+        <ConfigTableRow label="Formats" details="At least one">
+          <div className="flex gap-4">
+            {(["ndjson", "csv"] as const).map((f) => (
+              <div key={f} className="flex items-center gap-2">
+                <Checkbox id={`ep-fmt-${f}`} checked={def.streaming.formats.includes(f)} disabled={disabled || !def.streaming.allowed}
+                  onCheckedChange={(v) => {
+                    const next = v === true ? [...def.streaming.formats, f] : def.streaming.formats.filter((x) => x !== f);
+                    if (next.length > 0) setDef({ streaming: { ...def.streaming, formats: next } });
+                  }} />
+                <Label htmlFor={`ep-fmt-${f}`} className="font-mono text-xs">{f}</Label>
+              </div>
+            ))}
+          </div>
+        </ConfigTableRow>
+        <ConfigTableRow label="Most rows streamed" htmlFor="ep-stream-rows" details="Empty = same as 'Most rows returned'. Up to 10,000,000.">
+          <Input id="ep-stream-rows" type="number" min={1} max={10000000} className="w-36 tabular-nums" disabled={disabled || !def.streaming.allowed}
+            value={def.limits.streamMaxRows ?? ""}
+            onChange={(e) => setDef({ limits: { ...def.limits, streamMaxRows: e.target.value === "" ? null : int(e.target.value, 100000) } })} />
         </ConfigTableRow>
 
         <ConfigTableGroup label="Limits" />

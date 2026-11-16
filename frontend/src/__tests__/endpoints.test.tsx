@@ -31,6 +31,7 @@ const DETAIL: EndpointDetail = {
     task: { type: "sql", datasourceId: "ds1", transaction: false, statements: [{ id: "main", template: "select id from customers where tier = #{tier}" }] },
     pagination: { enabled: false, defaultSize: 20, maxSize: 500, count: true },
     limits: { timeoutSeconds: 30, maxRows: 10000 },
+    streaming: { allowed: false, formats: ["ndjson", "csv"] },
   },
 };
 

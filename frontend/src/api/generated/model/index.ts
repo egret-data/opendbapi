@@ -88,6 +88,8 @@ export * from './serviceAccount';
 export * from './serviceAccountDetail';
 export * from './servingPolicy';
 export * from './statement';
+export * from './streaming';
+export * from './streamingFormatsItem';
 export * from './systemInfo';
 export * from './table';
 export * from './tableColumn';

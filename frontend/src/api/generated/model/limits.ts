@@ -13,5 +13,10 @@ export interface Limits {
      * @nullable
      */
   ratePerMinute?: number | null;
+  /**
+     * Most rows a streamed response returns; null = maxRows
+     * @nullable
+     */
+  streamMaxRows?: number | null;
   timeoutSeconds: number;
 }
