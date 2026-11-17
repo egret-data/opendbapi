@@ -13,7 +13,9 @@ FROM maven:3.9.9-eclipse-temurin-21 AS app
 WORKDIR /src/backend
 COPY backend/ ./
 COPY --from=ui /src/frontend/dist /src/frontend/dist
-RUN --mount=type=cache,target=/root/.m2 mvn -B -q -DskipTests -pl opendbapi-app,opendbapi-cli -am package \
+# Maven Central answers 429 under load; retry downloads instead of failing the build.
+RUN --mount=type=cache,target=/root/.m2 mvn -B -q -DskipTests -Daether.connector.http.retryHandler.count=6 \
+      -Daether.connector.http.retryHandler.interval=10000 -pl opendbapi-app,opendbapi-cli -am package \
     && cp opendbapi-app/target/opendbapi-app-*.jar /opendbapi.jar \
     && cp opendbapi-cli/target/opendbapi-cli.jar /opendbapi-cli.jar \
     && cd / && java -Djarmode=tools -jar /opendbapi.jar extract --layers --launcher --destination /layers
