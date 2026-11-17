@@ -27,7 +27,7 @@ jobs:
           cache: maven
       - name: mvn verify
         working-directory: backend
-        run: mvn -B -ntp verify
+        run: mvn -B -ntp -Daether.connector.http.retryHandler.count=6 -Daether.connector.http.retryHandler.interval=10000 verify
       - name: Test reports
         if: failure()
         uses: actions/upload-artifact@v4

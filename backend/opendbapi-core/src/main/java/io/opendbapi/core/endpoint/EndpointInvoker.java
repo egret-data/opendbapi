@@ -11,8 +11,9 @@ import org.springframework.stereotype.Component;
 
 /**
  * Runs another endpoint for a workflow's api node (spec §6.1): its live version, with its own
- * parameter checks, rules, datasource and data policies, as the same caller. The callee runs on
- * its own connection, outside the calling workflow's transaction. Calls nest at most
+ * parameter checks, rules, datasource and data policies, as the same caller. Inside a workflow
+ * that runs as one transaction, a callee on the same datasource joins it; otherwise it runs on
+ * its own connection. Calls nest at most
  * {@link #MAX_DEPTH} deep, so endpoints calling each other stop.
  */
 @Component
@@ -43,7 +44,7 @@ public class EndpointInvoker {
     }
 
     private QueryExecutor.EndpointCaller caller(UUID workspaceId, UUID serviceAccountId, QueryExecutor.RunMode mode, int depth) {
-        return (endpointId, values) -> {
+        return (endpointId, values, shared) -> {
             if (depth > MAX_DEPTH) {
                 throw new ApiProblem(500, "workflow_failed", "Endpoints call each other more than %d deep.".formatted(MAX_DEPTH));
             }
@@ -58,8 +59,10 @@ public class EndpointInvoker {
             DataPolicies.Plan plan = policies.plan(workspaceId, endpointId, ds.id(), serviceAccountId);
             QueryExecutor.PageRequest page = def.pagination().enabled()
                     ? new QueryExecutor.PageRequest(1, def.pagination().defaultSize(), false) : null;
+            // Spec §6.1: inside a workflow transaction, a callee on the same datasource joins it.
+            java.sql.Connection join = shared != null && shared.datasourceId().equals(ds.id()) ? shared.connection() : null;
             QueryExecutor.QueryResult result = executor.run(ds, route.task(), params, page, def.limits(), mode, plan,
-                    caller(workspaceId, serviceAccountId, mode, depth + 1));
+                    caller(workspaceId, serviceAccountId, mode, depth + 1), join);
             return ResponseBody.build(def, result, page,
                     r -> DataPolicies.Plan.apply(plan.masksFor(r.columns()), r.columns(), r.rows())).data();
         };
