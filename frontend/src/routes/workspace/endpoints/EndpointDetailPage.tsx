@@ -234,9 +234,9 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
               <span className="text-sm text-muted-foreground">{t("Only script authors can change or preview the script.")}</span>
             )}
           </div>
-          <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)]">
+          <div className={workflow ? "space-y-6" : "grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)]"}>
             {workflow ? (
-              <WorkflowEditor task={form.definition.task} disabled={!canAuthor} canScript={canScript}
+              <WorkflowEditor ws={ws} selfId={s.id} task={form.definition.task} disabled={!canAuthor} canScript={canScript}
                 onChange={(task) => setForm({ ...form, definition: { ...form.definition, task } })} />
             ) : (
             <div className="h-[22rem] overflow-hidden rounded-md border" aria-label={script ? t("Groovy script") : t("SQL template")}>
