@@ -42,7 +42,13 @@ public class BootstrapAdmin implements ApplicationRunner {
                     + "Re-enable or promote it in the database to regain access.");
             return;
         }
-        users.createLocal("admin", "Administrator", null, passwords.hash(password), true);
+        try {
+            users.createLocal("admin", "Administrator", null, passwords.hash(password), true);
+        } catch (io.opendbapi.core.error.ApiProblem e) {
+            // Several instances started together and another one created it first.
+            log.info("Another instance created the first system administrator.");
+            return;
+        }
         if (configured.isBlank()) {
             log.warn("""
 
