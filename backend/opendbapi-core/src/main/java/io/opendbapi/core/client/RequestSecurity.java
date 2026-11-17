@@ -51,10 +51,13 @@ public class RequestSecurity {
     private final ServiceAccountStore store;
     private final SecretResolver secrets;
     private final ObjectMapper json;
-    private final Cache<String, Boolean> nonces = Caffeine.newBuilder().expireAfterWrite(Duration.ofMinutes(10)).maximumSize(1_000_000).build();
+    private final org.springframework.jdbc.core.simple.JdbcClient jdbc;
+    private final java.util.concurrent.atomic.AtomicLong lastPurge = new java.util.concurrent.atomic.AtomicLong(System.nanoTime());
     private final Cache<String, ClientSecurity> settings = Caffeine.newBuilder().expireAfterWrite(Duration.ofSeconds(10)).maximumSize(100_000).build();
 
-    public RequestSecurity(WorkspaceScope scope, ServiceAccountStore store, SecretResolver secrets, ObjectMapper json) {
+    public RequestSecurity(WorkspaceScope scope, ServiceAccountStore store, SecretResolver secrets, ObjectMapper json,
+                           org.springframework.jdbc.core.simple.JdbcClient jdbc) {
+        this.jdbc = jdbc;
         this.scope = scope;
         this.store = store;
         this.secrets = secrets;
@@ -120,9 +123,24 @@ public class RequestSecurity {
         if (!MessageDigest.isEqual(expected, given)) {
             throw bad("The signature does not match the request.");
         }
-        // Only a correctly signed request uses up its nonce.
-        if (nonces.asMap().putIfAbsent(clientId + "\n" + nonce, Boolean.TRUE) != null) {
+        // Only a correctly signed request uses up its nonce. The table is shared by every
+        // instance; an expired row may be taken again.
+        int taken = jdbc.sql("""
+                insert into request_nonce (client_id, nonce, expires_at) values (?, ?, now() + interval '10 minutes')
+                on conflict (client_id, nonce) do update set expires_at = excluded.expires_at
+                where request_nonce.expires_at < now()""").params(clientId, nonce).update();
+        if (taken == 0) {
             throw bad("This nonce was already used.");
+        }
+        purgeNow();
+    }
+
+    /** At most every five minutes, one caller drops expired nonces. */
+    private void purgeNow() {
+        long last = lastPurge.get();
+        long now = System.nanoTime();
+        if (now - last > Duration.ofMinutes(5).toNanos() && lastPurge.compareAndSet(last, now)) {
+            jdbc.sql("delete from request_nonce where expires_at < now()").update();
         }
     }
 
