@@ -17,6 +17,7 @@ import { NotFound } from "@/routes/NotFound";
 // Feature areas are lazy (FE-ROUTE-2): the login screen never downloads them.
 const WorkspaceRoutes = lazy(() => import("@/routes/workspace/WorkspaceRoutes"));
 const AdminRoutes = lazy(() => import("@/routes/admin/AdminRoutes"));
+const ApiTokensPage = lazy(() => import("@/routes/account/ApiTokensPage"));
 
 function AreaFallback() {
   const { t } = useTranslation();
@@ -63,6 +64,14 @@ export function AppRoutes() {
             }
           />
         </Route>
+        <Route
+          path="/account/tokens"
+          element={
+            <LazyRouteArea area="account" fallback={areaFallback}>
+              <ApiTokensPage />
+            </LazyRouteArea>
+          }
+        />
         <Route path="/admin" element={<RequireSystemAdmin />}>
           <Route
             path="*"

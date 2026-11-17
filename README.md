@@ -184,10 +184,39 @@ logical datasource names to the target's datasources.
 
 ```bash
 export OPENDBAPI_URL=https://opendbapi.example.com OPENDBAPI_WORKSPACE=sales
-export OPENDBAPI_USER=deployer OPENDBAPI_PASSWORD=...
-docker run --rm -v "$PWD/api:/api" -e OPENDBAPI_URL -e OPENDBAPI_WORKSPACE -e OPENDBAPI_USER -e OPENDBAPI_PASSWORD \
-  ghcr.io/egret-data/opendbapi:0.1.0 plan --dir /api --env prod --publish --detailed-exitcode
+export OPENDBAPI_TOKEN=odb_...   # user menu → API tokens; limit it to the workspace
+docker run --rm -v "$PWD/api:/api" -e OPENDBAPI_URL -e OPENDBAPI_WORKSPACE -e OPENDBAPI_TOKEN \
+  ghcr.io/egret-data/opendbapi:main plan --dir /api --env prod --publish --detailed-exitcode
 # then the same with: apply --dir /api --env prod --publish
+```
+
+A GitHub Actions workflow that plans on pull requests and applies on `main`:
+
+```yaml
+name: api
+on:
+  pull_request:
+    paths: [api/**]
+  push:
+    branches: [main]
+    paths: [api/**]
+jobs:
+  opendbapi:
+    runs-on: ubuntu-24.04
+    env:
+      OPENDBAPI_URL: https://opendbapi.example.com
+      OPENDBAPI_WORKSPACE: sales
+      OPENDBAPI_TOKEN: ${{ secrets.OPENDBAPI_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: plan
+        if: github.event_name == 'pull_request'
+        run: docker run --rm -v "$PWD/api:/api" -e OPENDBAPI_URL -e OPENDBAPI_WORKSPACE -e OPENDBAPI_TOKEN
+          ghcr.io/egret-data/opendbapi:main plan --dir /api --env prod --publish
+      - name: apply
+        if: github.event_name == 'push'
+        run: docker run --rm -v "$PWD/api:/api" -e OPENDBAPI_URL -e OPENDBAPI_WORKSPACE -e OPENDBAPI_TOKEN
+          ghcr.io/egret-data/opendbapi:main apply --dir /api --env prod --publish
 ```
 
 `plan` changes nothing; `apply` writes everything in one transaction, then publishes each

@@ -23,8 +23,8 @@ import java.util.stream.Stream;
 
 /**
  * {@code opendbapi export|plan|apply}: configuration as code against a running OpenDBAPI
- * (spec §15.2). Signs in as a local user ({@code OPENDBAPI_USER}/{@code OPENDBAPI_PASSWORD}),
- * then calls the workspace's export and config endpoints.
+ * (spec §15.2). Uses an API token ({@code OPENDBAPI_TOKEN}) or signs in as a local user
+ * ({@code OPENDBAPI_USER}/{@code OPENDBAPI_PASSWORD}), then calls the workspace's export and config endpoints.
  *
  * <p>Exit codes: 0 success; 1 error, or endpoints that failed to publish; 2 with
  * {@code --detailed-exitcode} when a plan has changes.
@@ -51,13 +51,15 @@ public final class Cli {
               --expected-digest D    apply: refuse unless the plan still has this digest
               --detailed-exitcode    plan: exit 2 when there are changes
 
-            Signs in with OPENDBAPI_USER and OPENDBAPI_PASSWORD (a local user who is admin of the workspace).
+            Authenticates with OPENDBAPI_TOKEN (an API token, best for CI), or else signs in with
+            OPENDBAPI_USER and OPENDBAPI_PASSWORD (a local user). The user must be admin of the workspace.
             """;
 
     private final Map<String, String> env;
     private final PrintStream out;
     private final PrintStream err;
     private final CookieManager cookies = new CookieManager();
+    private String token;
     private final HttpClient http = HttpClient.newBuilder().cookieHandler(cookies).connectTimeout(Duration.ofSeconds(15)).build();
 
     public Cli(Map<String, String> env, PrintStream out, PrintStream err) {
@@ -223,10 +225,15 @@ public final class Cli {
     }
 
     private void signIn(String url) throws IOException, InterruptedException {
+        String token = env.get("OPENDBAPI_TOKEN");
+        if (token != null && !token.isBlank()) {
+            this.token = token.strip();
+            return;
+        }
         String user = env.get("OPENDBAPI_USER");
         String password = env.get("OPENDBAPI_PASSWORD");
         if (user == null || password == null) {
-            throw new Failure("set OPENDBAPI_USER and OPENDBAPI_PASSWORD");
+            throw new Failure("set OPENDBAPI_TOKEN, or OPENDBAPI_USER and OPENDBAPI_PASSWORD");
         }
         http.send(HttpRequest.newBuilder(uri(url, "/admin/api/auth/providers")).GET().build(), HttpResponse.BodyHandlers.discarding());
         String body = "{\"source\":\"local\",\"username\":" + quote(user) + ",\"password\":" + quote(password) + "}";
@@ -235,6 +242,9 @@ public final class Cli {
     }
 
     private HttpResponse<String> send(HttpRequest.Builder request) throws IOException, InterruptedException {
+        if (token != null) {
+            request.header("Authorization", "Bearer " + token);
+        }
         for (HttpCookie c : cookies.getCookieStore().getCookies()) {
             if ("XSRF-TOKEN".equals(c.getName())) {
                 request.header("X-XSRF-TOKEN", c.getValue());

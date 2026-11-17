@@ -616,6 +616,16 @@ Ba nguồn đăng nhập, bật/tắt độc lập. Màn hình login hiển th�
 - Mapping có thể cấp `system_admin` (vd nhóm `opendbapi-admins`).
 - Mọi lần đăng nhập, đăng nhập thất bại, và thay đổi role đều ghi `audit_log`.
 
+
+### 8.6 API token cho tự động hoá
+
+- Token cá nhân để gọi API quản trị từ CI hay script: `Authorization: Bearer odb_…` trên `/admin/api/**`. Token hành động **như user tạo ra nó**, với đúng các role của user lúc gọi (user bị khoá thì token mất hiệu lực ngay).
+- Tạo, xem, thu hồi ở menu người dùng → **API tokens** (`GET/POST /me/tokens`, `DELETE /me/tokens/{id}`). Chỉ phiên đăng nhập trên trình duyệt quản lý được token; một token không tạo hay thu hồi token khác.
+- Token là `odb_` + 32 byte ngẫu nhiên, **chỉ hiện một lần**. Server chỉ lưu SHA-256 của nó và vài ký tự đầu để nhận diện.
+- Tuỳ chọn: giới hạn vào **một workspace** (gọi workspace khác thì 404, việc cấp hệ thống thì 403) và **hạn dùng** 1–365 ngày. Token sai, bị thu hồi hay hết hạn nhận 401 `invalid_token`. `last_used_at` được cập nhật tối đa mỗi phút một lần.
+- Request dùng token không cần CSRF (trình duyệt không tự gửi header này). Tạo và thu hồi được ghi audit.
+- CLI `opendbapi` đọc `OPENDBAPI_TOKEN`; khi có token thì không cần `OPENDBAPI_USER`/`OPENDBAPI_PASSWORD`.
+
 ---
 
 ## 9. Pipeline xử lý request
@@ -938,7 +948,7 @@ Các `kind` khác: `Datasource` (không chứa bí mật, chỉ `passwordRef: se
   - `opendbapi apply --dir ./api --env prod [--prune] [--publish] [--expected-digest D]`: áp dụng; thoát với mã 1 nếu có endpoint không publish được.
   - Cấu hình qua `--url`/`OPENDBAPI_URL`, `--workspace`/`OPENDBAPI_WORKSPACE`; đăng nhập bằng user local `OPENDBAPI_USER`/`OPENDBAPI_PASSWORD` (admin của workspace).
 - Đường đi đề xuất: viết trên dev → export vào Git → PR review → CI chạy `plan` → merge → `apply --publish` lên staging/prod.
-- Chưa làm: chế độ chỉ đọc cho UI ở prod (mọi thay đổi đi qua Git) và token API riêng cho CI.
+- Đăng nhập cho CI bằng API token (§8.6).
 
 ### 15.3 Import từ DBAPI (P2)
 
@@ -1187,6 +1197,7 @@ Quyền tối thiểu theo bảng §8.4.
 | Activity | `GET /activity/log` (lọc theo endpoint, client, status, request id; phân trang bằng `before`), `GET /activity/summary?from&to&includeTryIt&endpointId` (tổng số, tỷ lệ lỗi, p95, theo ngày, top endpoint, endpoint chậm nhất theo p95 với ít nhất 5 lời gọi, top client kèm tên service account, top địa chỉ IP, top mã lỗi; khoảng tối đa 93 ngày) |
 | Secret | `GET/POST /secrets`, `PATCH/DELETE /secrets/{name}` (workspace admin; giá trị chỉ ghi) |
 | Cấu hình dưới dạng code | `POST /config:plan`, `POST /config:apply`, `GET /environments`, `PUT/DELETE /environments/{name}` (workspace admin) |
+| API token | `GET/POST /me/tokens`, `DELETE /me/tokens/{id}` (phiên đăng nhập) |
 | Audit workspace | `GET /audit` |
 | Import/Export | `POST /import/dbapi?dryRun=` (P2), `GET /export?format=yaml` (P2), `POST /import?format=yaml&mode=plan|apply` (P3) |
 | Môi trường | `GET/POST /environments`, `PATCH /environments/{name}` |

@@ -37,6 +37,10 @@ public class WorkspaceAccess {
         Workspace workspace = workspaces.findBySlug(slug)
                 .filter(Workspace::active)
                 .orElseThrow(() -> notFound(slug));
+        TokenScope token = TokenScope.current();
+        if (token != null && token.workspaceId() != null && !token.workspaceId().equals(workspace.id())) {
+            throw notFound(slug); // the token is for another workspace
+        }
         WorkspaceRole role = user.systemAdmin()
                 ? WorkspaceRole.OWNER
                 : memberships.roleOf(workspace.id(), user.id()).orElseThrow(() -> notFound(slug));

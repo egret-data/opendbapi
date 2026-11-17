@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { Check, KeyRound, Languages, LogOut, Moon, Sun } from "lucide-react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Check, KeyRound, KeySquare, Languages, LogOut, Moon, Sun } from "lucide-react";
 import { useTranslation } from "react-i18next";
 
 import { useLogout } from "@/api/auth";
@@ -35,6 +35,7 @@ export function Header() {
   const isDark = useIsDark();
   const narrow = useIsNarrowViewport();
   const { ws } = useParams();
+  const navigate = useNavigate();
   const display = me.displayName ?? me.username;
   const [changingPassword, setChangingPassword] = useState(false);
   const { t, i18n } = useTranslation();
@@ -77,6 +78,10 @@ export function Header() {
               {t("Change password")}
             </DropdownMenuItem>
           )}
+          <DropdownMenuItem onSelect={() => navigate("/account/tokens")}>
+            <KeySquare className="mr-2 h-4 w-4" />
+            {t("API tokens")}
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuLabel className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
             <Languages className="h-3.5 w-3.5" aria-hidden="true" />
