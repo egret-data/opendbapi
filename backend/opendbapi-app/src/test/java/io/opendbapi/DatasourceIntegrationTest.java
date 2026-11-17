@@ -128,7 +128,7 @@ class DatasourceIntegrationTest extends AppTestSupport {
         assertThat(wrong.path("message").asText()).contains("password authentication failed");
         assertThat(blocked.path("ok").asBoolean()).isFalse();
         assertThat(blocked.path("message").asText()).contains("not allowed");
-        assertThat(ok.path("ok").asBoolean()).isTrue();
+        assertThat(ok.path("ok").asBoolean()).as(ok.toString()).isTrue();
         assertThat(ok.path("product").asText()).isEqualTo("PostgreSQL");
     }
 
