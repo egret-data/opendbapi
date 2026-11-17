@@ -187,7 +187,7 @@ logical datasource names to the target's datasources.
 export OPENDBAPI_URL=https://opendbapi.example.com OPENDBAPI_WORKSPACE=sales
 export OPENDBAPI_TOKEN=odb_...   # user menu → API tokens; limit it to the workspace
 docker run --rm -v "$PWD/api:/api" -e OPENDBAPI_URL -e OPENDBAPI_WORKSPACE -e OPENDBAPI_TOKEN \
-  ghcr.io/egret-data/opendbapi:main plan --dir /api --env prod --publish --detailed-exitcode
+  ghcr.io/egret-data/opendbapi:0.2.0 plan --dir /api --env prod --publish --detailed-exitcode
 # then the same with: apply --dir /api --env prod --publish
 ```
 
@@ -213,11 +213,11 @@ jobs:
       - name: plan
         if: github.event_name == 'pull_request'
         run: docker run --rm -v "$PWD/api:/api" -e OPENDBAPI_URL -e OPENDBAPI_WORKSPACE -e OPENDBAPI_TOKEN
-          ghcr.io/egret-data/opendbapi:main plan --dir /api --env prod --publish
+          ghcr.io/egret-data/opendbapi:0.2.0 plan --dir /api --env prod --publish
       - name: apply
         if: github.event_name == 'push'
         run: docker run --rm -v "$PWD/api:/api" -e OPENDBAPI_URL -e OPENDBAPI_WORKSPACE -e OPENDBAPI_TOKEN
-          ghcr.io/egret-data/opendbapi:main apply --dir /api --env prod --publish
+          ghcr.io/egret-data/opendbapi:0.2.0 apply --dir /api --env prod --publish
 ```
 
 `plan` changes nothing; `apply` writes everything in one transaction, then publishes each
