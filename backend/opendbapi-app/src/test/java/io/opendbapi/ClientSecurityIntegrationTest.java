@@ -99,6 +99,12 @@ class ClientSecurityIntegrationTest extends AppTestSupport {
         assertThat(ok.statusCode()).isEqualTo(200);
         assertThat(replay.statusCode()).isEqualTo(401);
         assertThat(replay.body()).contains("already used");
+        // The nonce lives in PostgreSQL, so every instance refuses the replay.
+        try (var c = java.sql.DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
+             var rs = c.createStatement().executeQuery("select count(*) from opendbapi.request_nonce where nonce = 'n-1'")) {
+            rs.next();
+            assertThat(rs.getInt(1)).isEqualTo(1);
+        }
         assertThat(tampered.statusCode()).isEqualTo(401);
         assertThat(stale.statusCode()).isEqualTo(401);
         String listed = admin.get(ws("/service-accounts/" + saId)).body();

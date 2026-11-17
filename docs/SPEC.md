@@ -503,7 +503,7 @@ X-Signature: base64(HMAC-SHA256(khoá ký, METHOD \n PATH \n sortedQuery \n hex(
 - `PATH` là đường dẫn request như đã gửi, không gồm query, ví dụ `/api/sales/v1/orders`.
 - `sortedQuery` là các cặp `name=value` đã URL-decode, sắp xếp rồi nối bằng `&`.
 - Body rỗng (như với GET) băm thành SHA-256 của chuỗi rỗng.
-- Thiếu header, timestamp lệch quá 5 phút, chữ ký sai, hoặc nonce đã dùng (nonce được nhớ 10 phút trên mỗi instance) đều trả **401** `bad_signature`. Chỉ request có chữ ký đúng mới tiêu tốn nonce của nó.
+- Thiếu header, timestamp lệch quá 5 phút, chữ ký sai, hoặc nonce đã dùng (nonce được nhớ 10 phút trong bảng `request_nonce` của PostgreSQL, dùng chung cho mọi instance, nên request không thể gửi lại sang pod khác) đều trả **401** `bad_signature`. Chỉ request có chữ ký đúng mới tiêu tốn nonce của nó.
 - Try-it không đi qua bước này: Try-it chạy trong cùng tiến trình và không dùng client nào.
 
 ### 8.3 Mã hoá response (P2)
