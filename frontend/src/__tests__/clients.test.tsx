@@ -10,7 +10,8 @@ const meAs = (role: "admin" | "author") => ({ ...ME_ALICE, workspaces: [{ id: "w
 const DETAIL: ServiceAccountDetail = {
   summary: { id: "sa1", name: "billing", description: null, disabled: false, createdAt: "2026-11-17T00:00:00Z",
     clientCount: 1, grantCount: 1, lastUsedAt: null, attributes: {} },
-  clients: [{ id: "c1", clientId: "odc_abc", createdAt: "2026-11-17T00:00:00Z", expiresAt: null, lastUsedAt: null, revokedAt: null }],
+  clients: [{ id: "c1", clientId: "odc_abc", createdAt: "2026-11-17T00:00:00Z", expiresAt: null, lastUsedAt: null, revokedAt: null,
+    hmacRequired: false, responseEncrypt: false, publicKey: null }],
   grants: [{ resourceType: "endpoint", resourceId: "e1", resourceName: "Customers", detail: "GET /customers", grantedAt: "2026-11-17T00:00:00Z" }],
 };
 
@@ -109,5 +110,29 @@ describe("Clients", () => {
     const dialog = await screen.findByRole("dialog", { name: "Secret rotated" });
     expect(within(dialog).getByText("ods_rotated")).toBeInTheDocument();
     expect(within(dialog).getByText(/old secret no longer works/)).toBeInTheDocument();
+  });
+
+  it("turns on signed requests and shows the signing key once", async () => {
+    // Arrange
+    const server = mockServer({
+      ...common,
+      "GET /admin/api/me": () => json(meAs("admin")),
+      "GET /admin/api/ws/sales/service-accounts/sa1": () => json(DETAIL),
+      "PUT /admin/api/ws/sales/service-accounts/sa1/clients/c1/security": () =>
+        json({ client: { ...DETAIL.clients[0], hmacRequired: true }, signingKey: "odh_k3y" }),
+    });
+    const user = userEvent.setup();
+    renderApp("/w/sales/clients/sa1");
+
+    // Act
+    await user.click(await screen.findByRole("button", { name: "Security" }));
+    await user.click(screen.getByLabelText("Require signed requests"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    // Assert
+    const shown = await screen.findByRole("dialog", { name: "Signing key issued" });
+    expect(within(shown).getByText("odh_k3y")).toBeInTheDocument();
+    const put = server.calls.find((c) => c.key === "PUT /admin/api/ws/sales/service-accounts/sa1/clients/c1/security")!;
+    expect(JSON.parse(String(put.init?.body))).toEqual({ hmacRequired: true, rotateSigningKey: false, responseEncrypt: false, publicKey: null });
   });
 });

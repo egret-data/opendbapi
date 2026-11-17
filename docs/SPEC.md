@@ -469,19 +469,29 @@ Endpoint `public` bỏ qua bước 4 và 5, nhưng vẫn qua firewall và rate l
 
 ### 8.2 Ký request HMAC (P2, tuỳ chọn theo client)
 
-Khi `oauth_client.hmac_required = true`, request phải có thêm:
+Admin bật ở nút **Security** của client (`PUT /service-accounts/{id}/clients/{cid}/security`). Khi bật lần đầu, hoặc khi chọn cấp lại, server tạo một **khoá ký** riêng (`odh_…`). Khoá này được niêm phong bằng master key và chỉ hiện một lần. Không dùng secret của client làm khoá được, vì server chỉ lưu hash của secret. Khi `oauth_client.hmac_required = true`, mọi request (ngoài token) phải có thêm:
 
 ```text
-X-Timestamp: 1763280000000
-X-Nonce: 3f1c…
-X-Signature: base64(HMAC-SHA256(secret, METHOD \n PATH \n sortedQuery \n sha256(body) \n timestamp \n nonce))
+X-Timestamp: 1763280000000          (mili giây)
+X-Nonce: 3f1c…                      (1–128 ký tự, không dùng lại)
+X-Signature: base64(HMAC-SHA256(khoá ký, METHOD \n PATH \n sortedQuery \n hex(sha256(body)) \n timestamp \n nonce))
 ```
 
-Timestamp lệch quá 5 phút hoặc nonce dùng lại (lưu nonce 10 phút) sẽ trả 401 `bad_signature`.
+- `PATH` là đường dẫn request như đã gửi, không gồm query, ví dụ `/api/sales/v1/orders`.
+- `sortedQuery` là các cặp `name=value` đã URL-decode, sắp xếp rồi nối bằng `&`.
+- Body rỗng (như với GET) băm thành SHA-256 của chuỗi rỗng.
+- Thiếu header, timestamp lệch quá 5 phút, chữ ký sai, hoặc nonce đã dùng (nonce được nhớ 10 phút trên mỗi instance) đều trả **401** `bad_signature`. Chỉ request có chữ ký đúng mới tiêu tốn nonce của nó.
+- Try-it không đi qua bước này: Try-it chạy trong cùng tiến trình và không dùng client nào.
 
 ### 8.3 Mã hoá response (P2)
 
-Khi `oauth_client.response_encrypt = true`: body được mã hoá AES-256-GCM, khoá AES mã hoá bằng `public_key` của client (RSA-OAEP-SHA256). Định dạng trả về: `{encryptedKey, iv, data}`.
+Khi `oauth_client.response_encrypt = true` (cần `public_key` là RSA từ 2048 bit, định dạng PEM):
+
+- Body JSON được mã hoá AES-256-GCM bằng khoá ngẫu nhiên. Khoá AES được mã hoá bằng `public_key` của client theo RSA-OAEP với SHA-256 và MGF1-SHA-256.
+- Dữ liệu trả về có dạng `{encryptedKey, iv, data}` (base64, `data` gồm cả tag GCM), kèm header `X-OpenDBAPI-Encrypted`.
+- Lỗi theo RFC 9457 không mã hoá, vì không chứa dữ liệu.
+- Request stream bị từ chối với 406.
+- Cache vẫn hoạt động: dữ liệu lưu trong cache chưa mã hoá, mỗi response được mã hoá riêng.
 
 ### 8.4 Người viết (admin UI): role và quyền
 
@@ -1190,7 +1200,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 15. ✅ (2026-11-17) Bộ test case cho từng endpoint (§11.3): bảng `endpoint_test_case`, chạy trên draft (kể cả với tư cách service account), chặn publish khi `require-tests-pass`, tab Tests.
 16. ✅ (2026-11-17) Map kết quả (§9.2): `naming`, `shape`, `nest`, `types`; phân trang keyset (§9.3); OpenAPI phản ánh cả hai.
 17. ✅ (2026-11-17) Cache kết quả (§9.5) theo client hoặc dùng chung, xoá khi đổi policy/thuộc tính, nút Clear cache, metric hit/miss.
-18. Ký request HMAC (§8.2) và mã hoá response (§8.3).
+18. ✅ (2026-11-17) Ký request HMAC với khoá ký riêng cho từng client (§8.2) và mã hoá response AES-GCM/RSA-OAEP (§8.3), cấu hình ở nút Security của client.
 19. Task Groovy `SqlFragment` (§7.4) trong sandbox.
 20. Executor Elasticsearch và HTTP (§6), driver ClickHouse.
 21. Thống kê đầy đủ trên trang Activity (`/activity/stats`, §21.2); lưu và hiện trạng thái lần test kết nối datasource gần nhất.
