@@ -349,7 +349,7 @@ Request tạo/sửa endpoint gửi trường lạ (kể cả trong object lồng
 | `script` | Groovy trả `SqlFragment` (P2), hoặc script đầy đủ dùng `db.*` (chế độ `full`) | P2/P3 |
 | `elasticsearch` | DSL template | Hoãn |
 | `http` | Proxy sang upstream | Hoãn |
-| `workflow` | DAG nhiều nút | P3 |
+| `workflow` | DAG nhiều node SQL/script, node độc lập chạy song song (§6.1) | P3 |
 
 ```jsonc
 // sql
@@ -367,6 +367,28 @@ Request tạo/sửa endpoint gửi trường lạ (kể cả trong object lồng
 ```
 
 Nhiều câu SQL chạy tuần tự trên cùng một connection. Với `transaction: true`, chúng nằm trong một transaction. Kết quả trả về là của câu có `id = "main"`, hoặc của câu cuối cùng.
+
+
+### 6.1 Workflow
+
+```jsonc
+{ "type": "workflow", "datasourceId": "…", "transaction": false, "output": "shape",
+  "nodes": [
+    { "id": "user",   "kind": "sql", "template": "select id, name from users where id = #{id}", "result": "one" },
+    { "id": "stats",  "kind": "sql", "template": "select count(*) from orders", "result": "value" },
+    { "id": "orders", "kind": "sql", "template": "select * from orders where user_id = #{user.id}",
+      "dependsOn": ["user"], "when": "user != null" },
+    { "id": "shape",  "kind": "script", "source": "return [user: params.user, orders: params.orders, stats: params.stats]",
+      "dependsOn": ["user", "orders", "stats"] } ] }
+```
+
+- Node `sql` là một SQL template; `result` = `list` (mặc định), `one` (dòng đầu hoặc null), `value` (cột đầu của dòng đầu) hoặc `update` (số dòng bị đổi, chỉ cho câu ghi). Node `script` là script Groovy chế độ `full` (§7.4), có `db`.
+- Node chạy sau mọi node trong `dependsOn`. Kết quả của node có sẵn cho các node sau theo id: `#{user.id}` trong SQL, `params.user` trong script. `when` là biểu thức (cú pháp như `test` của template); sai thì node bị bỏ qua và kết quả là null.
+- Thứ tự: các node được xếp thành tầng (thuật toán Kahn, giữ thứ tự đã viết trong một tầng). Node cùng tầng chạy **song song**, mỗi node một connection, trừ khi task có `transaction` (hoặc khi preview/test): khi đó chạy tuần tự trên một connection, cùng commit hoặc cùng rollback. Node đầu tiên lỗi làm cả request lỗi.
+- `output` là node có kết quả thành `data`; trống thì lấy node cuối. Tối đa 20 node, id dạng `^[a-z][a-zA-Z0-9_]*$`, không trùng; phụ thuộc vào node không tồn tại, vòng lặp, hay `output` sai đều là lỗi validate. Mọi node dùng datasource của task.
+- Mỗi câu query đi qua cùng các bước như script chế độ `full`: kiểm tra tĩnh, đúng loại, row filter, giới hạn, masking; tối đa 100 query mỗi request.
+- Validate render từng node SQL với giá trị mẫu (kết quả các node trước là map rỗng), kiểm tra tĩnh (kể cả câu ghi trong endpoint GET), kiểm tra `result` khớp loại câu, và ghi chú thứ tự chạy, ví dụ "Runs in 3 step(s): user + stats → orders → shape". Không có phân trang hay streaming.
+- Node `script` cần role `script_author`, như mọi script khác. UI: menu Language → **Workflow (several steps)**, mỗi node có id, loại, kết quả, "chạy sau", điều kiện và editor riêng; dòng trên cùng hiện các bước.
 
 ---
 

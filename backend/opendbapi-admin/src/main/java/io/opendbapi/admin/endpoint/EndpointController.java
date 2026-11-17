@@ -347,14 +347,26 @@ public class EndpointController {
      * changes to an endpoint whose script stays the same is open to authors.
      */
     private static void requireScriptAuthor(WorkspaceAccess.Granted granted, EndpointDefinition incoming, EndpointDefinition saved) {
-        if (incoming == null || !incoming.task().script()) {
+        List<String> scripts = incoming == null ? List.of() : scripts(incoming);
+        if (scripts.isEmpty()) {
             return;
         }
-        boolean unchanged = saved != null && saved.task().script() && java.util.Objects.equals(saved.task().source(), incoming.task().source());
+        boolean unchanged = saved != null && scripts.equals(scripts(saved));
         if (!unchanged && !granted.role().atLeast(WorkspaceRole.SCRIPT_AUTHOR)) {
             throw ApiProblem.forbidden("Writing or running Groovy scripts needs the script_author role; you are %s."
                     .formatted(granted.role().dbValue()));
         }
+    }
+
+    /** The Groovy sources of a definition: its script, or a workflow's script nodes (id and source). */
+    private static List<String> scripts(EndpointDefinition def) {
+        if (def.task().script()) {
+            return List.of(String.valueOf(def.task().source()));
+        }
+        if (def.task().workflow()) {
+            return def.task().nodes().stream().filter(n -> "script".equals(n.kind())).map(n -> n.id() + "\n" + n.source()).toList();
+        }
+        return List.of();
     }
 
     private EndpointSummary lifecycle(String ws, UUID id, String action,

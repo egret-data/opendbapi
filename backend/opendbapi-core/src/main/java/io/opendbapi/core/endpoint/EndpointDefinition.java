@@ -143,26 +143,60 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
     }
 
     /**
+     * One step of a workflow (spec §6.1). It runs once every node in {@code dependsOn} is done
+     * and its {@code when} expression (if any) holds; its result is then available to later nodes
+     * under its id, e.g. {@code #{user.id}} or {@code params.user.id} in a script.
+     */
+    public record WorkflowNode(String id,
+                               @Schema(allowableValues = {"sql", "script"}) String kind,
+                               @Schema(nullable = true, description = "sql nodes: the SQL template") String template,
+                               @Schema(nullable = true, description = "script nodes: a full-mode Groovy script") String source,
+                               @Schema(nullable = true) List<String> dependsOn,
+                               @Schema(nullable = true, description = "Run only when this expression holds, e.g. user != null") String when,
+                               @Schema(nullable = true, allowableValues = {"list", "one", "value", "update"},
+                                       description = "sql nodes: what the node's result is; list by default") String result) {
+        public WorkflowNode {
+            kind = kind == null ? "sql" : kind;
+            dependsOn = dependsOn == null ? List.of() : List.copyOf(dependsOn);
+            result = result == null || result.isBlank() ? "list" : result;
+        }
+    }
+
+    /**
      * {@code type = "sql"}: statements run in order on one connection. {@code type = "script"}
      * (spec §7.4): a Groovy {@code source}; {@code mode = "fragment"} returns the main query,
      * {@code mode = "full"} runs queries through {@code db} and returns the answer itself.
+     * {@code type = "workflow"}: a graph of SQL and script nodes; independent nodes run in parallel.
      */
-    public record Task(@Schema(allowableValues = {"sql", "script"}) String type, @Schema(nullable = true) UUID datasourceId,
+    public record Task(@Schema(allowableValues = {"sql", "script", "workflow"}) String type, @Schema(nullable = true) UUID datasourceId,
                        boolean transaction, List<Statement> statements,
                        @Schema(nullable = true, allowableValues = {"groovy"}) String language,
                        @Schema(nullable = true, allowableValues = {"fragment", "full"}) String mode,
-                       @Schema(nullable = true, description = "Script tasks: the Groovy source") String source) {
+                       @Schema(nullable = true, description = "Script tasks: the Groovy source") String source,
+                       @Schema(nullable = true, description = "Workflow tasks: the nodes of the graph (spec §6.1)") List<WorkflowNode> nodes,
+                       @Schema(nullable = true, description = "Workflow tasks: the node whose result is the answer; the last node when empty")
+                       String output) {
         public Task {
             type = type == null ? "sql" : type;
             statements = statements == null ? List.of() : List.copyOf(statements);
+            nodes = nodes == null ? List.of() : List.copyOf(nodes);
         }
 
         public Task(String type, UUID datasourceId, boolean transaction, List<Statement> statements) {
-            this(type, datasourceId, transaction, statements, null, null, null);
+            this(type, datasourceId, transaction, statements, null, null, null, null, null);
+        }
+
+        public Task(String type, UUID datasourceId, boolean transaction, List<Statement> statements, String language, String mode,
+                    String source) {
+            this(type, datasourceId, transaction, statements, language, mode, source, null, null);
         }
 
         public boolean script() {
             return "script".equals(type);
+        }
+
+        public boolean workflow() {
+            return "workflow".equals(type);
         }
 
         static Task empty() {

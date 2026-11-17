@@ -6411,6 +6411,19 @@
             "nullable" : true,
             "enum" : [ "fragment", "full" ]
           },
+          "nodes" : {
+            "type" : "array",
+            "description" : "Workflow tasks: the nodes of the graph (spec §6.1)",
+            "nullable" : true,
+            "items" : {
+              "$ref" : "#/components/schemas/WorkflowNode"
+            }
+          },
+          "output" : {
+            "type" : "string",
+            "description" : "Workflow tasks: the node whose result is the answer; the last node when empty",
+            "nullable" : true
+          },
           "source" : {
             "type" : "string",
             "description" : "Script tasks: the Groovy source",
@@ -6427,7 +6440,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "sql", "script" ]
+            "enum" : [ "sql", "script", "workflow" ]
           }
         }
       },
@@ -6935,6 +6948,50 @@
             "format" : "int32"
           }
         }
+      },
+      "WorkflowNode" : {
+        "required" : [ "id", "kind" ],
+        "type" : "object",
+        "properties" : {
+          "dependsOn" : {
+            "type" : "array",
+            "nullable" : true,
+            "items" : {
+              "type" : "string",
+              "nullable" : true
+            }
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "sql", "script" ]
+          },
+          "result" : {
+            "type" : "string",
+            "description" : "sql nodes: what the node's result is; list by default",
+            "nullable" : true,
+            "enum" : [ "list", "one", "value", "update" ]
+          },
+          "source" : {
+            "type" : "string",
+            "description" : "script nodes: a full-mode Groovy script",
+            "nullable" : true
+          },
+          "template" : {
+            "type" : "string",
+            "description" : "sql nodes: the SQL template",
+            "nullable" : true
+          },
+          "when" : {
+            "type" : "string",
+            "description" : "Run only when this expression holds, e.g. user != null",
+            "nullable" : true
+          }
+        },
+        "description" : "Workflow tasks: the nodes of the graph (spec §6.1)",
+        "nullable" : true
       },
       "WorkspaceView" : {
         "required" : [ "createdAt", "id", "name", "quotas", "slug", "status" ],

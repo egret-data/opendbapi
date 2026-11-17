@@ -238,8 +238,8 @@ public class DataPolicies {
         }
 
         @Override
-        public void mask(List<ResultColumn> columns, List<Map<String, Object>> rows) {
-            apply(masksFor(columns), columns, rows);
+        public void mask(List<ResultColumn> columns, List<Map<String, Object>> rows, String sql) {
+            apply(masksFor(columns, sql), columns, rows);
         }
 
 
@@ -277,13 +277,18 @@ public class DataPolicies {
 
         /** One mask (or null) per result column, by position; null when nothing is masked. */
         public Masks.Masker[] masksFor(List<ResultColumn> columns) {
+            return masksFor(columns, mainSql);
+        }
+
+        /** Masks for the result of {@code sql}; safe to call from several threads. */
+        public Masks.Masker[] masksFor(List<ResultColumn> columns, String sql) {
             if (masks.isEmpty()) {
                 return null;
             }
             Optional<ColumnLineage.Lineage> lineage = Optional.empty();
             boolean needsLineage = masks.stream().anyMatch(s -> s.policy().datasourceId() != null);
-            if (needsLineage && mainSql != null) {
-                lineage = owner.lineage(mainSql);
+            if (needsLineage && sql != null) {
+                lineage = owner.lineage(sql);
             }
             Masks.Masker[] out = new Masks.Masker[columns.size()];
             boolean any = false;

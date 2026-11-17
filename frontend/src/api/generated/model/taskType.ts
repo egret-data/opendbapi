@@ -12,4 +12,5 @@ export type TaskType = typeof TaskType[keyof typeof TaskType];
 export const TaskType = {
   sql: 'sql',
   script: 'script',
+  workflow: 'workflow',
 } as const;

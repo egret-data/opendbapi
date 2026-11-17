@@ -24,7 +24,7 @@ export function PreviewPanel({ ws, id, form }: { ws: string; id: string; form: D
   const [result, setResult] = useState<PreviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const params = form.definition.params;
-  const full = form.definition.task.type === "script" && form.definition.task.mode === "full";
+  const full = (form.definition.task.type === "script" && form.definition.task.mode === "full") || form.definition.task.type === "workflow";
 
   const run = () => {
     setError(null);
