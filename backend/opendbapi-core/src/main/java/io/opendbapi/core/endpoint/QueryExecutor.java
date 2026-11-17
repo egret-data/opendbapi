@@ -113,7 +113,37 @@ public class QueryExecutor {
      * version, as the same caller, with its own data policies. Returns the answer's data.
      */
     public interface EndpointCaller {
-        Object call(UUID endpointId, Map<String, Object> params);
+        /**
+         * @param shared the calling workflow's connection while it runs as one transaction; the callee
+         *               joins it when it uses the same datasource; null otherwise
+         */
+        Object call(UUID endpointId, Map<String, Object> params, SharedConnection shared);
+    }
+
+    /** A connection a workflow runs in one transaction, and the datasource it belongs to. */
+    public record SharedConnection(Connection connection, UUID datasourceId) {
+    }
+
+    /**
+     * A pooled connection, or {@code shared} wrapped so that closing, committing and rolling back
+     * are left to its owner: the work joins the owner's transaction.
+     */
+    private Connection lease(Datasource ds, Connection shared) throws SQLException {
+        if (shared == null) {
+            return registry.connection(ds);
+        }
+        return (Connection) java.lang.reflect.Proxy.newProxyInstance(Connection.class.getClassLoader(), new Class<?>[] {Connection.class},
+                (proxy, method, args) -> switch (method.getName()) {
+                    case "close", "commit", "rollback", "setAutoCommit" -> null;
+                    case "unwrap" -> shared.unwrap((Class<?>) args[0]);
+                    default -> {
+                        try {
+                            yield method.invoke(shared, args);
+                        } catch (java.lang.reflect.InvocationTargetException e) {
+                            throw e.getCause();
+                        }
+                    }
+                });
     }
 
     /** At most this many queries per full-script run. */
@@ -201,14 +231,20 @@ public class QueryExecutor {
     /** @param caller runs workflow api nodes; null where calling other endpoints is not available */
     public QueryResult run(Datasource ds, CompiledTask task, Map<String, Object> params, PageRequest page,
                       EndpointDefinition.Limits limits, RunMode mode, Policy policy, EndpointCaller caller) {
+        return run(ds, task, params, page, limits, mode, policy, caller, null);
+    }
+
+    /** @param shared a connection to run on, inside its owner's transaction; null borrows one */
+    public QueryResult run(Datasource ds, CompiledTask task, Map<String, Object> params, PageRequest page,
+                      EndpointDefinition.Limits limits, RunMode mode, Policy policy, EndpointCaller caller, Connection shared) {
         List<BoundSql> executed = new ArrayList<>();
         if (task.isFull()) {
-            return measured(ds, params, executed, () -> runScript(ds, task, params, limits, mode, policy, executed));
+            return measured(ds, params, executed, () -> runScript(ds, task, params, limits, mode, policy, executed, shared));
         }
         if (task.isWorkflow()) {
-            return measured(ds, params, executed, () -> runWorkflow(ds, task, params, limits, mode, policy, executed, caller));
+            return measured(ds, params, executed, () -> runWorkflow(ds, task, params, limits, mode, policy, executed, caller, shared));
         }
-        return measured(ds, params, executed, () -> runMeasured(ds, task, params, page, limits, mode, policy::rewrite, executed));
+        return measured(ds, params, executed, () -> runMeasured(ds, task, params, page, limits, mode, policy::rewrite, executed, shared));
     }
 
     /**
@@ -355,9 +391,9 @@ public class QueryExecutor {
      * the task asks for one, always rolled back in preview).
      */
     private QueryResult runScript(Datasource ds, CompiledTask task, Map<String, Object> params, EndpointDefinition.Limits limits,
-                                  RunMode mode, Policy policy, List<BoundSql> executed) {
+                                  RunMode mode, Policy policy, List<BoundSql> executed, Connection shared) {
         long start = System.nanoTime();
-        try (Connection c = registry.connection(ds)) {
+        try (Connection c = lease(ds, shared)) {
             boolean manual = mode == RunMode.PREVIEW || task.transaction();
             if (manual) {
                 c.setAutoCommit(false);
@@ -389,23 +425,24 @@ public class QueryExecutor {
      * order on one connection, committed or rolled back together.
      */
     private QueryResult runWorkflow(Datasource ds, CompiledTask task, Map<String, Object> params, EndpointDefinition.Limits limits,
-                                    RunMode mode, Policy policy, List<BoundSql> executed, EndpointCaller caller) {
+                                    RunMode mode, Policy policy, List<BoundSql> executed, EndpointCaller caller, Connection shared) {
         long start = System.nanoTime();
         CompiledWorkflow wf = task.workflow();
         Map<String, Object> results = new java.util.concurrent.ConcurrentHashMap<>();
         Set<String> inactive = java.util.concurrent.ConcurrentHashMap.newKeySet();
-        boolean together = mode == RunMode.PREVIEW || task.transaction();
-        List<BoundSql> shared = java.util.Collections.synchronizedList(executed);
-        try (Connection c = registry.connection(ds)) {
+        boolean together = mode == RunMode.PREVIEW || task.transaction() || shared != null;
+        List<BoundSql> log = java.util.Collections.synchronizedList(executed);
+        try (Connection c = lease(ds, shared)) {
             if (together) {
                 c.setAutoCommit(false);
             }
-            ScriptDb db = scriptDb(c, ds, limits, policy, shared);
+            ScriptDb db = scriptDb(c, ds, limits, policy, log);
+            SharedConnection joinable = together ? new SharedConnection(c, ds.id()) : null;
             try {
                 for (List<CompiledWorkflow.Node> level : wf.levels()) {
                     if (together || level.size() == 1) {
                         for (CompiledWorkflow.Node n : level) {
-                            runNode(n, params, results, inactive, db, caller);
+                            runNode(n, params, results, inactive, db, caller, joinable);
                         }
                     } else {
                         List<java.util.concurrent.Future<?>> running = new ArrayList<>();
@@ -413,7 +450,7 @@ public class QueryExecutor {
                             for (CompiledWorkflow.Node n : level) {
                                 running.add(pool.submit(() -> {
                                     try (Connection own = registry.connection(ds)) {
-                                        runNode(n, params, results, inactive, db.on(own), caller);
+                                        runNode(n, params, results, inactive, db.on(own), caller, null);
                                     } catch (SQLException e) {
                                         throw new QueryFailedException(e.getMessage(), e);
                                     }
@@ -472,7 +509,7 @@ public class QueryExecutor {
     }
 
     private static void runNode(CompiledWorkflow.Node n, Map<String, Object> params, Map<String, Object> results, Set<String> inactive,
-                                ScriptDb db, EndpointCaller caller) {
+                                ScriptDb db, EndpointCaller caller, SharedConnection joinable) {
         // A node on a branch not taken, or after one, does not run (spec §6.1).
         for (CompiledWorkflow.Dep d : n.dependsOn()) {
             if (inactive.contains(d.id()) || (d.branch() != null && !d.branch().equals(results.get(d.id())))) {
@@ -498,7 +535,7 @@ public class QueryExecutor {
             Map<String, Object> values = new LinkedHashMap<>();
             n.params().forEach((name, e) -> values.put(name, e.evaluate(context::get)));
             try {
-                value = caller.call(n.endpointId(), values);
+                value = caller.call(n.endpointId(), values, joinable);
             } catch (ApiProblem e) {
                 throw new ApiProblem(e.status(), e.code(), "Node '%s': %s".formatted(n.id(), e.getMessage()));
             }
@@ -549,10 +586,10 @@ public class QueryExecutor {
 
     private QueryResult runMeasured(Datasource ds, CompiledTask task, Map<String, Object> params, PageRequest page,
                       EndpointDefinition.Limits limits, RunMode mode, java.util.function.UnaryOperator<BoundSql> mainRewrite,
-                      List<BoundSql> executed) {
+                      List<BoundSql> executed, Connection shared) {
         long start = System.nanoTime();
         Dialect dialect = Dialect.valueOf(ds.config().dialect().name());
-        try (Connection c = registry.connection(ds)) {
+        try (Connection c = lease(ds, shared)) {
             boolean manual = mode == RunMode.PREVIEW || task.transaction();
             if (manual) {
                 c.setAutoCommit(false);
