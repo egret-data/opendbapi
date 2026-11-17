@@ -92,6 +92,7 @@ public class EndpointValidator {
 
         Set<String> declared = new HashSet<>();
         def.params().forEach(p -> declared.add(p.name()));
+        ParamRules.check(def.rules(), declared, findings);
         Set<String> used = new LinkedHashSet<>(task.parameterNames());
         used.removeAll(RESERVED);
         for (String name : used) {

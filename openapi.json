@@ -845,6 +845,177 @@
         "tags" : [ "activity" ]
       }
     },
+    "/admin/api/ws/{ws}/alert-channels" : {
+      "get" : {
+        "operationId" : "listAlertChannels",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/AlertChannel"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Alert channels of the workspace",
+        "tags" : [ "alert-channels" ]
+      },
+      "post" : {
+        "operationId" : "createAlertChannel",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveAlertChannel"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AlertChannel"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Add a webhook (admin)",
+        "tags" : [ "alert-channels" ]
+      }
+    },
+    "/admin/api/ws/{ws}/alert-channels/{id}" : {
+      "delete" : {
+        "operationId" : "deleteAlertChannel",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Remove a webhook (admin)",
+        "tags" : [ "alert-channels" ]
+      },
+      "patch" : {
+        "operationId" : "updateAlertChannel",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveAlertChannel"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AlertChannel"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Rename, change, enable or disable a webhook (admin)",
+        "tags" : [ "alert-channels" ]
+      }
+    },
+    "/admin/api/ws/{ws}/alert-channels/{id}:test" : {
+      "post" : {
+        "operationId" : "testAlertChannel",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/AlertTestResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Send a test message now (admin)",
+        "tags" : [ "alert-channels" ]
+      }
+    },
     "/admin/api/ws/{ws}/audit" : {
       "get" : {
         "operationId" : "listWorkspaceAudit",
@@ -2986,6 +3157,71 @@
           }
         }
       },
+      "AlertChannel" : {
+        "required" : [ "createdAt", "enabled", "id", "kind", "name", "urlHost" ],
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "slack", "teams", "google_chat", "webhook" ]
+          },
+          "lastError" : {
+            "type" : "string",
+            "description" : "Why the last delivery failed; null when it worked",
+            "nullable" : true
+          },
+          "lastSentAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "nullable" : true
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "urlHost" : {
+            "type" : "string",
+            "description" : "Host the webhook posts to"
+          }
+        }
+      },
+      "AlertTestResult" : {
+        "required" : [ "ok" ],
+        "type" : "object",
+        "properties" : {
+          "error" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "ok" : {
+            "type" : "boolean"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          }
+        }
+      },
+      "Alerts" : {
+        "required" : [ "enabled" ],
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "ApiGroup" : {
         "required" : [ "endpointCount", "id", "name" ],
         "type" : "object",
@@ -3410,9 +3646,12 @@
         }
       },
       "EndpointDefinition" : {
-        "required" : [ "limits", "pagination", "params", "streaming", "task" ],
+        "required" : [ "alerts", "limits", "pagination", "params", "rules", "streaming", "task" ],
         "type" : "object",
         "properties" : {
+          "alerts" : {
+            "$ref" : "#/components/schemas/Alerts"
+          },
           "limits" : {
             "$ref" : "#/components/schemas/Limits"
           },
@@ -3423,6 +3662,13 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/Param"
+            }
+          },
+          "rules" : {
+            "type" : "array",
+            "description" : "Checks on the bound parameters, run before the query (spec §13.1)",
+            "items" : {
+              "$ref" : "#/components/schemas/Rule"
             }
           },
           "streaming" : {
@@ -4148,6 +4394,44 @@
           },
           "type" : {
             "type" : "string"
+          }
+        }
+      },
+      "Rule" : {
+        "required" : [ "message", "test" ],
+        "type" : "object",
+        "properties" : {
+          "message" : {
+            "type" : "string"
+          },
+          "test" : {
+            "type" : "string"
+          }
+        },
+        "description" : "Checks on the bound parameters, run before the query (spec §13.1)"
+      },
+      "SaveAlertChannel" : {
+        "required" : [ "enabled", "kind", "name" ],
+        "type" : "object",
+        "properties" : {
+          "enabled" : {
+            "type" : "boolean"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "slack", "teams", "google_chat", "webhook" ]
+          },
+          "name" : {
+            "maxLength" : 120,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "url" : {
+            "maxLength" : 2000,
+            "minLength" : 0,
+            "type" : "string",
+            "description" : "Write-only; never returned",
+            "nullable" : true
           }
         }
       },

@@ -1,5 +1,9 @@
+import { Link } from "react-router-dom";
+import { Plus, Trash2 } from "lucide-react";
+
 import { useListGroups } from "@/api/generated/groups/groups";
 import { ConfigTable, ConfigTableGroup, ConfigTableRow } from "@/components/config/ConfigTable";
+import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -117,6 +121,41 @@ export function SettingsTab({ ws, form, onChange, live, disabled }: {
         </ConfigTableRow>
         <ConfigTableRow label="Transaction" htmlFor="ep-tx" details="Run all statements in one transaction; any failure rolls them all back">
           <Switch id="ep-tx" checked={def.task.transaction} onCheckedChange={(v) => setDef({ task: { ...def.task, transaction: v } })} />
+        </ConfigTableRow>
+
+        <ConfigTableGroup label="Parameter rules" />
+        <ConfigTableRow label="Rules"
+          details="Checked before the query, in the same language as <if test>, for example: to == null or to >= from. A false rule answers 400 with its message.">
+          <div className="space-y-2">
+            {def.rules.map((r, i) => (
+              <div key={i} className="space-y-1 rounded-md border p-2">
+                <Input aria-label={`Rule ${i + 1} condition`} className="font-mono text-xs" value={r.test} placeholder="to >= from"
+                  onChange={(e) => setDef({ rules: def.rules.map((x, k) => (k === i ? { ...x, test: e.target.value } : x)) })} />
+                <div className="flex gap-2">
+                  <Input aria-label={`Rule ${i + 1} message`} value={r.message} placeholder="Message for callers"
+                    onChange={(e) => setDef({ rules: def.rules.map((x, k) => (k === i ? { ...x, message: e.target.value } : x)) })} />
+                  <Button type="button" variant="ghost" size="icon" aria-label={`Remove rule ${i + 1}`}
+                    onClick={() => setDef({ rules: def.rules.filter((_, k) => k !== i) })}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" disabled={def.rules.length >= 20}
+              onClick={() => setDef({ rules: [...def.rules, { test: "", message: "" }] })}>
+              <Plus aria-hidden="true" />
+              Add rule
+            </Button>
+          </div>
+        </ConfigTableRow>
+
+        <ConfigTableGroup label="Alerts" />
+        <ConfigTableRow label="Alert on failures" htmlFor="ep-alerts"
+          details="Send server errors (5xx) to the workspace's alert channels, at most once per error every few minutes. Takes effect when published.">
+          <div className="flex items-center gap-3">
+            <Switch id="ep-alerts" checked={def.alerts.enabled} onCheckedChange={(v) => setDef({ alerts: { enabled: v } })} />
+            <Link className="text-sm underline" to={`/w/${ws}/settings/alerts`}>Alert channels</Link>
+          </div>
         </ConfigTableRow>
       </ConfigTable>
     </fieldset>

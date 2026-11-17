@@ -54,6 +54,7 @@ public abstract class AppTestSupport {
         registry.add("opendbapi.auth.bootstrap-admin-password", () -> ADMIN_PASSWORD);
         registry.add("opendbapi.master-key", () -> Base64.getEncoder().encodeToString(new byte[32]));
         registry.add("TEST_LDAP_BIND_PASSWORD", () -> "admin");
+        registry.add("opendbapi.alerts.allow-http", () -> "true"); // webhooks in tests are local HTTP servers
     }
 
     @LocalServerPort

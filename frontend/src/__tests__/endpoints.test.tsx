@@ -32,6 +32,8 @@ const DETAIL: EndpointDetail = {
     pagination: { enabled: false, defaultSize: 20, maxSize: 500, count: true },
     limits: { timeoutSeconds: 30, maxRows: 10000 },
     streaming: { allowed: false, formats: ["ndjson", "csv"] },
+    rules: [],
+    alerts: { enabled: false },
   },
 };
 
@@ -211,5 +213,31 @@ describe("Endpoints", () => {
     // Assert
     expect(await screen.findByLabelText("Allow streaming")).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("saves parameter rules and the alert switch with the draft", async () => {
+    // Arrange
+    const server = mockServer({
+      ...common,
+      "GET /admin/api/me": () => json(meAs("author")),
+      "GET /admin/api/ws/sales/endpoints/e1": () => json(DETAIL),
+      "PATCH /admin/api/ws/sales/endpoints/e1": () => json(DETAIL),
+    });
+    const user = userEvent.setup();
+    renderApp("/w/sales/endpoints/e1/settings");
+
+    // Act
+    await user.click(await screen.findByRole("button", { name: "Add rule" }));
+    await user.type(screen.getByLabelText("Rule 1 condition"), "tier != 'x'");
+    await user.type(screen.getByLabelText("Rule 1 message"), "tier x is retired.");
+    await user.click(screen.getByLabelText("Alert on failures"));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    // Assert
+    await waitFor(() => expect(server.calls.some((c) => c.key === "PATCH /admin/api/ws/sales/endpoints/e1")).toBe(true));
+    const patch = server.calls.find((c) => c.key === "PATCH /admin/api/ws/sales/endpoints/e1")!;
+    const sent = JSON.parse(String(patch.init?.body));
+    expect(sent.definition.rules).toEqual([{ test: "tier != 'x'", message: "tier x is retired." }]);
+    expect(sent.definition.alerts).toEqual({ enabled: true });
   });
 });
