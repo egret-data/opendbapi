@@ -2992,6 +2992,140 @@
         "tags" : [ "endpoints" ]
       }
     },
+    "/admin/api/ws/{ws}/secrets" : {
+      "get" : {
+        "operationId" : "listSecrets",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ManagedSecret"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Managed secrets and where they are used, without values (admin)",
+        "tags" : [ "secrets" ]
+      },
+      "post" : {
+        "operationId" : "createSecret",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateSecret"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ManagedSecret"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Store a secret; refer to it as secret:NAME (admin)",
+        "tags" : [ "secrets" ]
+      }
+    },
+    "/admin/api/ws/{ws}/secrets/{name}" : {
+      "delete" : {
+        "operationId" : "deleteSecret",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Delete a secret no datasource or alert channel uses (admin)",
+        "tags" : [ "secrets" ]
+      },
+      "patch" : {
+        "operationId" : "updateSecret",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/UpdateSecret"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ManagedSecret"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Describe a secret or replace its value (admin)",
+        "tags" : [ "secrets" ]
+      }
+    },
     "/admin/api/ws/{ws}/service-accounts" : {
       "get" : {
         "operationId" : "listServiceAccounts",
@@ -3822,6 +3956,27 @@
           }
         }
       },
+      "CreateSecret" : {
+        "required" : [ "name", "value" ],
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string",
+            "nullable" : true
+          },
+          "name" : {
+            "maxLength" : 63,
+            "minLength" : 0,
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string",
+            "description" : "Write-only; never returned"
+          }
+        }
+      },
       "CreateUser" : {
         "required" : [ "password", "systemAdmin", "username" ],
         "type" : "object",
@@ -3988,6 +4143,11 @@
           "passwordEnv" : {
             "type" : "string",
             "description" : "The env: reference when the password comes from the environment",
+            "nullable" : true
+          },
+          "passwordSecret" : {
+            "type" : "string",
+            "description" : "The managed secret holding the password, when it is one",
             "nullable" : true
           },
           "pool" : {
@@ -4533,6 +4693,34 @@
             "maxLength" : 256,
             "minLength" : 0,
             "type" : "string"
+          }
+        }
+      },
+      "ManagedSecret" : {
+        "required" : [ "createdAt", "name", "updatedAt", "usedBy" ],
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "description" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "usedBy" : {
+            "type" : "array",
+            "description" : "Datasources and alert channels that use it",
+            "items" : {
+              "$ref" : "#/components/schemas/SecretUse"
+            }
           }
         }
       },
@@ -5321,6 +5509,24 @@
           }
         }
       },
+      "SecretUse" : {
+        "required" : [ "id", "kind", "name" ],
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "datasource", "alert_channel" ]
+          },
+          "name" : {
+            "type" : "string"
+          }
+        },
+        "description" : "Datasources and alert channels that use it"
+      },
       "ServiceAccount" : {
         "required" : [ "attributes", "clientCount", "createdAt", "disabled", "grantCount", "id", "name" ],
         "type" : "object",
@@ -5912,6 +6118,22 @@
             "minLength" : 0,
             "pattern" : "^[A-Za-z0-9_\\-{}]+(/[A-Za-z0-9_\\-{}]+)*$",
             "type" : "string"
+          }
+        }
+      },
+      "UpdateSecret" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "maxLength" : 500,
+            "minLength" : 0,
+            "type" : "string",
+            "nullable" : true
+          },
+          "value" : {
+            "type" : "string",
+            "description" : "Write-only; never returned",
+            "nullable" : true
           }
         }
       },

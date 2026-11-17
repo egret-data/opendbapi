@@ -25,6 +25,7 @@ export function DatasourceFields({
   disabled = false,
   hasPassword = false,
   passwordEnv,
+  passwordSecret,
 }: {
   ws: string;
   form: DatasourceForm;
@@ -32,6 +33,7 @@ export function DatasourceFields({
   disabled?: boolean;
   hasPassword?: boolean;
   passwordEnv?: string | null;
+  passwordSecret?: string | null;
 }) {
   const { t } = useTranslation();
   const dialects = useListDialects(ws);
@@ -41,10 +43,12 @@ export function DatasourceFields({
   const setProperty = (i: number, patch: Partial<DatasourceForm["properties"][number]>) =>
     set({ properties: form.properties.map((p, j) => (j === i ? { ...p, ...patch } : p)) });
   const passwordHelp = hasPassword
-    ? passwordEnv
-      ? t("Stored as {{env}}. Leave empty to keep it.", { env: passwordEnv })
-      : t("Stored encrypted. Leave empty to keep it.")
-    : t("Saved encrypted. Or type env:NAME to read it from the server's environment.");
+    ? passwordSecret
+      ? t("Read from the managed secret {{name}}. Leave empty to keep it.", { name: passwordSecret })
+      : passwordEnv
+        ? t("Stored as {{env}}. Leave empty to keep it.", { env: passwordEnv })
+        : t("Stored encrypted. Leave empty to keep it.")
+    : t("Saved encrypted. Or type secret:NAME for a managed secret, or env:NAME to read it from the server's environment.");
 
   return (
     <fieldset disabled={disabled} className="min-w-0">

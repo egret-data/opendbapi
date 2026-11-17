@@ -168,6 +168,7 @@ function ChannelDialog({ ws, channel, onClose, onSaved }: { ws: string; channel?
             <Label htmlFor="ch-url">{t("Webhook URL")}</Label>
             <Input id="ch-url" type="url" required={!channel} className="font-mono text-xs" value={url}
               placeholder={channel ? t("Unchanged ({{host}})", { host: channel.urlHost }) : "https://hooks.slack.com/services/…"} onChange={(e) => setUrl(e.target.value)} />
+            <p className="text-xs text-muted-foreground">{t("Or type secret:NAME to read the URL from a managed secret.")}</p>
           </div>
           <div className="flex items-center gap-2">
             <Switch id="ch-enabled" checked={enabled} onCheckedChange={setEnabled} />

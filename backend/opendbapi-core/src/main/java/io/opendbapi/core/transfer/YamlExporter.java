@@ -74,7 +74,7 @@ public class YamlExporter {
                 if (d.description() != null) {
                     spec.put("description", d.description());
                 }
-                if (d.secretRef() != null && d.secretRef().startsWith("env:")) {
+                if (d.secretRef() != null && (d.secretRef().startsWith("env:") || d.secretRef().startsWith("secret:"))) {
                     spec.put("passwordRef", d.secretRef());
                 }
                 write(out, "Datasource", meta(d.name(), null), spec);

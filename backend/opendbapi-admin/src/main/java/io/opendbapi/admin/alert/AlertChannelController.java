@@ -77,8 +77,9 @@ public class AlertChannelController {
         if (body.url() == null || body.url().isBlank()) {
             throw ApiProblem.badRequest("invalid_url", "Give the webhook URL.");
         }
-        String host = alerts.checkUrl(body.url());
-        String ref = alerts.seal(body.url());
+        String[] urlRef = alerts.urlReference(wsId, body.url());
+        String ref = urlRef[0];
+        String host = urlRef[1];
         return scope.call(wsId, () -> {
             UUID id = store.create(wsId, body.name().strip(), kind, ref, host, body.enabled(), granted.user().id());
             audit.record(wsId, granted.user().id(), "alert_channel.create", "alert_channel", id.toString(),
@@ -94,8 +95,9 @@ public class AlertChannelController {
         UUID wsId = granted.workspace().id();
         String kind = kind(body.kind());
         boolean newUrl = body.url() != null && !body.url().isBlank();
-        String host = newUrl ? alerts.checkUrl(body.url()) : null;
-        String ref = newUrl ? alerts.seal(body.url()) : null;
+        String[] urlRef = newUrl ? alerts.urlReference(wsId, body.url()) : null;
+        String host = newUrl ? urlRef[1] : null;
+        String ref = newUrl ? urlRef[0] : null;
         return scope.call(wsId, () -> {
             if (!store.update(id, body.name().strip(), kind, ref, host, body.enabled())) {
                 throw notFound();

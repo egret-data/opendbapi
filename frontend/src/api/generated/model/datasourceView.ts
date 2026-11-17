@@ -26,6 +26,11 @@ export interface DatasourceView {
      * @nullable
      */
   passwordEnv?: string | null;
+  /**
+     * The managed secret holding the password, when it is one
+     * @nullable
+     */
+  passwordSecret?: string | null;
   pool: PoolSettings;
   port: number;
   properties: DatasourceViewProperties;
