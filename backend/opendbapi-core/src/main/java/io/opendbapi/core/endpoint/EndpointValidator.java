@@ -111,6 +111,44 @@ public class EndpointValidator {
             }
         }
 
+        if (task.isWorkflow()) {
+            CompiledWorkflow wf = task.workflow();
+            Map<String, Object> sample = CompiledWorkflow.sampleContext(sampleValues(def.params()), wf);
+            boolean getEndpoint = "GET".equals(method);
+            boolean readOnlyDs = datasource != null && datasource.readOnly();
+            for (CompiledWorkflow.Node n : wf.nodes()) {
+                if (n.sql() == null) {
+                    continue;
+                }
+                try {
+                    BoundSql bound = n.sql().render(sample);
+                    for (SqlInspector.SqlFinding f : SqlInspector.inspect(bound.sql(), new SqlInspector.Context(getEndpoint, readOnlyDs))) {
+                        findings.add(new Finding(f.severity().name().toLowerCase(), f.code(), "Node '%s': %s".formatted(n.id(), f.message())));
+                    }
+                    boolean write = SqlInspector.isWrite(bound.sql());
+                    if (write != "update".equals(n.result())) {
+                        findings.add(Finding.error("workflow", write ? "Node '%s' changes data; set its result to update.".formatted(n.id())
+                                : "Node '%s' is a query; its result is list, one or value.".formatted(n.id())));
+                    }
+                } catch (TemplateException e) {
+                    findings.add(Finding.warning("workflow", "Node '%s' could not be rendered with sample values: %s".formatted(n.id(), e.getMessage())));
+                }
+            }
+            findings.add(Finding.info("workflow_levels", "Runs in %d step(s): %s.".formatted(wf.levels().size(), String.join(" → ",
+                    wf.levels().stream().map(l -> String.join(" + ", l.stream().map(CompiledWorkflow.Node::id).toList())).toList()))));
+            if (def.pagination().enabled()) {
+                findings.add(Finding.error("pagination", "Workflows shape their own answer; turn pagination off."));
+            }
+            if (def.streaming().allowed()) {
+                findings.add(Finding.error("streaming", "Workflows answer JSON only; turn streaming off."));
+            }
+            if (policies.rowFilterColumn() != null && "public".equals(policies.access())) {
+                findings.add(Finding.error("row_filter_public",
+                        "This endpoint has a row filter, which needs to know the calling client. Make it private."));
+            }
+            checkCache(method, def, policies, findings);
+            return new Validation(findings, new ArrayList<>(used), List.of());
+        }
         if (task.isFull()) {
             // Spec §7.4 full mode: the queries only exist once the script runs; they are checked then.
             findings.add(Finding.info("script_full", "A full-mode script builds its queries while it runs: each one is checked, "

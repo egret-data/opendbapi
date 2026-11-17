@@ -9,6 +9,7 @@ import type { Statement } from './statement';
 import type { TaskLanguage } from './taskLanguage';
 import type { TaskMode } from './taskMode';
 import type { TaskType } from './taskType';
+import type { WorkflowNode } from './workflowNode';
 
 export interface Task {
   /** @nullable */
@@ -17,6 +18,16 @@ export interface Task {
   language?: TaskLanguage;
   /** @nullable */
   mode?: TaskMode;
+  /**
+     * Workflow tasks: the nodes of the graph (spec §6.1)
+     * @nullable
+     */
+  nodes?: (WorkflowNode | null)[] | null;
+  /**
+     * Workflow tasks: the node whose result is the answer; the last node when empty
+     * @nullable
+     */
+  output?: string | null;
   /**
      * Script tasks: the Groovy source
      * @nullable

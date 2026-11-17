@@ -63,16 +63,34 @@ export function isScript(def: EndpointDefinition): boolean {
   return def.task.type === "script";
 }
 
-export type TaskKind = "sql" | "fragment" | "full";
+export type TaskKind = "sql" | "fragment" | "full" | "workflow";
 
 export function taskKind(def: EndpointDefinition): TaskKind {
+  if (def.task.type === "workflow") return "workflow";
   return !isScript(def) ? "sql" : def.task.mode === "full" ? "full" : "fragment";
+}
+
+/** Whether saving or previewing needs the script author role: a script, or a workflow with a script node. */
+export function needsScriptRole(def: EndpointDefinition): boolean {
+  return isScript(def) || (def.task.type === "workflow" && (def.task.nodes ?? []).some((n) => n?.kind === "script"));
+}
+
+/** Names of workflow nodes: results available to later nodes, not request parameters. */
+export function nodeIds(def: EndpointDefinition): string[] {
+  return def.task.type === "workflow" ? (def.task.nodes ?? []).flatMap((n) => (n ? [n.id] : [])) : [];
 }
 
 /** Switches between an SQL template and a Groovy script (fragment or full mode); texts are kept. */
 export function withLanguage(def: EndpointDefinition, kind: TaskKind): EndpointDefinition {
   const task = def.task;
   if (kind === "sql") return { ...def, task: { ...task, type: "sql" } };
+  if (kind === "workflow") {
+    const statements = task.statements;
+    const sql = (statements.find((s) => s.id === "main") ?? statements[statements.length - 1])?.template ?? "select 1";
+    const nodes = task.nodes && task.nodes.length > 0 ? task.nodes
+      : [{ id: "main", kind: "sql" as const, template: sql, source: null, dependsOn: [], when: null, result: "list" as const }];
+    return { ...def, task: { ...task, type: "workflow", nodes } };
+  }
   const starter = kind === "full" ? FULL_SCRIPT_STARTER : SCRIPT_STARTER;
   const source = !task.source || task.source === SCRIPT_STARTER || task.source === FULL_SCRIPT_STARTER ? starter : task.source;
   return { ...def, task: { ...task, type: "script", language: "groovy", mode: kind, source } };
@@ -81,6 +99,10 @@ export function withLanguage(def: EndpointDefinition, kind: TaskKind): EndpointD
 /** The text the UI edits: the main SQL statement, or the script. */
 export function mainSql(def: EndpointDefinition): string {
   if (isScript(def)) return def.task.source ?? "";
+  if (def.task.type === "workflow") {
+    return (def.task.nodes ?? []).flatMap((n) => (n ? [`-- node ${n.id}\n${(n.kind === "script" ? n.source : n.template) ?? ""}`] : []))
+      .join("\n\n");
+  }
   const statements = def.task.statements;
   return (statements.find((s) => s.id === "main") ?? statements[statements.length - 1])?.template ?? "";
 }

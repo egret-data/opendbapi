@@ -46,7 +46,8 @@ import { FindingsList, PreviewPanel } from "./PreviewPanel";
 import { SettingsTab } from "./SettingsTab";
 import { TryItTab } from "./TryItTab";
 import { VersionsTab } from "./VersionsTab";
-import { STATE_LABEL, STATE_TONE, formFrom, isScript, mainSql, taskKind, toUpdate, withLanguage, withMainSql, type DraftForm, type TaskKind } from "./endpointForm";
+import { STATE_LABEL, STATE_TONE, formFrom, isScript, mainSql, needsScriptRole, nodeIds, taskKind, toUpdate, withLanguage, withMainSql, type DraftForm, type TaskKind } from "./endpointForm";
+import { WorkflowEditor } from "./WorkflowEditor";
 
 const TABS = ["query", "try", "tests", "settings", "access", "versions"] as const;
 
@@ -80,6 +81,8 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
   }
   const dirty = JSON.stringify(form) !== JSON.stringify(saved);
   const script = isScript(form.definition);
+  const scripted = needsScriptRole(form.definition);
+  const workflow = taskKind(form.definition) === "workflow";
   useUnsavedChangesWarning(dirty);
 
   // Each tab is a child route (spec §17.3): /w/:ws/endpoints/:id/settings survives a reload.
@@ -217,20 +220,25 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
               </SelectContent>
             </Select>
             <Label htmlFor="ep-language">{t("Language")}</Label>
-            <Select value={taskKind(form.definition)} disabled={!canAuthor || !canScript}
+            <Select value={taskKind(form.definition)} disabled={!canAuthor || (scripted && !canScript)}
               onValueChange={(v) => setForm({ ...form, definition: withLanguage(form.definition, v as TaskKind) })}>
               <SelectTrigger id="ep-language" className="w-56"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="sql">{t("SQL template")}</SelectItem>
-                <SelectItem value="fragment">{t("Groovy script")}</SelectItem>
-                <SelectItem value="full">{t("Groovy script (full: db, any answer)")}</SelectItem>
+                <SelectItem value="fragment" disabled={!canScript}>{t("Groovy script")}</SelectItem>
+                <SelectItem value="full" disabled={!canScript}>{t("Groovy script (full: db, any answer)")}</SelectItem>
+                <SelectItem value="workflow">{t("Workflow (several steps)")}</SelectItem>
               </SelectContent>
             </Select>
-            {script && !canScript && (
+            {scripted && !canScript && (
               <span className="text-sm text-muted-foreground">{t("Only script authors can change or preview the script.")}</span>
             )}
           </div>
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)]">
+            {workflow ? (
+              <WorkflowEditor task={form.definition.task} disabled={!canAuthor} canScript={canScript}
+                onChange={(task) => setForm({ ...form, definition: { ...form.definition, task } })} />
+            ) : (
             <div className="h-[22rem] overflow-hidden rounded-md border" aria-label={script ? t("Groovy script") : t("SQL template")}>
               <MonacoEditor
                 language={script ? "java" : "sql"}
@@ -239,10 +247,12 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
                 options={{ minimap: { enabled: false }, fontSize: 13, readOnly: !canAuthor || (script && !canScript), wordWrap: "on", scrollBeyondLastLine: false }}
               />
             </div>
+            )}
             <ParamsEditor params={form.definition.params} disabled={!canAuthor} sql={mainSql(form.definition)} path={form.path}
+              ignore={nodeIds(form.definition)}
               onChange={(p) => setForm({ ...form, definition: { ...form.definition, params: p } })} />
           </div>
-          {canAuthor && (!script || canScript) && <PreviewPanel ws={ws} id={s.id} form={form} />}
+          {canAuthor && (!scripted || canScript) && <PreviewPanel ws={ws} id={s.id} form={form} />}
         </TabsContent>
         <TabsContent value="settings" className="pt-4">
           <SettingsTab ws={ws} endpointId={s.id} form={form} onChange={setForm} live={s.state === "live"} disabled={!canAuthor} />

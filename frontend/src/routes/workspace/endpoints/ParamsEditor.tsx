@@ -18,16 +18,19 @@ export function ParamsEditor({
   sql,
   path,
   disabled,
+  ignore,
 }: {
   params: Param[];
   onChange: (next: Param[]) => void;
   sql: string;
   path: string;
   disabled: boolean;
+  /** Names that are not parameters, e.g. workflow node ids. */
+  ignore?: string[];
 }) {
   const { t } = useTranslation();
   const set = (i: number, patch: Partial<Param>) => onChange(params.map((p, j) => (j === i ? { ...p, ...patch } : p)));
-  const missing = detectParams(sql).filter((n) => !params.some((p) => p.name === n));
+  const missing = detectParams(sql).filter((n) => !params.some((p) => p.name === n) && !(ignore ?? []).includes(n));
 
   return (
     <div className="space-y-2">

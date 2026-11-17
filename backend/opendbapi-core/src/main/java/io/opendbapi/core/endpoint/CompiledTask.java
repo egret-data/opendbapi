@@ -10,10 +10,15 @@ import java.util.UUID;
 
 /** A task with its templates compiled once (spec §3.3). */
 public record CompiledTask(UUID datasourceId, boolean transaction, List<CompiledStatement> statements, int mainIndex,
-                           io.opendbapi.core.script.ScriptSandbox.Compiled full) {
+                           io.opendbapi.core.script.ScriptSandbox.Compiled full, CompiledWorkflow workflow) {
 
     public CompiledTask(UUID datasourceId, boolean transaction, List<CompiledStatement> statements, int mainIndex) {
-        this(datasourceId, transaction, statements, mainIndex, null);
+        this(datasourceId, transaction, statements, mainIndex, null, null);
+    }
+
+    /** Spec §6.1: a graph of nodes rather than statements. */
+    public boolean isWorkflow() {
+        return workflow != null;
     }
 
     /** Spec §7.4: a full-mode script, which runs its own queries through db and returns any value. */
@@ -48,7 +53,7 @@ public record CompiledTask(UUID datasourceId, boolean transaction, List<Compiled
             if ("full".equals(mode)) {
                 try {
                     return new CompiledTask(task.datasourceId(), task.transaction(), List.of(), -1,
-                            fullSandbox.compile(task.source(), io.opendbapi.core.script.ScriptSandbox.ScriptMode.FULL));
+                            fullSandbox.compile(task.source(), io.opendbapi.core.script.ScriptSandbox.ScriptMode.FULL), null);
                 } catch (io.opendbapi.core.script.ScriptRejected e) {
                     throw new TemplateException("In the script: " + e.getMessage());
                 }
@@ -71,6 +76,13 @@ public record CompiledTask(UUID datasourceId, boolean transaction, List<Compiled
                 }
             };
             return new CompiledTask(task.datasourceId(), task.transaction(), List.of(new CompiledStatement("main", renderer)), 0);
+        }
+        if (task.workflow()) {
+            if (task.nodes().stream().anyMatch(n -> "script".equals(n.kind())) && !scriptsEnabled) {
+                throw new TemplateException("Groovy scripts are turned off on this server.");
+            }
+            return new CompiledTask(task.datasourceId(), task.transaction(), List.of(), -1, null,
+                    CompiledWorkflow.compile(task, fullSandbox));
         }
         if (task.statements().isEmpty()) {
             throw new TemplateException("The query has no SQL statement.");
@@ -95,6 +107,9 @@ public record CompiledTask(UUID datasourceId, boolean transaction, List<Compiled
     public Set<String> parameterNames() {
         if (full != null) {
             return full.parameterNames();
+        }
+        if (workflow != null) {
+            return workflow.parameterNames();
         }
         Set<String> out = new LinkedHashSet<>();
         statements.forEach(s -> out.addAll(s.template().parameterNames()));
