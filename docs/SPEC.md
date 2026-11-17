@@ -635,7 +635,18 @@ HTTP status phản ánh đúng lỗi (400/401/403/404/409/429/500/504), không t
 
 ### 9.5 Cache
 
-Cache dùng khoá `(endpointId, version, paramsHash, scope)`. `scope = client` sẽ đưa thêm service account vào khoá. **Endpoint có `data_policy` theo client bắt buộc dùng `scope = client`**, kiểm tra khi publish. Lý do: tránh trường hợp client này đọc được dữ liệu đã lọc hoặc che cho client khác [E].
+```jsonc
+"cache": { "enabled": true, "ttlSeconds": 60, "scope": "client" }   // scope: client | shared
+```
+
+- Cache Caffeine trong bộ nhớ của từng instance, giới hạn tổng dung lượng bằng `opendbapi.cache.max-bytes` (mặc định 128 MB, ước tính theo cỡ JSON). Thời gian sống tối đa 86.400 giây.
+- Khoá cache gồm: endpoint, phiên bản live, service account khi `scope = client`, thế hệ của workspace và của endpoint, hash SHA-256 của tham số đã ép kiểu cùng trang/cursor. Publish hay rollback đổi phiên bản, nên tự động không dùng lại dữ liệu cũ.
+- Thứ được lưu là `data` và `meta` của trang sau khi đã áp data policy và map kết quả. Vì vậy với `scope = client`, mỗi service account chỉ nhận lại đúng câu trả lời đã tính cho chính nó.
+- Chỉ cache endpoint GET, không cache stream, không cache lời gọi Try-it. Lỗi và câu trả lời 404 của `shape: single` không được cache.
+- **Endpoint có data policy không dùng được `scope = shared`.** Validate và publish báo lỗi trường hợp này. Nếu policy được thêm sau khi đã publish, lời gọi sẽ bỏ qua cache cho tới khi đổi scope. Lý do: tránh client này đọc được dữ liệu đã lọc hoặc che cho client khác [E].
+- Đổi data policy hoặc thuộc tính service account sẽ xoá cache của cả workspace trên instance đó. `POST /endpoints/{id}/cache:clear` (author; nút **Clear cache** trong Settings) xoá cache của một endpoint.
+- Rate limit vẫn tính cả khi trả từ cache. `meta.cached = true` khi câu trả lời lấy từ cache. Metric: `opendbapi_cache_hits_total`, `opendbapi_cache_misses_total` theo endpoint.
+- Ở chế độ cluster (P3), cache vẫn nằm riêng ở từng instance cho tới khi có Redis.
 
 ### 9.6 Trả kết quả dạng stream (P1)
 
@@ -997,7 +1008,7 @@ Gate: `npm run lint`, `tsc -b`, `vitest run`, `vite build`, kiểm tra Monaco đ
   - `opendbapi_access_log_dropped_total`
 - Tracing OpenTelemetry: span cho pipeline, render, thực thi DB (gắn `db.system`, không gắn giá trị tham số) và HTTP upstream. `trace_id` được ghi vào access log.
 - **Log query chậm:** request có thời gian DB vượt `slowQueryMs` (mặc định 1.000) thì ghi SQL đã render, kèm tên tham số nhưng không kèm giá trị.
-- Hiện trạng P1: chưa có `opendbapi_cache_hits_total` (cache thuộc P2). Span được export qua OTLP khi đặt `management.otlp.tracing.endpoint`; tỷ lệ lấy mẫu đặt bằng `OPENDBAPI_TRACE_SAMPLING` (mặc định 0,1). Logger của log query chậm là `opendbapi.slow`.
+- Từ P2 có `opendbapi_cache_hits_total` và `opendbapi_cache_misses_total` (§9.5). Span được export qua OTLP khi đặt `management.otlp.tracing.endpoint`; tỷ lệ lấy mẫu đặt bằng `OPENDBAPI_TRACE_SAMPLING` (mặc định 0,1). Logger của log query chậm là `opendbapi.slow`.
 
 ---
 
@@ -1178,7 +1189,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 14. ✅ (2026-11-17) Rule tham số (§13.1) và kênh cảnh báo lỗi qua webhook (§13.2).
 15. ✅ (2026-11-17) Bộ test case cho từng endpoint (§11.3): bảng `endpoint_test_case`, chạy trên draft (kể cả với tư cách service account), chặn publish khi `require-tests-pass`, tab Tests.
 16. ✅ (2026-11-17) Map kết quả (§9.2): `naming`, `shape`, `nest`, `types`; phân trang keyset (§9.3); OpenAPI phản ánh cả hai.
-17. Cache kết quả (§9.5), metric `opendbapi_cache_hits_total`.
+17. ✅ (2026-11-17) Cache kết quả (§9.5) theo client hoặc dùng chung, xoá khi đổi policy/thuộc tính, nút Clear cache, metric hit/miss.
 18. Ký request HMAC (§8.2) và mã hoá response (§8.3).
 19. Task Groovy `SqlFragment` (§7.4) trong sandbox.
 20. Executor Elasticsearch và HTTP (§6), driver ClickHouse.

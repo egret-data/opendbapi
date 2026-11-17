@@ -53,14 +53,25 @@ public class DataPolicies {
                 }
             });
 
+    private io.opendbapi.core.endpoint.ResultCache results;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setResults(io.opendbapi.core.endpoint.ResultCache results) {
+        this.results = results;
+    }
+
     public DataPolicies(WorkspaceScope scope, DataPolicyStore store, ServiceAccountStore accounts) {
         this.scope = scope;
         this.store = store;
         this.accounts = accounts;
     }
 
+    /** Policies or caller attributes changed: reload them, and drop cached answers built with the old ones. */
     public void invalidate(UUID workspaceId) {
         cache.remove(workspaceId);
+        if (results != null) {
+            results.clearWorkspace(workspaceId);
+        }
     }
 
     /** Checks a policy before it is saved; the message is for workspace admins. */

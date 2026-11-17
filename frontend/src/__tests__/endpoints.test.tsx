@@ -35,6 +35,7 @@ const DETAIL: EndpointDetail = {
     rules: [],
     alerts: { enabled: false },
     output: { naming: "as_is", shape: "list", types: {}, nest: [] },
+    cache: { enabled: false, ttlSeconds: 60, scope: "client" },
   },
 };
 
@@ -259,7 +260,7 @@ describe("Endpoints", () => {
     });
   });
 
-  it("saves output mapping and keyset pagination with the draft", async () => {
+  it("saves output mapping, keyset pagination and cache settings with the draft", async () => {
     // Arrange
     const server = mockServer({
       ...common,
@@ -280,11 +281,15 @@ describe("Endpoints", () => {
     await user.click(screen.getByRole("option", { name: "camelCase" }));
     await user.click(screen.getByRole("button", { name: "Add type" }));
     await user.type(screen.getByLabelText("Typed column 1"), "amount");
+    await user.click(screen.getByLabelText("Cache answers"));
+    await user.tripleClick(screen.getByLabelText("Keep for"));
+    await user.keyboard("120");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     // Assert
     await waitFor(() => expect(server.calls.some((c) => c.key === "PATCH /admin/api/ws/sales/endpoints/e1")).toBe(true));
     const sent = JSON.parse(String(server.calls.find((c) => c.key === "PATCH /admin/api/ws/sales/endpoints/e1")!.init?.body));
+    expect(sent.definition.cache).toEqual({ enabled: true, ttlSeconds: 120, scope: "client" });
     expect(sent.definition.pagination).toMatchObject({ enabled: true, mode: "keyset", keys: [{ column: "id", descending: false }] });
     expect(sent.definition.output).toEqual({ naming: "camelCase", shape: "list", types: { amount: "decimal_string" }, nest: [] });
   });

@@ -138,6 +138,7 @@ public class EndpointValidator {
             findings.add(Finding.error("output", problem));
         }
         checkKeyset(def, output, task, sample, datasource, findings);
+        checkCache(method, def, policies, findings);
         if (def.pagination().enabled() && def.pagination().defaultSize() > def.pagination().maxSize()) {
             findings.add(Finding.error("pagination", "The default page size is larger than the maximum."));
         }
@@ -209,6 +210,26 @@ public class EndpointValidator {
             io.opendbapi.sql.page.Paginator.keyset(main, io.opendbapi.sql.page.Dialect.POSTGRESQL, keys, null, 1);
         } catch (IllegalArgumentException | TemplateException e) {
             findings.add(Finding.error("pagination", "Keyset pagination cannot page this query: " + e.getMessage()));
+        }
+    }
+
+    /** Spec §9.5: only reads are cached, and answers that differ per caller are cached per caller. */
+    private static void checkCache(String method, EndpointDefinition def, PolicyContext policies, List<Finding> findings) {
+        EndpointDefinition.Cache c = def.cache();
+        if (!c.enabled()) {
+            return;
+        }
+        if (!"client".equals(c.scope()) && !"shared".equals(c.scope())) {
+            findings.add(Finding.error("cache", "Cache scope must be client or shared."));
+        }
+        if (!"GET".equals(method)) {
+            findings.add(Finding.error("cache", "Only GET endpoints are cached; %s may change data.".formatted(method)));
+        }
+        if (c.shared() && (policies.rowFilterColumn() != null || !policies.maskColumns().isEmpty())) {
+            findings.add(Finding.error("cache", "Data policies apply to this endpoint, so answers differ per caller: use cache scope client."));
+        }
+        if (c.enabled() && def.streaming().allowed()) {
+            findings.add(Finding.warning("cache", "Streamed responses are never cached; only JSON answers are."));
         }
     }
 
