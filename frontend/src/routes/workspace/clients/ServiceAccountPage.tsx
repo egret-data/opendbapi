@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Copy, Plus, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { useListEndpoints } from "@/api/generated/endpoints/endpoints";
 import { useListGroups } from "@/api/generated/groups/groups";
@@ -67,24 +68,25 @@ function Account({ ws, detail }: { ws: string; detail: ServiceAccountDetail }) {
   const remove = useDeleteServiceAccount();
   const [deleting, setDeleting] = useState(false);
   const [editing, setEditing] = useState(false);
+  const { t } = useTranslation();
 
   const setDisabled = (disabled: boolean) =>
     update.mutate({ ws, id: sa.id, data: { name: sa.name, description: sa.description ?? null, disabled } },
-      { onSuccess: () => toast.success(disabled ? "Disabled: its tokens stop working within seconds." : "Enabled again.") });
+      { onSuccess: () => toast.success(disabled ? t("Disabled: its tokens stop working within seconds.") : t("Enabled again.")) });
 
   return (
     <>
       <DetailHeader
-        back={{ to: `/w/${ws}/clients`, label: "Clients" }}
+        back={{ to: `/w/${ws}/clients`, label: t("Clients") }}
         title={sa.name}
-        status={<StatusBadge tone={sa.disabled ? "inactive" : "success"}>{sa.disabled ? "Disabled" : "Active"}</StatusBadge>}
+        status={<StatusBadge tone={sa.disabled ? "inactive" : "success"}>{sa.disabled ? t("Disabled") : t("Active")}</StatusBadge>}
         description={sa.description ?? undefined}
         actions={
           isAdmin && (
             <div className="flex gap-2">
-              <Button variant="outline" onClick={() => setEditing(true)}>Edit</Button>
-              <Button variant="outline" onClick={() => setDisabled(!sa.disabled)}>{sa.disabled ? "Enable" : "Disable"}</Button>
-              <Button variant="outline" onClick={() => setDeleting(true)}>Delete…</Button>
+              <Button variant="outline" onClick={() => setEditing(true)}>{t("Edit")}</Button>
+              <Button variant="outline" onClick={() => setDisabled(!sa.disabled)}>{sa.disabled ? t("Enable") : t("Disable")}</Button>
+              <Button variant="outline" onClick={() => setDeleting(true)}>{t("Delete…")}</Button>
             </div>
           )
         }
@@ -98,9 +100,9 @@ function Account({ ws, detail }: { ws: string; detail: ServiceAccountDetail }) {
       <ConfirmDialog
         open={deleting}
         onOpenChange={setDeleting}
-        title={`Delete ${sa.name}?`}
-        description={<p>Its clients and grants are deleted too, and its tokens stop working. This cannot be undone.</p>}
-        confirmLabel="Delete"
+        title={t("Delete {{name}}?", { name: sa.name })}
+        description={<p>{t("Its clients and grants are deleted too, and its tokens stop working. This cannot be undone.")}</p>}
+        confirmLabel={t("Delete")}
         destructive
         pending={remove.isPending}
         onConfirm={() => remove.mutate({ ws, id: sa.id }, {
@@ -120,6 +122,7 @@ function EditDialog({ ws, detail, open, onOpenChange, onSaved }: {
   const [name, setName] = useState(sa.name);
   const [description, setDescription] = useState(sa.description ?? "");
   const [error, setError] = useState<string | null>(null);
+  const { t } = useTranslation();
   const submit = (e: FormEvent) => {
     e.preventDefault();
     update.mutate({ ws, id: sa.id, data: { name: name.trim(), description: description.trim() || null, disabled: sa.disabled } }, {
@@ -131,19 +134,19 @@ function EditDialog({ ws, detail, open, onOpenChange, onSaved }: {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <form onSubmit={submit} className="space-y-4">
-          <DialogHeader><DialogTitle>Edit service account</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{t("Edit service account")}</DialogTitle></DialogHeader>
           <div className="space-y-1">
-            <Label htmlFor="edit-name">Name</Label>
+            <Label htmlFor="edit-name">{t("Name")}</Label>
             <Input id="edit-name" required maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="edit-desc">Description</Label>
+            <Label htmlFor="edit-desc">{t("Description")}</Label>
             <Textarea id="edit-desc" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={update.isPending}>Save</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("Cancel")}</Button>
+            <Button type="submit" disabled={update.isPending}>{t("Save")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>
@@ -169,31 +172,32 @@ function ClientsSection({ ws, saId, clients, isAdmin, onChanged }: {
   const [rotating, setRotating] = useState<Client | null>(null);
   const [securing, setSecuring] = useState<Client | null>(null);
   const rotate = useRotateClientSecret();
+  const { t } = useTranslation();
 
   return (
     <section aria-labelledby="clients-heading" className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 id="clients-heading" className="text-lg font-semibold">Clients</h2>
+        <h2 id="clients-heading" className="text-lg font-semibold">{t("Clients")}</h2>
         {isAdmin && (
           <Button variant="outline" size="sm" onClick={() => setCreating(true)}>
             <Plus aria-hidden="true" />
-            New client
+            {t("New client")}
           </Button>
         )}
       </div>
       {clients.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No clients. A client holds the id and secret a system exchanges for tokens.</p>
+        <p className="text-sm text-muted-foreground">{t("No clients. A client holds the id and secret a system exchanges for tokens.")}</p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Client id</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Expires</TableHead>
-                <TableHead>Last token</TableHead>
-                <TableHead className="w-72"><span className="sr-only">Actions</span></TableHead>
+                <TableHead>{t("Client id")}</TableHead>
+                <TableHead>{t("Status")}</TableHead>
+                <TableHead>{t("Created")}</TableHead>
+                <TableHead>{t("Expires")}</TableHead>
+                <TableHead>{t("Last token")}</TableHead>
+                <TableHead className="w-72"><span className="sr-only">{t("Actions")}</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -204,20 +208,20 @@ function ClientsSection({ ws, saId, clients, isAdmin, onChanged }: {
                     <TableCell className="font-mono text-xs">{c.clientId}</TableCell>
                     <TableCell>
                       <span className="inline-flex flex-wrap gap-1">
-                        <StatusBadge tone={state.tone}>{state.label}</StatusBadge>
-                        {c.hmacRequired && <StatusBadge tone="neutral">Signed</StatusBadge>}
-                        {c.responseEncrypt && <StatusBadge tone="neutral">Encrypted</StatusBadge>}
+                        <StatusBadge tone={state.tone}>{t(state.label)}</StatusBadge>
+                        {c.hmacRequired && <StatusBadge tone="neutral">{t("Signed")}</StatusBadge>}
+                        {c.responseEncrypt && <StatusBadge tone="neutral">{t("Encrypted")}</StatusBadge>}
                       </span>
                     </TableCell>
                     <TableCell className="tabular-nums">{formatDateTime(c.createdAt)}</TableCell>
-                    <TableCell className="tabular-nums">{c.expiresAt ? formatDateTime(c.expiresAt) : "Never"}</TableCell>
-                    <TableCell className="tabular-nums">{c.lastUsedAt ? formatDateTime(c.lastUsedAt) : "Never"}</TableCell>
+                    <TableCell className="tabular-nums">{c.expiresAt ? formatDateTime(c.expiresAt) : t("Never")}</TableCell>
+                    <TableCell className="tabular-nums">{c.lastUsedAt ? formatDateTime(c.lastUsedAt) : t("Never")}</TableCell>
                     <TableCell className="text-right">
                       {isAdmin && !c.revokedAt && (
                         <span className="inline-flex gap-1">
-                          <Button variant="ghost" size="sm" onClick={() => setSecuring(c)}>Security</Button>
-                          <Button variant="ghost" size="sm" onClick={() => setRotating(c)}>Rotate secret</Button>
-                          <Button variant="ghost" size="sm" onClick={() => setRevoking(c)}>Revoke</Button>
+                          <Button variant="ghost" size="sm" onClick={() => setSecuring(c)}>{t("Security")}</Button>
+                          <Button variant="ghost" size="sm" onClick={() => setRotating(c)}>{t("Rotate secret")}</Button>
+                          <Button variant="ghost" size="sm" onClick={() => setRevoking(c)}>{t("Revoke")}</Button>
                         </span>
                       )}
                     </TableCell>
@@ -235,16 +239,16 @@ function ClientsSection({ ws, saId, clients, isAdmin, onChanged }: {
       <Dialog open={creating} onOpenChange={(o) => { setCreating(o); if (!o) setExpiresInDays(""); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New client</DialogTitle>
-            <DialogDescription>The secret is shown once, right after this step.</DialogDescription>
+            <DialogTitle>{t("New client")}</DialogTitle>
+            <DialogDescription>{t("The secret is shown once, right after this step.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-1">
-            <Label htmlFor="client-expiry">Expires after (days, optional)</Label>
+            <Label htmlFor="client-expiry">{t("Expires after (days, optional)")}</Label>
             <Input id="client-expiry" type="number" min={1} max={3650} className="w-32 tabular-nums" value={expiresInDays}
-              placeholder="Never" onChange={(e) => setExpiresInDays(e.target.value)} />
+              placeholder={t("Never")} onChange={(e) => setExpiresInDays(e.target.value)} />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCreating(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setCreating(false)}>{t("Cancel")}</Button>
             <Button disabled={create.isPending} onClick={() => create.mutate(
               { ws, id: saId, data: { expiresInDays: expiresInDays ? Number(expiresInDays) : null } },
               {
@@ -252,7 +256,7 @@ function ClientsSection({ ws, saId, clients, isAdmin, onChanged }: {
                 onError: (e) => toast.error(errorMessage(e)),
               },
             )}>
-              Create client
+              {t("Create client")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -263,9 +267,9 @@ function ClientsSection({ ws, saId, clients, isAdmin, onChanged }: {
       <ConfirmDialog
         open={rotating !== null}
         onOpenChange={(o) => !o && setRotating(null)}
-        title="Rotate this client's secret?"
-        description={<p>The current secret of <span className="font-mono">{rotating?.clientId}</span> stops working at once. Update the systems that use it.</p>}
-        confirmLabel="Rotate"
+        title={t("Rotate this client's secret?")}
+        description={<p>{t("The current secret of")} <span className="font-mono">{rotating?.clientId}</span> {t("stops working at once. Update the systems that use it.")}</p>}
+        confirmLabel={t("Rotate")}
         pending={rotate.isPending}
         onConfirm={() => rotating && rotate.mutate({ ws, id: saId, clientRowId: rotating.id }, {
           onSuccess: (c) => { setRotating(null); setCreated({ ...c, rotated: true }); onChanged(); },
@@ -276,13 +280,13 @@ function ClientsSection({ ws, saId, clients, isAdmin, onChanged }: {
       <ConfirmDialog
         open={revoking !== null}
         onOpenChange={(o) => !o && setRevoking(null)}
-        title="Revoke this client?"
-        description={<p>Systems using <span className="font-mono">{revoking?.clientId}</span> lose access within seconds. This cannot be undone.</p>}
-        confirmLabel="Revoke"
+        title={t("Revoke this client?")}
+        description={<p>{t("Systems using")} <span className="font-mono">{revoking?.clientId}</span> {t("lose access within seconds. This cannot be undone.")}</p>}
+        confirmLabel={t("Revoke")}
         destructive
         pending={revoke.isPending}
         onConfirm={() => revoking && revoke.mutate({ ws, id: saId, clientRowId: revoking.id }, {
-          onSuccess: () => { setRevoking(null); onChanged(); toast.success("Client revoked."); },
+          onSuccess: () => { setRevoking(null); onChanged(); toast.success(t("Client revoked.")); },
           onError: (e) => toast.error(errorMessage(e)),
         })}
       />
@@ -294,8 +298,9 @@ type ShownSecret = NewClient & { rotated?: boolean };
 
 function SecretDialog({ created, onClose, ws }: { created: ShownSecret | null; onClose: () => void; ws: string }) {
   const info = useSystemInfo();
+  const { t } = useTranslation();
   const tokenUrl = info.data?.tokenUrl ?? "/oauth2/token";
-  const copy = (text: string, what: string) => navigator.clipboard?.writeText(text).then(() => toast.success(`${what} copied.`));
+  const copy = (text: string, done: string) => navigator.clipboard?.writeText(text).then(() => toast.success(done));
   if (!created) return null;
   const example = `curl -s -u '${created.client.clientId}:${created.clientSecret}' \\
   -d grant_type=client_credentials ${tokenUrl}
@@ -307,39 +312,41 @@ curl -H "Authorization: Bearer <access_token>" ${info.data?.servingBaseUrl ?? ""
       <DialogContent className="sm:max-w-2xl" showCloseButton={false}
         onEscapeKeyDown={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
         <DialogHeader>
-          <DialogTitle>{created.rotated ? "Secret rotated" : "Client created"}</DialogTitle>
-          <DialogDescription>Copy the secret now. It is not stored in a readable form and cannot be shown again.</DialogDescription>
+          <DialogTitle>{created.rotated ? t("Secret rotated") : t("Client created")}</DialogTitle>
+          <DialogDescription>{t("Copy the secret now. It is not stored in a readable form and cannot be shown again.")}</DialogDescription>
         </DialogHeader>
         <div className="space-y-3">
-          <Field label="Client id" value={created.client.clientId} onCopy={() => copy(created.client.clientId, "Client id")} />
-          <Field label="Client secret" value={created.clientSecret} onCopy={() => copy(created.clientSecret, "Secret")} />
+          <Field label={t("Client id")} copyLabel={t("Copy client id")} value={created.client.clientId}
+            onCopy={() => copy(created.client.clientId, t("Client id copied."))} />
+          <Field label={t("Client secret")} copyLabel={t("Copy client secret")} value={created.clientSecret}
+            onCopy={() => copy(created.clientSecret, t("Secret copied."))} />
           <div className="space-y-1">
-            <p className="text-sm font-medium">Get a token and call an endpoint</p>
+            <p className="text-sm font-medium">{t("Get a token and call an endpoint")}</p>
             <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs">{example}</pre>
           </div>
           <Alert>
             <AlertDescription>
               {created.rotated
-                ? "The old secret no longer works. Tokens already issued stay valid until they expire (15 minutes)."
-                : "The service account also needs a grant on each endpoint or group it calls."}
+                ? t("The old secret no longer works. Tokens already issued stay valid until they expire (15 minutes).")
+                : t("The service account also needs a grant on each endpoint or group it calls.")}
             </AlertDescription>
           </Alert>
         </div>
         <DialogFooter>
-          <Button onClick={onClose}>I have stored the secret</Button>
+          <Button onClick={onClose}>{t("I have stored the secret")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
-function Field({ label, value, onCopy }: { label: string; value: string; onCopy: () => void }) {
+function Field({ label, copyLabel, value, onCopy }: { label: string; copyLabel: string; value: string; onCopy: () => void }) {
   return (
     <div className="space-y-1">
       <p className="text-sm font-medium">{label}</p>
       <div className="flex items-center gap-2">
         <code className="min-w-0 flex-1 break-all rounded-md border bg-muted px-2 py-1.5 text-xs">{value}</code>
-        <Button variant="outline" size="icon" aria-label={`Copy ${label.toLowerCase()}`} onClick={onCopy}>
+        <Button variant="outline" size="icon" aria-label={copyLabel} onClick={onCopy}>
           <Copy className="h-4 w-4" />
         </Button>
       </div>
@@ -357,33 +364,34 @@ function GrantsSection({ ws, saId, grants, isAdmin, onChanged }: {
   const [adding, setAdding] = useState(false);
   const [type, setType] = useState<"endpoint" | "group">("endpoint");
   const [resourceId, setResourceId] = useState("");
+  const { t } = useTranslation();
   const options = type === "endpoint"
     ? (endpoints.data ?? []).map((e) => ({ id: e.id, label: `${e.name} · ${e.method} /${e.path}` }))
-    : (groups.data ?? []).map((g) => ({ id: g.id, label: `${g.name} (${g.endpointCount} endpoints)` }));
+    : (groups.data ?? []).map((g) => ({ id: g.id, label: t("{{name}} ({{n}} endpoints)", { name: g.name, n: g.endpointCount }) }));
   const granted = new Set(grants.map((g) => `${g.resourceType}:${g.resourceId}`));
 
   return (
     <section aria-labelledby="grants-heading" className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 id="grants-heading" className="text-lg font-semibold">Grants</h2>
+        <h2 id="grants-heading" className="text-lg font-semibold">{t("Grants")}</h2>
         {isAdmin && (
           <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
             <Plus aria-hidden="true" />
-            Grant access
+            {t("Grant access")}
           </Button>
         )}
       </div>
       {grants.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No grants: this account cannot call any private endpoint.</p>
+        <p className="text-sm text-muted-foreground">{t("No grants: this account cannot call any private endpoint.")}</p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Resource</TableHead>
-                <TableHead>Kind</TableHead>
-                <TableHead>Granted</TableHead>
-                <TableHead className="w-12"><span className="sr-only">Remove</span></TableHead>
+                <TableHead>{t("Resource")}</TableHead>
+                <TableHead>{t("Kind")}</TableHead>
+                <TableHead>{t("Granted")}</TableHead>
+                <TableHead className="w-12"><span className="sr-only">{t("Remove")}</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -393,11 +401,11 @@ function GrantsSection({ ws, saId, grants, isAdmin, onChanged }: {
                     <span className="font-medium">{g.resourceName}</span>
                     {g.detail && <span className="ml-2 font-mono text-xs text-muted-foreground">{g.detail}</span>}
                   </TableCell>
-                  <TableCell>{g.resourceType === "group" ? "Group (all its endpoints)" : "Endpoint"}</TableCell>
+                  <TableCell>{g.resourceType === "group" ? t("Group (all its endpoints)") : t("Endpoint")}</TableCell>
                   <TableCell className="tabular-nums">{formatDateTime(g.grantedAt)}</TableCell>
                   <TableCell>
                     {isAdmin && (
-                      <Button variant="ghost" size="icon" aria-label={`Remove grant on ${g.resourceName}`}
+                      <Button variant="ghost" size="icon" aria-label={t("Remove grant on {{name}}", { name: g.resourceName })}
                         onClick={() => revoke.mutate({ ws, id: saId, resourceType: g.resourceType, resourceId: g.resourceId }, {
                           onSuccess: onChanged, onError: (e) => toast.error(errorMessage(e)) })}>
                         <Trash2 className="h-4 w-4" />
@@ -413,24 +421,24 @@ function GrantsSection({ ws, saId, grants, isAdmin, onChanged }: {
       <Dialog open={adding} onOpenChange={(o) => { setAdding(o); if (!o) setResourceId(""); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Grant access</DialogTitle>
-            <DialogDescription>A group grant covers every endpoint in the group, including ones added later.</DialogDescription>
+            <DialogTitle>{t("Grant access")}</DialogTitle>
+            <DialogDescription>{t("A group grant covers every endpoint in the group, including ones added later.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
-              <Label htmlFor="grant-type">Kind</Label>
+              <Label htmlFor="grant-type">{t("Kind")}</Label>
               <Select value={type} onValueChange={(v) => { setType(v as "endpoint" | "group"); setResourceId(""); }}>
                 <SelectTrigger id="grant-type" className="w-48"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="endpoint">Endpoint</SelectItem>
-                  <SelectItem value="group">Group</SelectItem>
+                  <SelectItem value="endpoint">{t("Endpoint")}</SelectItem>
+                  <SelectItem value="group">{t("Group")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1">
-              <Label htmlFor="grant-resource">{type === "endpoint" ? "Endpoint" : "Group"}</Label>
+              <Label htmlFor="grant-resource">{type === "endpoint" ? t("Endpoint") : t("Group")}</Label>
               <Select value={resourceId} onValueChange={setResourceId}>
-                <SelectTrigger id="grant-resource" className="w-full"><SelectValue placeholder="Choose…" /></SelectTrigger>
+                <SelectTrigger id="grant-resource" className="w-full"><SelectValue placeholder={t("Choose…")} /></SelectTrigger>
                 <SelectContent>
                   {options.filter((o) => !granted.has(`${type}:${o.id}`)).map((o) => (
                     <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>
@@ -440,12 +448,12 @@ function GrantsSection({ ws, saId, grants, isAdmin, onChanged }: {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setAdding(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setAdding(false)}>{t("Cancel")}</Button>
             <Button disabled={!resourceId || grant.isPending} onClick={() => grant.mutate(
               { ws, id: saId, data: { resourceType: type, resourceId } },
               { onSuccess: () => { setAdding(false); setResourceId(""); onChanged(); }, onError: (e) => toast.error(errorMessage(e)) },
             )}>
-              Grant
+              {t("Grant")}
             </Button>
           </DialogFooter>
         </DialogContent>

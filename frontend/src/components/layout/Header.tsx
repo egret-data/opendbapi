@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { KeyRound, LogOut, Moon, Sun } from "lucide-react";
+import { Check, KeyRound, Languages, LogOut, Moon, Sun } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { useLogout } from "@/api/auth";
 import { useAuth } from "@/auth/useAuth";
@@ -16,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useIsDark } from "@/hooks/useIsDark";
+import { LANGUAGES, setLanguage, type Language } from "@/i18n";
 import { useIsNarrowViewport } from "@/lib/useIsNarrowViewport";
 import { ChangePasswordDialog } from "./ChangePasswordDialog";
 import { WorkspaceSwitcher } from "./WorkspaceSwitcher";
@@ -35,6 +37,7 @@ export function Header() {
   const { ws } = useParams();
   const display = me.displayName ?? me.username;
   const [changingPassword, setChangingPassword] = useState(false);
+  const { t, i18n } = useTranslation();
 
   return (
     <header
@@ -49,13 +52,13 @@ export function Header() {
       {ws && <WorkspaceSwitcher className={narrow ? "w-auto min-w-0 flex-1" : undefined} />}
       {!(ws && narrow) && <div className="flex-1" />}
 
-      <Button variant="ghost" size="icon" aria-label="Toggle theme" onClick={() => setTheme(isDark ? "light" : "dark")}>
+      <Button variant="ghost" size="icon" aria-label={t("Toggle theme")} onClick={() => setTheme(isDark ? "light" : "dark")}>
         {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
       </Button>
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="icon" className="rounded-full" aria-label="User menu">
+          <Button variant="ghost" size="icon" className="rounded-full" aria-label={t("User menu")}>
             <Avatar className="h-8 w-8">
               <AvatarFallback className="bg-primary/10 text-xs font-medium text-primary">{initials(display)}</AvatarFallback>
             </Avatar>
@@ -63,20 +66,32 @@ export function Header() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuLabel className="flex flex-col gap-0.5">
-            <span className="text-xs font-normal text-muted-foreground">Signed in as</span>
+            <span className="text-xs font-normal text-muted-foreground">{t("Signed in as")}</span>
             <span className="truncate text-sm font-medium">{display}</span>
-            <span className="text-xs font-normal text-muted-foreground">via {me.source.toUpperCase()}</span>
+            <span className="text-xs font-normal text-muted-foreground">{t("via {{source}}", { source: me.source.toUpperCase() })}</span>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           {me.source === "local" && (
             <DropdownMenuItem onSelect={() => setChangingPassword(true)}>
               <KeyRound className="mr-2 h-4 w-4" />
-              Change password
+              {t("Change password")}
             </DropdownMenuItem>
           )}
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
+            <Languages className="h-3.5 w-3.5" aria-hidden="true" />
+            {t("Language")}
+          </DropdownMenuLabel>
+          {(Object.keys(LANGUAGES) as Language[]).map((code) => (
+            <DropdownMenuItem key={code} onSelect={() => setLanguage(code)} lang={code}>
+              <Check className={`mr-2 h-4 w-4 ${i18n.language === code ? "" : "invisible"}`} aria-hidden="true" />
+              {LANGUAGES[code]}
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => logout.mutate()}>
             <LogOut className="mr-2 h-4 w-4" />
-            Log out
+            {t("Log out")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

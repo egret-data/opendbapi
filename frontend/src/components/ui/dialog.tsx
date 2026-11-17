@@ -3,6 +3,13 @@ import { XIcon } from "lucide-react";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
+
+/** Screen-reader text for an icon-only control. */
+function CloseLabel() {
+  const { t } = useTranslation();
+  return <span className="sr-only">{t("Close")}</span>;
+}
 
 function Dialog({
   ...props
@@ -144,7 +151,7 @@ const DialogContent = React.forwardRef<
             "cursor-pointer disabled:cursor-not-allowed")}
         >
           <XIcon />
-          <span className="sr-only">Close</span>
+          <CloseLabel />
         </DialogPrimitive.Close>
       )}
     </DialogPrimitive.Content>

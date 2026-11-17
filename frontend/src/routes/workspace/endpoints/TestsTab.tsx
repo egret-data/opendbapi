@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Play, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import {
   getListEndpointTestsQueryKey,
@@ -53,6 +54,7 @@ export function TestsTab({ ws, endpointId, paramNames, paginated, canAuthor, dir
   ws: string; endpointId: string; paramNames: string[]; paginated: boolean; canAuthor: boolean; dirty: boolean;
 }) {
   const query = useListEndpointTests(ws, endpointId);
+  const { t } = useTranslation();
   const accounts = useListServiceAccounts(ws);
   const qc = useQueryClient();
   const refresh = () => qc.invalidateQueries({ queryKey: getListEndpointTestsQueryKey(ws, endpointId) });
@@ -60,62 +62,63 @@ export function TestsTab({ ws, endpointId, paramNames, paginated, canAuthor, dir
     mutation: {
       onSuccess: (r) => {
         refresh();
-        if (r.failed === 0) toast.success(`${r.passed} of ${r.passed} passed.`);
-        else toast.error(`${r.failed} of ${r.passed + r.failed} failed.`);
+        if (r.failed === 0) toast.success(t("{{passed}} of {{total}} passed.", { passed: r.passed, total: r.passed }));
+        else toast.error(t("{{failed}} of {{total}} failed.", { failed: r.failed, total: r.passed + r.failed }));
       },
       onError: (e) => toast.error(errorMessage(e)),
     },
   });
   const remove = useDeleteEndpointTest({ mutation: { onSuccess: refresh, onError: (e) => toast.error(errorMessage(e)) } });
   const [editing, setEditing] = useState<{ test?: EndpointTestCase } | null>(null);
-  const accountName = (id?: string | null) => (id ? accounts.data?.find((a) => a.id === id)?.name ?? "deleted account" : "No client (like preview)");
+  const accountName = (id?: string | null) => (id ? accounts.data?.find((a) => a.id === id)?.name ?? t("deleted account") : t("No client (like preview)"));
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="max-w-prose text-sm text-muted-foreground">
-          Tests run the <strong>saved</strong> draft and always roll back. A test that calls as a service account also checks
-          its grant and applies rules and data policies.{dirty && " You have unsaved changes; save to test them."}
+          {t("Tests run the")} <strong>{t("saved")}</strong>{" "}
+          {t("draft and always roll back. A test that calls as a service account also checks its grant and applies rules and data policies.")}
+          {dirty && ` ${t("You have unsaved changes; save to test them.")}`}
         </p>
         {canAuthor && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setEditing({})}>
               <Plus aria-hidden="true" />
-              Add test
+              {t("Add test")}
             </Button>
             <Button size="sm" disabled={run.isPending || (query.data ?? []).length === 0}
               onClick={() => run.mutate({ ws, endpointId, params: {} })}>
               <Play aria-hidden="true" />
-              {run.isPending ? "Running…" : "Run all"}
+              {run.isPending ? t("Running…") : t("Run all")}
             </Button>
           </div>
         )}
       </div>
-      <QueryBoundary query={query} what="tests">
+      <QueryBoundary query={query} what={t("tests")}>
         {(tests) =>
           tests.length === 0 ? (
-            <EmptyState variant="dashed" title="No tests yet"
-              description="Save parameter values and what the answer must look like; run them before each publish." />
+            <EmptyState variant="dashed" title={t("No tests yet")}
+              description={t("Save parameter values and what the answer must look like; run them before each publish.")} />
           ) : (
-            <ul className="divide-y rounded-md border" aria-label="Tests">
-              {tests.map((t) => {
-                const r = t.lastResult;
+            <ul className="divide-y rounded-md border" aria-label={t("Tests")}>
+              {tests.map((tc) => {
+                const r = tc.lastResult;
                 return (
-                  <li key={t.id} className="space-y-1 p-3">
+                  <li key={tc.id} className="space-y-1 p-3">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium">{t.name}</span>
-                      {!r ? <StatusBadge tone="neutral">Not run</StatusBadge>
-                        : r.passed ? <StatusBadge tone="success">Passed</StatusBadge>
-                          : <StatusBadge tone="inactive">Failed</StatusBadge>}
-                      {r && <span className="text-xs text-muted-foreground tabular-nums">{r.status} · {r.durationMs} ms{r.rowCount != null ? ` · ${r.rowCount} rows` : ""}</span>}
-                      <span className="text-xs text-muted-foreground">· {accountName(t.serviceAccountId)}</span>
+                      <span className="font-medium">{tc.name}</span>
+                      {!r ? <StatusBadge tone="neutral">{t("Not run")}</StatusBadge>
+                        : r.passed ? <StatusBadge tone="success">{t("Passed")}</StatusBadge>
+                          : <StatusBadge tone="inactive">{t("Failed")}</StatusBadge>}
+                      {r && <span className="text-xs text-muted-foreground tabular-nums">{r.status} · {r.durationMs} ms{r.rowCount != null ? ` · ${t("{{n}} rows", { n: r.rowCount })}` : ""}</span>}
+                      <span className="text-xs text-muted-foreground">· {accountName(tc.serviceAccountId)}</span>
                       {canAuthor && (
                         <span className="ml-auto flex gap-1">
                           <Button variant="ghost" size="sm" disabled={run.isPending}
-                            onClick={() => run.mutate({ ws, endpointId, params: { testId: t.id } })}>Run</Button>
-                          <Button variant="ghost" size="sm" onClick={() => setEditing({ test: t })}>Edit</Button>
-                          <Button variant="ghost" size="sm" aria-label={`Delete test ${t.name}`}
-                            onClick={() => remove.mutate({ ws, endpointId, testId: t.id })}>Delete</Button>
+                            onClick={() => run.mutate({ ws, endpointId, params: { testId: tc.id } })}>{t("Run")}</Button>
+                          <Button variant="ghost" size="sm" onClick={() => setEditing({ test: tc })}>{t("Edit")}</Button>
+                          <Button variant="ghost" size="sm" aria-label={t("Delete test {{name}}", { name: tc.name })}
+                            onClick={() => remove.mutate({ ws, endpointId, testId: tc.id })}>{t("Delete")}</Button>
                         </span>
                       )}
                     </div>
@@ -144,6 +147,7 @@ function TestDialog({ ws, endpointId, test, paramNames, paginated, accounts, onC
   ws: string; endpointId: string; test?: EndpointTestCase; paramNames: string[]; paginated: boolean;
   accounts: { id: string; name: string }[]; onClose: () => void; onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const x = test?.expect;
   const names = [...paramNames, ...(paginated ? ["page", "size"] : [])];
   const [name, setName] = useState(test?.name ?? "");
@@ -189,20 +193,20 @@ function TestDialog({ ws, endpointId, test, paramNames, paginated, accounts, onC
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <form onSubmit={submit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>{test ? "Edit test" : "New test"}</DialogTitle>
-            <DialogDescription>Leave an expectation empty to skip it.</DialogDescription>
+            <DialogTitle>{test ? t("Edit test") : t("New test")}</DialogTitle>
+            <DialogDescription>{t("Leave an expectation empty to skip it.")}</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor="test-name">Name</Label>
-              <Input id="test-name" required maxLength={120} value={name} placeholder="active customers only" onChange={(e) => setName(e.target.value)} />
+              <Label htmlFor="test-name">{t("Name")}</Label>
+              <Input id="test-name" required maxLength={120} value={name} placeholder={t("active customers only")} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="test-account">Call as</Label>
+              <Label htmlFor="test-account">{t("Call as")}</Label>
               <Select value={account} onValueChange={setAccount}>
                 <SelectTrigger id="test-account"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={NO_CLIENT}>No client (like preview)</SelectItem>
+                  <SelectItem value={NO_CLIENT}>{t("No client (like preview)")}</SelectItem>
                   {accounts.map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
                 </SelectContent>
               </Select>
@@ -210,7 +214,7 @@ function TestDialog({ ws, endpointId, test, paramNames, paginated, accounts, onC
           </div>
           {names.length > 0 && (
             <fieldset className="space-y-2">
-              <legend className="text-sm font-medium">Parameters</legend>
+              <legend className="text-sm font-medium">{t("Parameters")}</legend>
               <div className="flex flex-wrap gap-3">
                 {names.map((n) => (
                   <div key={n} className="space-y-1">
@@ -223,48 +227,48 @@ function TestDialog({ ws, endpointId, test, paramNames, paginated, accounts, onC
             </fieldset>
           )}
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">Expect</legend>
+            <legend className="text-sm font-medium">{t("Expect")}</legend>
             <div className="flex flex-wrap gap-3">
               <div className="space-y-1">
-                <Label htmlFor="test-status">Status</Label>
+                <Label htmlFor="test-status">{t("Status")}</Label>
                 <Input id="test-status" type="number" min={100} max={599} className="w-24" value={status} onChange={(e) => setStatus(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="test-min">Rows at least</Label>
+                <Label htmlFor="test-min">{t("Rows at least")}</Label>
                 <Input id="test-min" type="number" min={0} className="w-28" value={minRows} onChange={(e) => setMinRows(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="test-max">Rows at most</Label>
+                <Label htmlFor="test-max">{t("Rows at most")}</Label>
                 <Input id="test-max" type="number" min={0} className="w-28" value={maxRows} onChange={(e) => setMaxRows(e.target.value)} />
               </div>
               <div className="space-y-1">
-                <Label htmlFor="test-ms">Within (ms)</Label>
+                <Label htmlFor="test-ms">{t("Within (ms)")}</Label>
                 <Input id="test-ms" type="number" min={1} className="w-28" value={maxMs} onChange={(e) => setMaxMs(e.target.value)} />
               </div>
             </div>
             <div className="flex items-center gap-2">
               <Checkbox id="test-schema" checked={schema} onCheckedChange={(c) => setSchema(c === true)} />
-              <Label htmlFor="test-schema" className="font-normal">Same result columns as the live version</Label>
+              <Label htmlFor="test-schema" className="font-normal">{t("Same result columns as the live version")}</Label>
             </div>
           </fieldset>
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">JSONPath checks</legend>
-            <p className="text-xs text-muted-foreground">Paths into the answer, such as $.data[0].status or $.meta.total. Values are JSON: 3, true, "active".</p>
+            <legend className="text-sm font-medium">{t("JSONPath checks")}</legend>
+            <p className="text-xs text-muted-foreground">{t("Paths into the answer, such as $.data[0].status or $.meta.total. Values are JSON: 3, true, \"active\".")}</p>
             {paths.map((p, i) => (
               <div key={i} className="flex flex-wrap items-center gap-2">
-                <Input aria-label={`Check ${i + 1} path`} className="w-56 font-mono text-xs" value={p.path} placeholder="$.data[0].status"
+                <Input aria-label={t("Check {{n}} path", { n: i + 1 })} className="w-56 font-mono text-xs" value={p.path} placeholder="$.data[0].status"
                   onChange={(e) => setPaths(paths.map((x2, k) => (k === i ? { ...x2, path: e.target.value } : x2)))} />
-                <Input aria-label={`Check ${i + 1} value`} className="w-40 font-mono text-xs" value={p.equals} placeholder={'"active"'}
+                <Input aria-label={t("Check {{n}} value", { n: i + 1 })} className="w-40 font-mono text-xs" value={p.equals} placeholder={'"active"'}
                   onChange={(e) => setPaths(paths.map((x2, k) => (k === i ? { ...x2, equals: e.target.value } : x2)))} />
                 <Select value={p.exists} onValueChange={(v) => setPaths(paths.map((x2, k) => (k === i ? { ...x2, exists: v as PathRow["exists"] } : x2)))}>
-                  <SelectTrigger className="w-36" aria-label={`Check ${i + 1} presence`}><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-36" aria-label={t("Check {{n}} presence", { n: i + 1 })}><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="any">Value only</SelectItem>
-                    <SelectItem value="yes">Must exist</SelectItem>
-                    <SelectItem value="no">Must be absent</SelectItem>
+                    <SelectItem value="any">{t("Value only")}</SelectItem>
+                    <SelectItem value="yes">{t("Must exist")}</SelectItem>
+                    <SelectItem value="no">{t("Must be absent")}</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button type="button" variant="ghost" size="icon" aria-label={`Remove check ${i + 1}`}
+                <Button type="button" variant="ghost" size="icon" aria-label={t("Remove check {{n}}", { n: i + 1 })}
                   onClick={() => setPaths(paths.filter((_, k) => k !== i))}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -272,13 +276,13 @@ function TestDialog({ ws, endpointId, test, paramNames, paginated, accounts, onC
             ))}
             <Button type="button" variant="outline" size="sm" onClick={() => setPaths([...paths, { path: "", equals: "", exists: "any" }])}>
               <Plus aria-hidden="true" />
-              Add check
+              {t("Add check")}
             </Button>
           </fieldset>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={create.isPending || update.isPending}>Save</Button>
+            <Button type="button" variant="outline" onClick={onClose}>{t("Cancel")}</Button>
+            <Button type="submit" disabled={create.isPending || update.isPending}>{t("Save")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

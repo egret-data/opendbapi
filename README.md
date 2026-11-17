@@ -16,7 +16,8 @@ the full design is in [`docs/SPEC.md`](docs/SPEC.md).
 > NDJSON/CSV streaming; Prometheus metrics, OpenTelemetry tracing, slow-query log, access log table
 > and an Activity page.
 >
-> **P2** is in progress; the step list is in [`docs/SPEC.md` §25.2](docs/SPEC.md). Done so far:
+> **P2** roadmap (steps 12–23, [`docs/SPEC.md` §25.2](docs/SPEC.md)) done; step 20, Elasticsearch/HTTP executors and ClickHouse,
+> is deferred until needed. P2 added:
 > Playwright tests for the main author flow; column masks and per-caller row filters (data policies)
 > with service account attributes; parameter rules; webhook alerts (Slack, Teams, Google Chat, JSON)
 > for failing endpoints; saved test cases per endpoint, optionally required to pass before publish; result
@@ -24,6 +25,7 @@ the full design is in [`docs/SPEC.md`](docs/SPEC.md).
 > HMAC-signed requests and encrypted responses per client; Groovy fragment scripts in a sandbox (script authors only).
 > Activity also ranks slowest endpoints, clients and addresses; datasources show their last connection test.
 > Workspaces export as YAML (no secrets) and import DBAPI exports as drafts, with a dry run and a report.
+> The UI is available in English and Vietnamese (user menu → Language).
 
 ## Layout
 

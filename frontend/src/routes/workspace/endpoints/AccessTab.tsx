@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import {
   getListEndpointAccessQueryKey,
@@ -28,6 +29,7 @@ export function AccessTab({ ws, endpointId, datasourceId, isPublic, isAdmin }: {
   isAdmin: boolean;
 }) {
   const query = useListEndpointAccess(ws, endpointId);
+  const { t } = useTranslation();
   const accounts = useListServiceAccounts(ws);
   const qc = useQueryClient();
   const refresh = () => qc.invalidateQueries({ queryKey: getListEndpointAccessQueryKey(ws, endpointId) });
@@ -39,11 +41,11 @@ export function AccessTab({ ws, endpointId, datasourceId, isPublic, isAdmin }: {
     <div className="space-y-4">
       {isPublic && (
         <p className="rounded-md border bg-muted/40 p-3 text-sm">
-          This endpoint is <strong>public</strong>: anyone who can reach the server may call it, without a token. Grants apply
-          only once it is private.
+          {t("This endpoint is")} <strong>{t("public")}</strong>
+          {t(": anyone who can reach the server may call it, without a token. Grants apply only once it is private.")}
         </p>
       )}
-      <QueryBoundary query={query} what="access">
+      <QueryBoundary query={query} what={t("access")}>
         {(rows) => {
           const present = new Set(rows.map((r) => r.serviceAccountId));
           return (
@@ -51,7 +53,7 @@ export function AccessTab({ ws, endpointId, datasourceId, isPublic, isAdmin }: {
               {isAdmin && (
                 <div className="flex flex-wrap items-center gap-2">
                   <Select value={picked} onValueChange={setPicked}>
-                    <SelectTrigger className="w-64" aria-label="Service account to grant"><SelectValue placeholder="Choose a service account" /></SelectTrigger>
+                    <SelectTrigger className="w-64" aria-label={t("Service account to grant")}><SelectValue placeholder={t("Choose a service account")} /></SelectTrigger>
                     <SelectContent>
                       {(accounts.data ?? []).filter((a) => !present.has(a.id)).map((a) => (
                         <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
@@ -61,21 +63,21 @@ export function AccessTab({ ws, endpointId, datasourceId, isPublic, isAdmin }: {
                   <Button size="sm" disabled={!picked || grant.isPending}
                     onClick={() => grant.mutate({ ws, id: picked, data: { resourceType: "endpoint", resourceId: endpointId } },
                       { onSuccess: () => setPicked("") })}>
-                    Grant
+                    {t("Grant")}
                   </Button>
-                  <Link className="text-sm underline" to={`/w/${ws}/clients`}>Manage service accounts</Link>
+                  <Link className="text-sm underline" to={`/w/${ws}/clients`}>{t("Manage service accounts")}</Link>
                 </div>
               )}
               {rows.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No service account may call this endpoint yet.</p>
+                <p className="text-sm text-muted-foreground">{t("No service account may call this endpoint yet.")}</p>
               ) : (
                 <div className="overflow-x-auto rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Service account</TableHead>
-                        <TableHead>Through</TableHead>
-                        <TableHead className="w-24"><span className="sr-only">Actions</span></TableHead>
+                        <TableHead>{t("Service account")}</TableHead>
+                        <TableHead>{t("Through")}</TableHead>
+                        <TableHead className="w-24"><span className="sr-only">{t("Actions")}</span></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -83,14 +85,14 @@ export function AccessTab({ ws, endpointId, datasourceId, isPublic, isAdmin }: {
                         <TableRow key={r.serviceAccountId}>
                           <TableCell>
                             <Link className="font-medium hover:underline" to={`/w/${ws}/clients/${r.serviceAccountId}`}>{r.name}</Link>
-                            {r.disabled && <StatusBadge tone="inactive" className="ml-2">Disabled</StatusBadge>}
+                            {r.disabled && <StatusBadge tone="inactive" className="ml-2">{t("Disabled")}</StatusBadge>}
                           </TableCell>
-                          <TableCell>{r.via === "group" ? "Its group" : "This endpoint"}</TableCell>
+                          <TableCell>{r.via === "group" ? t("Its group") : t("This endpoint")}</TableCell>
                           <TableCell className="text-right">
                             {isAdmin && r.via === "endpoint" && (
                               <Button variant="ghost" size="sm"
                                 onClick={() => revoke.mutate({ ws, id: r.serviceAccountId, resourceType: "endpoint", resourceId: endpointId })}>
-                                Remove
+                                {t("Remove")}
                               </Button>
                             )}
                           </TableCell>

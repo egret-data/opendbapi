@@ -1,6 +1,7 @@
 import { lazy } from "react";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Outlet, Route, Routes } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { queryClient } from "@/api/queryClient";
 import { LoginPage } from "@/auth/LoginPage";
@@ -17,12 +18,17 @@ import { NotFound } from "@/routes/NotFound";
 const WorkspaceRoutes = lazy(() => import("@/routes/workspace/WorkspaceRoutes"));
 const AdminRoutes = lazy(() => import("@/routes/admin/AdminRoutes"));
 
-const areaFallback = (
-  <div className="space-y-3" aria-busy="true" aria-label="Loading">
-    <Skeleton className="h-6 w-48" />
-    <Skeleton className="h-40 w-full" />
-  </div>
-);
+function AreaFallback() {
+  const { t } = useTranslation();
+  return (
+    <div className="space-y-3" aria-busy="true" aria-label={t("Loading")}>
+      <Skeleton className="h-6 w-48" />
+      <Skeleton className="h-40 w-full" />
+    </div>
+  );
+}
+
+const areaFallback = <AreaFallback />;
 
 function ShellLayout() {
   return (

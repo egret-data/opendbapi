@@ -1,5 +1,6 @@
 import React, { Suspense, lazy } from "react";
 import type { DiffEditorProps, EditorProps } from "@monaco-editor/react";
+import { useTranslation } from "react-i18next";
 import { useIsDark } from "@/hooks/useIsDark";
 
 /**
@@ -58,17 +59,22 @@ class MonacoErrorBoundary extends React.Component<
   }
   render() {
     if (this.state.error) {
-      return (
-        <div
-          role="alert"
-          className="flex h-full w-full items-center justify-center p-4 text-center text-sm text-muted-foreground"
-        >
-          The code editor could not be loaded. Reload the page to try again.
-        </div>
-      );
+      return <MonacoLoadError />;
     }
     return this.props.children;
   }
+}
+
+function MonacoLoadError() {
+  const { t } = useTranslation();
+  return (
+    <div
+      role="alert"
+      className="flex h-full w-full items-center justify-center p-4 text-center text-sm text-muted-foreground"
+    >
+      {t("The code editor could not be loaded. Reload the page to try again.")}
+    </div>
+  );
 }
 
 /**

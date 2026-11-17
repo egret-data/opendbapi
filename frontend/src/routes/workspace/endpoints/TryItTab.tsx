@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Copy, Send } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { useListEndpointVersions, useTryEndpoint } from "@/api/generated/endpoints/endpoints";
 import { useListServiceAccounts } from "@/api/generated/service-accounts/service-accounts";
@@ -22,11 +23,12 @@ const ANONYMOUS = "__none__";
  */
 export function TryItTab({ ws, summary, onOpenAccess }: { ws: string; summary: EndpointSummary; onOpenAccess: () => void }) {
   const versions = useListEndpointVersions(ws, summary.id);
+  const { t } = useTranslation();
   if (summary.liveVersion == null) {
-    return <EmptyState title="Not published yet" description="Try-it calls the live version. Publish the endpoint first, or use Preview on the Query tab." />;
+    return <EmptyState title={t("Not published yet")} description={t("Try-it calls the live version. Publish the endpoint first, or use Preview on the Query tab.")} />;
   }
   return (
-    <QueryBoundary query={versions} what="the live version">
+    <QueryBoundary query={versions} what={t("the live version")}>
       {(all) => {
         const live = all.find((v) => v.version === summary.liveVersion);
         return live ? <TryForm ws={ws} summary={summary} live={live.definition} onOpenAccess={onOpenAccess} /> : null;
@@ -40,6 +42,7 @@ function TryForm({ ws, summary, live, onOpenAccess }: {
 }) {
   const accounts = useListServiceAccounts(ws);
   const run = useTryEndpoint();
+  const { t } = useTranslation();
   const isPrivate = summary.access !== "public";
   const [account, setAccount] = useState(ANONYMOUS);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -73,17 +76,16 @@ function TryForm({ ws, summary, live, onOpenAccess }: {
   return (
     <div className="space-y-4">
       <p className="max-w-prose text-sm text-muted-foreground">
-        Calls live version v{summary.liveVersion} exactly as a client would: firewall, token, grants and rate limits all apply.
-        The call is logged as made by you.
+        {t("Calls live version v{{version}} exactly as a client would: firewall, token, grants and rate limits all apply. The call is logged as made by you.", { version: summary.liveVersion })}
       </p>
       <div className="flex flex-wrap items-end gap-3">
         <div className="space-y-1">
-          <Label htmlFor="try-account">Call as</Label>
+          <Label htmlFor="try-account">{t("Call as")}</Label>
           <Select value={account} onValueChange={setAccount}>
             <SelectTrigger id="try-account" className="w-60"><SelectValue /></SelectTrigger>
             <SelectContent>
-              {!isPrivate && <SelectItem value={ANONYMOUS}>Anonymous (no token)</SelectItem>}
-              {isPrivate && <SelectItem value={ANONYMOUS} disabled>Choose a service account</SelectItem>}
+              {!isPrivate && <SelectItem value={ANONYMOUS}>{t("Anonymous (no token)")}</SelectItem>}
+              {isPrivate && <SelectItem value={ANONYMOUS} disabled>{t("Choose a service account")}</SelectItem>}
               {(accounts.data ?? []).map((a) => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
             </SelectContent>
           </Select>
@@ -109,14 +111,14 @@ function TryForm({ ws, summary, live, onOpenAccess }: {
             </div>
           </>
         )}
-        <Button onClick={send} disabled={run.isPending || missingAccount} title={missingAccount ? "A private endpoint needs a service account" : undefined}>
+        <Button onClick={send} disabled={run.isPending || missingAccount} title={missingAccount ? t("A private endpoint needs a service account") : undefined}>
           <Send aria-hidden="true" />
-          {run.isPending ? "Sending…" : "Send"}
+          {run.isPending ? t("Sending…") : t("Send")}
         </Button>
       </div>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       {result && (
-        <section aria-label="Response" className="space-y-3">
+        <section aria-label={t("Response")} className="space-y-3">
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <StatusBadge tone={result.status < 300 ? "success" : result.status < 500 ? "highlight" : "destructive"}>{result.status}</StatusBadge>
             <span className="tabular-nums text-muted-foreground">{result.durationMs} ms</span>
@@ -124,24 +126,24 @@ function TryForm({ ws, summary, live, onOpenAccess }: {
           </div>
           {notGranted && (
             <p className="text-sm">
-              {result.serviceAccountName} has no grant on this endpoint.{" "}
-              <Button variant="link" className="h-auto p-0" onClick={onOpenAccess}>Grant access</Button>
+              {t("{{name}} has no grant on this endpoint.", { name: result.serviceAccountName })}{" "}
+              <Button variant="link" className="h-auto p-0" onClick={onOpenAccess}>{t("Grant access")}</Button>
             </p>
           )}
           <div className="grid gap-3 lg:grid-cols-2">
             <div className="space-y-1">
-              <h3 className="text-sm font-semibold">Request</h3>
+              <h3 className="text-sm font-semibold">{t("Request")}</h3>
               <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs whitespace-pre-wrap">{requestText(result)}</pre>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => navigator.clipboard?.writeText(result.curl).then(() => toast.success("curl copied."))}>
+                <Button variant="outline" size="sm" onClick={() => navigator.clipboard?.writeText(result.curl).then(() => toast.success(t("curl copied.")))}>
                   <Copy aria-hidden="true" />
-                  Copy as curl
+                  {t("Copy as curl")}
                 </Button>
-                <span className="text-xs text-muted-foreground">Uses $TOKEN: get one from the token endpoint with a client of your own.</span>
+                <span className="text-xs text-muted-foreground">{t("Uses $TOKEN: get one from the token endpoint with a client of your own.")}</span>
               </div>
             </div>
             <div className="space-y-1">
-              <h3 className="text-sm font-semibold">Response</h3>
+              <h3 className="text-sm font-semibold">{t("Response")}</h3>
               {Object.keys(result.headers).length > 0 && (
                 <pre className="overflow-x-auto rounded-md border p-2 font-mono text-xs">
                   {Object.entries(result.headers).map(([k, v]) => `${k}: ${v}`).join("\n")}

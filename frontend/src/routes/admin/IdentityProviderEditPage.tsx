@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import { Plus, Trash2 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { Trans, useTranslation } from "react-i18next";
 
 import {
   getGetGroupMappingsQueryKey,
@@ -57,6 +58,7 @@ function NewProvider() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const create = useCreateIdentityProvider();
+  const { t } = useTranslation();
   const [form, setForm] = useState<FormState>(emptyForm("ldap"));
   const [error, setError] = useState<string | null>(null);
   const dirty = form.name !== "" || Object.keys(form.values).length > 0 || form.secret !== "";
@@ -79,21 +81,24 @@ function NewProvider() {
 
   return (
     <PageContainer>
-      <DetailHeader back={{ to: "/admin/identity-providers", label: "Identity providers" }} title="New identity provider" />
+      <DetailHeader
+        back={{ to: "/admin/identity-providers", label: t("Identity providers") }}
+        title={t("New identity provider")}
+      />
       <form onSubmit={submit} className="space-y-4">
         <RadioGroup
-          aria-label="Provider type"
+          aria-label={t("Provider type")}
           value={form.type}
-          onValueChange={(t) => setForm({ ...emptyForm(t as ProviderType), name: form.name })}
+          onValueChange={(v) => setForm({ ...emptyForm(v as ProviderType), name: form.name })}
           className="flex gap-6"
         >
           <div className="flex items-center gap-2">
             <RadioGroupItem id="type-ldap" value="ldap" />
-            <Label htmlFor="type-ldap">LDAP / Active Directory</Label>
+            <Label htmlFor="type-ldap">{t("LDAP / Active Directory")}</Label>
           </div>
           <div className="flex items-center gap-2">
             <RadioGroupItem id="type-oidc" value="oidc" />
-            <Label htmlFor="type-oidc">SSO (OpenID Connect)</Label>
+            <Label htmlFor="type-oidc">{t("SSO (OpenID Connect)")}</Label>
           </div>
         </RadioGroup>
         <ProviderFields form={form} onChange={setForm} hasSecret={false} />
@@ -104,10 +109,10 @@ function NewProvider() {
         )}
         <div className="flex gap-2">
           <Button type="submit" disabled={create.isPending}>
-            Create provider
+            {t("Create provider")}
           </Button>
           <Button asChild variant="outline">
-            <Link to="/admin/identity-providers">Cancel</Link>
+            <Link to="/admin/identity-providers">{t("Cancel")}</Link>
           </Button>
         </div>
       </form>
@@ -119,26 +124,27 @@ function ExistingProvider({ id }: { id: string }) {
   const query = useGetIdentityProvider(id);
   const [params, setParams] = useSearchParams();
   const tab = params.get("tab") === "mappings" ? "mappings" : "settings";
+  const { t } = useTranslation();
 
   return (
     <PageContainer>
-      <QueryBoundary query={query} what="the identity provider">
+      <QueryBoundary query={query} what={t("the identity provider")}>
         {(provider) => (
           <>
             <DetailHeader
-              back={{ to: "/admin/identity-providers", label: "Identity providers" }}
+              back={{ to: "/admin/identity-providers", label: t("Identity providers") }}
               title={provider.name}
               status={
                 <StatusBadge tone={provider.enabled ? "success" : "inactive"}>
-                  {provider.enabled ? "Enabled" : "Disabled"}
+                  {provider.enabled ? t("Enabled") : t("Disabled")}
                 </StatusBadge>
               }
-              description={provider.type === "ldap" ? "LDAP / Active Directory" : "SSO (OpenID Connect)"}
+              description={provider.type === "ldap" ? t("LDAP / Active Directory") : t("SSO (OpenID Connect)")}
             />
-            <Tabs value={tab} onValueChange={(t) => setParams({ tab: t }, { replace: true })}>
+            <Tabs value={tab} onValueChange={(v) => setParams({ tab: v }, { replace: true })}>
               <TabsList>
-                <TabsTrigger value="settings">Settings</TabsTrigger>
-                <TabsTrigger value="mappings">Group mappings</TabsTrigger>
+                <TabsTrigger value="settings">{t("Settings")}</TabsTrigger>
+                <TabsTrigger value="mappings">{t("Group mappings")}</TabsTrigger>
               </TabsList>
               <TabsContent value="settings" className="pt-4">
                 <SettingsTab key={provider.updatedAt} provider={provider} />
@@ -159,6 +165,7 @@ function SettingsTab({ provider }: { provider: ProviderView }) {
   const navigate = useNavigate();
   const update = useUpdateIdentityProvider();
   const remove = useDeleteIdentityProvider();
+  const { t } = useTranslation();
   const initial = formFrom(provider);
   const [form, setForm] = useState<FormState>(initial);
   const [error, setError] = useState<string | null>(null);
@@ -173,7 +180,7 @@ function SettingsTab({ provider }: { provider: ProviderView }) {
       { id: provider.id, data: toRequest(form) },
       {
         onSuccess: () => {
-          toast.success("Provider saved.");
+          toast.success(t("Provider saved."));
           qc.invalidateQueries({ queryKey: getGetIdentityProviderQueryKey(provider.id) });
           qc.invalidateQueries({ queryKey: getListIdentityProvidersQueryKey() });
         },
@@ -188,7 +195,7 @@ function SettingsTab({ provider }: { provider: ProviderView }) {
         <ProviderFields form={form} onChange={setForm} hasSecret={provider.hasSecret} secretEnv={provider.secretEnv} />
         {provider.type === "oidc" && (
           <p className="text-sm text-muted-foreground">
-            Register this redirect URI at the identity provider:{" "}
+            {t("Register this redirect URI at the identity provider:")}{" "}
             <span className="font-mono text-foreground">
               {window.location.origin}/login/oauth2/code/{provider.id}
             </span>
@@ -200,15 +207,15 @@ function SettingsTab({ provider }: { provider: ProviderView }) {
           </p>
         )}
         <div className="flex flex-wrap gap-2">
-          <Button type="submit" disabled={!dirty || update.isPending} title={!dirty ? "No changes to save" : undefined}>
-            Save changes
+          <Button type="submit" disabled={!dirty || update.isPending} title={!dirty ? t("No changes to save") : undefined}>
+            {t("Save changes")}
           </Button>
           <Button type="button" variant="outline" disabled={!dirty} onClick={() => setForm(initial)}>
-            Discard
+            {t("Discard")}
           </Button>
           <Button type="button" variant="ghost" className="ml-auto text-destructive" onClick={() => setDeleting(true)}>
             <Trash2 aria-hidden="true" />
-            Delete provider
+            {t("Delete provider")}
           </Button>
         </div>
       </form>
@@ -218,8 +225,8 @@ function SettingsTab({ provider }: { provider: ProviderView }) {
       <ConfirmDeleteDialog
         open={deleting}
         onOpenChange={setDeleting}
-        title={`Delete ${provider.name}?`}
-        description="Only possible if nobody has signed in through it yet; otherwise disable it."
+        title={t("Delete {{name}}?", { name: provider.name })}
+        description={t("Only possible if nobody has signed in through it yet; otherwise disable it.")}
         confirmText={provider.name}
         onConfirm={() =>
           remove.mutate(
@@ -255,25 +262,28 @@ function ProviderFields({
   const nameId = useId();
   const enabledId = useId();
   const secretId = useId();
+  const { t } = useTranslation();
   const set = (key: string, value: string | boolean) => onChange({ ...form, values: { ...form.values, [key]: value } });
   const secretHelp = hasSecret
-    ? `Stored${secretEnv ? ` as ${secretEnv}` : " encrypted"}. Leave empty to keep it.`
-    : "Saved encrypted. Or type env:NAME to read it from the server's environment.";
+    ? secretEnv
+      ? t("Stored as {{env}}. Leave empty to keep it.", { env: secretEnv })
+      : t("Stored encrypted. Leave empty to keep it.")
+    : t("Saved encrypted. Or type env:NAME to read it from the server's environment.");
 
   return (
     <ConfigTable valueClassName="w-80" detailsClassName="max-w-prose">
-      <ConfigTableGroup label="Provider" />
-      <ConfigTableRow label="Name" htmlFor={nameId} details="Shown on the sign-in page">
+      <ConfigTableGroup label={t("Provider")} />
+      <ConfigTableRow label={t("Name")} htmlFor={nameId} details={t("Shown on the sign-in page")}>
         <Input id={nameId} value={form.name} required maxLength={120} onChange={(e) => onChange({ ...form, name: e.target.value })} />
       </ConfigTableRow>
-      <ConfigTableRow label="Enabled" htmlFor={enabledId} details="Offer it on the sign-in page">
+      <ConfigTableRow label={t("Enabled")} htmlFor={enabledId} details={t("Offer it on the sign-in page")}>
         <Switch id={enabledId} checked={form.enabled} onCheckedChange={(v) => onChange({ ...form, enabled: v })} />
       </ConfigTableRow>
-      <ConfigTableGroup label={form.type === "ldap" ? "Directory" : "OpenID Connect"} />
+      <ConfigTableGroup label={form.type === "ldap" ? t("Directory") : "OpenID Connect"} />
       {FIELDS[form.type].map((field) => {
         const inputId = `${form.type}-${field.key}`;
         return (
-          <ConfigTableRow key={field.key} label={field.label} htmlFor={inputId} details={field.details}>
+          <ConfigTableRow key={field.key} label={t(field.label)} htmlFor={inputId} details={t(field.details)}>
             {field.kind === "boolean" ? (
               <Switch id={inputId} checked={form.values[field.key] === true} onCheckedChange={(v) => set(field.key, v)} />
             ) : (
@@ -289,7 +299,7 @@ function ProviderFields({
           </ConfigTableRow>
         );
       })}
-      <ConfigTableRow label={SECRET_LABEL[form.type]} htmlFor={secretId} details={secretHelp}>
+      <ConfigTableRow label={t(SECRET_LABEL[form.type])} htmlFor={secretId} details={secretHelp}>
         <Input
           id={secretId}
           type="password"
@@ -310,6 +320,7 @@ function TestPanel({ provider, dirty }: { provider: ProviderView; dirty: boolean
   const [result, setResult] = useState<ProviderTestResult | null>(null);
   const userId = useId();
   const passId = useId();
+  const { t } = useTranslation();
 
   const run = (e: FormEvent) => {
     e.preventDefault();
@@ -326,30 +337,30 @@ function TestPanel({ provider, dirty }: { provider: ProviderView; dirty: boolean
   return (
     <section className="space-y-3 rounded-md border p-4" aria-labelledby="test-heading">
       <h2 id="test-heading" className="text-base font-semibold">
-        Test the connection
+        {t("Test the connection")}
       </h2>
       <form onSubmit={run} className="flex flex-wrap items-end gap-3">
         {provider.type === "ldap" && (
           <>
             <div className="space-y-1">
-              <Label htmlFor={userId}>Test username (optional)</Label>
+              <Label htmlFor={userId}>{t("Test username (optional)")}</Label>
               <Input id={userId} value={username} autoComplete="off" onChange={(e) => setUsername(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor={passId}>Password</Label>
+              <Label htmlFor={passId}>{t("Password")}</Label>
               <Input id={passId} type="password" autoComplete="off" value={password} onChange={(e) => setPassword(e.target.value)} />
             </div>
           </>
         )}
-        <Button type="submit" variant="outline" disabled={dirty || test.isPending} title={dirty ? "Save your changes first" : undefined}>
-          Run test
+        <Button type="submit" variant="outline" disabled={dirty || test.isPending} title={dirty ? t("Save your changes first") : undefined}>
+          {t("Run test")}
         </Button>
-        {dirty && <span className="text-xs text-muted-foreground">Tests use the saved settings. Save first.</span>}
+        {dirty && <span className="text-xs text-muted-foreground">{t("Tests use the saved settings. Save first.")}</span>}
       </form>
       {result && (
         <Alert variant={result.ok ? "default" : "destructive"}>
           <AlertDescription>
-            <p className="font-medium">{result.ok ? "Test passed" : "Test failed"}</p>
+            <p className="font-medium">{result.ok ? t("Test passed") : t("Test failed")}</p>
             <ul className="mt-1 list-disc pl-5 text-sm">
               {result.messages.map((m) => (
                 <li key={m} className="break-words">
@@ -369,8 +380,9 @@ const MAPPING_ROLES: MappingViewRole[] = ["viewer", "author", "script_author", "
 
 function MappingsTab({ provider }: { provider: ProviderView }) {
   const query = useGetGroupMappings(provider.id);
+  const { t } = useTranslation();
   return (
-    <QueryBoundary query={query} what="group mappings">
+    <QueryBoundary query={query} what={t("group mappings")}>
       {(mappings) => <MappingsEditor key={JSON.stringify(mappings)} provider={provider} initial={mappings} />}
     </QueryBoundary>
   );
@@ -380,6 +392,7 @@ function MappingsEditor({ provider, initial }: { provider: ProviderView; initial
   const qc = useQueryClient();
   const workspaces = useListWorkspaces();
   const save = useReplaceGroupMappings();
+  const { t } = useTranslation();
   const [rows, setRows] = useState<MappingView[]>(initial);
   const [error, setError] = useState<string | null>(null);
   const dirty = JSON.stringify(rows) !== JSON.stringify(initial);
@@ -395,7 +408,7 @@ function MappingsEditor({ provider, initial }: { provider: ProviderView; initial
       { id: provider.id, data: rows.map((r) => ({ ...r, externalGroup: r.externalGroup.trim() })) },
       {
         onSuccess: () => {
-          toast.success("Mappings saved. They apply at each user's next sign-in.");
+          toast.success(t("Mappings saved. They apply at each user's next sign-in."));
           qc.invalidateQueries({ queryKey: getGetGroupMappingsQueryKey(provider.id) });
         },
         onError: (err) => setError(errorMessage(err)),
@@ -406,25 +419,30 @@ function MappingsEditor({ provider, initial }: { provider: ProviderView; initial
   return (
     <div className="space-y-4">
       <p className="max-w-prose text-sm text-muted-foreground">
-        At every sign-in, a user&apos;s {provider.type === "ldap" ? "directory groups" : "groups claim"} decide their roles.
-        Roles granted by hand stay unless the mapping is <em>managed</em>, in which case the groups alone decide.
+        {provider.type === "ldap"
+          ? t("At every sign-in, a user's directory groups decide their roles.")
+          : t("At every sign-in, a user's groups claim decide their roles.")}{" "}
+        <Trans
+          i18nKey="Roles granted by hand stay unless the mapping is <em>managed</em>, in which case the groups alone decide."
+          components={{ em: <em /> }}
+        />
       </p>
       <div className="overflow-x-auto rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Group</TableHead>
-              <TableHead>Grants</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Managed</TableHead>
-              <TableHead className="w-10"><span className="sr-only">Remove</span></TableHead>
+              <TableHead>{t("Group")}</TableHead>
+              <TableHead>{t("Grants")}</TableHead>
+              <TableHead>{t("Role")}</TableHead>
+              <TableHead>{t("Managed")}</TableHead>
+              <TableHead className="w-10"><span className="sr-only">{t("Remove")}</span></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-sm text-muted-foreground">
-                  No mappings: users from this provider get no workspace roles until someone adds them by hand.
+                  {t("No mappings: users from this provider get no workspace roles until someone adds them by hand.")}
                 </TableCell>
               </TableRow>
             )}
@@ -434,7 +452,7 @@ function MappingsEditor({ provider, initial }: { provider: ProviderView; initial
                 <TableRow key={i}>
                   <TableCell>
                     <Input
-                      aria-label={`Group name, row ${i + 1}`}
+                      aria-label={t("Group name, row {{row}}", { row: i + 1 })}
                       value={row.externalGroup}
                       placeholder="sales-authors"
                       className="w-56"
@@ -450,14 +468,14 @@ function MappingsEditor({ provider, initial }: { provider: ProviderView; initial
                           : setRow(i, { workspace: v, role: system ? "author" : row.role })
                       }
                     >
-                      <SelectTrigger className="w-56" aria-label={`Grants, row ${i + 1}`}>
-                        <SelectValue placeholder="Choose a workspace" />
+                      <SelectTrigger className="w-56" aria-label={t("Grants, row {{row}}", { row: i + 1 })}>
+                        <SelectValue placeholder={t("Choose a workspace")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value={SYSTEM}>System admin</SelectItem>
+                        <SelectItem value={SYSTEM}>{t("System admin")}</SelectItem>
                         {activeWorkspaces.map((w) => (
                           <SelectItem key={w.id} value={w.slug}>
-                            Workspace: {w.name}
+                            {t("Workspace: {{name}}", { name: w.name })}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -468,13 +486,13 @@ function MappingsEditor({ provider, initial }: { provider: ProviderView; initial
                       <span className="text-sm text-muted-foreground">—</span>
                     ) : (
                       <Select value={row.role} onValueChange={(v) => setRow(i, { role: v as MappingViewRole })}>
-                        <SelectTrigger className="w-40" aria-label={`Role, row ${i + 1}`}>
+                        <SelectTrigger className="w-40" aria-label={t("Role, row {{row}}", { row: i + 1 })}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           {MAPPING_ROLES.map((r) => (
                             <SelectItem key={r} value={r}>
-                              {ROLE_LABEL[r as keyof typeof ROLE_LABEL]}
+                              {t(ROLE_LABEL[r as keyof typeof ROLE_LABEL])}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -483,7 +501,7 @@ function MappingsEditor({ provider, initial }: { provider: ProviderView; initial
                   </TableCell>
                   <TableCell>
                     <Checkbox
-                      aria-label={`Managed, row ${i + 1}`}
+                      aria-label={t("Managed, row {{row}}", { row: i + 1 })}
                       checked={row.managed}
                       disabled={system}
                       onCheckedChange={(v) => setRow(i, { managed: v === true })}
@@ -493,7 +511,7 @@ function MappingsEditor({ provider, initial }: { provider: ProviderView; initial
                     <Button
                       variant="ghost"
                       size="icon"
-                      aria-label={`Remove row ${i + 1}`}
+                      aria-label={t("Remove row {{row}}", { row: i + 1 })}
                       onClick={() => setRows(rows.filter((_, j) => j !== i))}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -516,13 +534,13 @@ function MappingsEditor({ provider, initial }: { provider: ProviderView; initial
           onClick={() => setRows([...rows, { externalGroup: "", workspace: null, role: "author", managed: false }])}
         >
           <Plus aria-hidden="true" />
-          Add mapping
+          {t("Add mapping")}
         </Button>
-        <Button onClick={submit} disabled={!dirty || save.isPending} title={!dirty ? "No changes to save" : undefined}>
-          Save mappings
+        <Button onClick={submit} disabled={!dirty || save.isPending} title={!dirty ? t("No changes to save") : undefined}>
+          {t("Save mappings")}
         </Button>
         <Button variant="ghost" disabled={!dirty} onClick={() => setRows(initial)}>
-          Discard
+          {t("Discard")}
         </Button>
       </div>
     </div>

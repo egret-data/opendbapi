@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { RefreshCw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { useActivityLog, useActivitySummary } from "@/api/generated/activity/activity";
 import { useListEndpoints } from "@/api/generated/endpoints/endpoints";
@@ -25,6 +26,7 @@ const ANY = "__any__";
 /** Calls, errors and latency from the access log (spec §17.4). Try-it calls are hidden unless asked for. */
 export default function ActivityPage() {
   const { ws = "" } = useParams();
+  const { t } = useTranslation();
   const [params, setParams] = useSearchParams();
   const range: Range = (params.get("range") as Range) in RANGES ? (params.get("range") as Range) : "7d";
   const includeTryIt = params.get("tryit") === "1";
@@ -40,51 +42,52 @@ export default function ActivityPage() {
     <PageContainer>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <PageTitle>Activity</PageTitle>
-          <p className="text-sm text-muted-foreground">Calls to this workspace's published endpoints.</p>
+          <PageTitle>{t("Activity")}</PageTitle>
+          <p className="text-sm text-muted-foreground">{t("Calls to this workspace's published endpoints.")}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Select value={range} onValueChange={(v) => set({ range: v })}>
-            <SelectTrigger className="w-36" aria-label="Time range"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-36" aria-label={t("Time range")}><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="24h">Last 24 hours</SelectItem>
-              <SelectItem value="7d">Last 7 days</SelectItem>
-              <SelectItem value="30d">Last 30 days</SelectItem>
+              <SelectItem value="24h">{t("Last 24 hours")}</SelectItem>
+              <SelectItem value="7d">{t("Last 7 days")}</SelectItem>
+              <SelectItem value="30d">{t("Last 30 days")}</SelectItem>
             </SelectContent>
           </Select>
           <div className="flex items-center gap-2">
             <Switch id="act-tryit" checked={includeTryIt} onCheckedChange={(v) => set({ tryit: v ? "1" : "" })} />
-            <Label htmlFor="act-tryit">Include Try-it</Label>
+            <Label htmlFor="act-tryit">{t("Include Try-it")}</Label>
           </div>
-          <Button variant="ghost" size="icon" aria-label="Refresh" onClick={() => setWindow(windowFor(range))}>
+          <Button variant="ghost" size="icon" aria-label={t("Refresh")} onClick={() => setWindow(windowFor(range))}>
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
       </div>
       <div className="mt-6 space-y-8">
-        <QueryBoundary query={summary} what="activity">
+        <QueryBoundary query={summary} what={t("activity")}>
           {(s) =>
             s.requests === 0 ? (
-              <EmptyState title="No calls in this period" description="Calls appear here a second or two after they are made." />
+              <EmptyState title={t("No calls in this period")} description={t("Calls appear here a second or two after they are made.")} />
             ) : (
               <>
                 <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Tile label="Requests" value={s.requests.toLocaleString()} />
-                  <Tile label="Error rate" value={`${((s.errors / s.requests) * 100).toFixed(1)}%`} hint={`${s.errors.toLocaleString()} with status 4xx or 5xx`} />
-                  <Tile label="p95 latency" value={s.p95Ms == null ? "—" : `${Math.round(s.p95Ms)} ms`} />
-                  <Tile label="Active clients" value={s.activeClients.toLocaleString()} />
+                  <Tile label={t("Requests")} value={s.requests.toLocaleString()} />
+                  <Tile label={t("Error rate")} value={`${((s.errors / s.requests) * 100).toFixed(1)}%`}
+                    hint={t("{{errors}} with status 4xx or 5xx", { errors: s.errors.toLocaleString() })} />
+                  <Tile label={t("p95 latency")} value={s.p95Ms == null ? "—" : `${Math.round(s.p95Ms)} ms`} />
+                  <Tile label={t("Active clients")} value={s.activeClients.toLocaleString()} />
                 </dl>
                 <DayChart days={s.byDay} />
                 <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
                   <section aria-labelledby="top-endpoints" className="space-y-2">
-                    <h2 id="top-endpoints" className="text-sm font-semibold">Top endpoints</h2>
+                    <h2 id="top-endpoints" className="text-sm font-semibold">{t("Top endpoints")}</h2>
                     <div className="overflow-x-auto rounded-md border">
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead>Endpoint</TableHead>
-                            <TableHead className="text-right">Requests</TableHead>
-                            <TableHead className="text-right">Errors</TableHead>
+                            <TableHead>{t("Endpoint")}</TableHead>
+                            <TableHead className="text-right">{t("Requests")}</TableHead>
+                            <TableHead className="text-right">{t("Errors")}</TableHead>
                             <TableHead className="text-right">p95</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -93,9 +96,9 @@ export default function ActivityPage() {
                             <TableRow key={e.endpointId ?? `none-${i}`}>
                               <TableCell>
                                 {e.endpointId ? (
-                                  <Link className="font-medium hover:underline" to={`/w/${ws}/endpoints/${e.endpointId}`}>{e.name ?? "(deleted)"}</Link>
+                                  <Link className="font-medium hover:underline" to={`/w/${ws}/endpoints/${e.endpointId}`}>{e.name ?? t("(deleted)")}</Link>
                                 ) : (
-                                  <span className="text-muted-foreground">No matching endpoint</span>
+                                  <span className="text-muted-foreground">{t("No matching endpoint")}</span>
                                 )}
                                 <span className="ml-2 font-mono text-xs text-muted-foreground">{e.method} {e.path}</span>
                               </TableCell>
@@ -109,9 +112,9 @@ export default function ActivityPage() {
                     </div>
                   </section>
                   <section aria-labelledby="top-errors" className="space-y-2">
-                    <h2 id="top-errors" className="text-sm font-semibold">Top errors</h2>
+                    <h2 id="top-errors" className="text-sm font-semibold">{t("Top errors")}</h2>
                     {s.topErrors.length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No errors.</p>
+                      <p className="text-sm text-muted-foreground">{t("No errors.")}</p>
                     ) : (
                       <ul className="divide-y rounded-md border text-sm">
                         {s.topErrors.map((e) => (
@@ -125,7 +128,7 @@ export default function ActivityPage() {
                   </section>
                 </div>
                 <div className="grid gap-6 lg:grid-cols-3">
-                  <RankList id="slowest" title="Slowest endpoints (p95, 5+ calls)" empty="Not enough calls yet."
+                  <RankList id="slowest" title={t("Slowest endpoints (p95, 5+ calls)")} empty={t("Not enough calls yet.")}
                     rows={s.slowestEndpoints.map((e) => ({
                       key: e.endpointId ?? e.path,
                       label: e.endpointId
@@ -133,18 +136,18 @@ export default function ActivityPage() {
                         : `${e.method} ${e.path}`,
                       value: e.p95Ms == null ? "—" : `${Math.round(e.p95Ms)} ms`,
                     }))} />
-                  <RankList id="top-clients" title="Top clients" empty="No calls with a client token."
+                  <RankList id="top-clients" title={t("Top clients")} empty={t("No calls with a client token.")}
                     rows={s.topClients.map((c) => ({
                       key: c.clientId,
                       label: <span><span className="font-mono text-xs">{c.clientId}</span>
                         {c.serviceAccount && <span className="ml-2 text-muted-foreground">{c.serviceAccount}</span>}</span>,
-                      value: `${c.requests.toLocaleString()}${c.errors ? ` · ${c.errors.toLocaleString()} err` : ""}`,
+                      value: `${c.requests.toLocaleString()}${c.errors ? ` · ${t("{{errors}} err", { errors: c.errors.toLocaleString() })}` : ""}`,
                     }))} />
-                  <RankList id="top-ips" title="Top addresses" empty="No calls."
+                  <RankList id="top-ips" title={t("Top addresses")} empty={t("No calls.")}
                     rows={s.topIps.map((ip) => ({
                       key: ip.ip,
                       label: <span className="font-mono text-xs">{ip.ip}</span>,
-                      value: `${ip.requests.toLocaleString()}${ip.errors ? ` · ${ip.errors.toLocaleString()} err` : ""}`,
+                      value: `${ip.requests.toLocaleString()}${ip.errors ? ` · ${t("{{errors}} err", { errors: ip.errors.toLocaleString() })}` : ""}`,
                     }))} />
                 </div>
               </>
@@ -196,16 +199,17 @@ function Tile({ label, value, hint }: { label: string; value: string; hint?: str
 
 /** Requests per day: one series, so no legend; a hidden table carries the same numbers. */
 function DayChart({ days }: { days: Day[] }) {
+  const { t } = useTranslation();
   const max = Math.max(1, ...days.map((d) => d.requests));
   return (
     <section aria-labelledby="per-day" className="space-y-2">
-      <h2 id="per-day" className="text-sm font-semibold">Requests per day (UTC)</h2>
+      <h2 id="per-day" className="text-sm font-semibold">{t("Requests per day (UTC)")}</h2>
       <div className="flex h-40 items-end gap-[2px] border-b border-border" aria-hidden="true">
         {days.map((d) => (
-          <div key={d.day} className="group relative flex h-full flex-1 items-end justify-center" title={`${d.day}: ${d.requests} requests, ${d.errors} errors`}>
+          <div key={d.day} className="group relative flex h-full flex-1 items-end justify-center" title={t("{{day}}: {{requests}} requests, {{errors}} errors", { day: d.day, requests: d.requests, errors: d.errors })}>
             <div className="w-full max-w-10 rounded-t-[4px] bg-primary/80 group-hover:bg-primary" style={{ height: `${(d.requests / max) * 100}%` }} />
             <div className="pointer-events-none absolute bottom-full mb-1 hidden whitespace-nowrap rounded-md border bg-popover px-2 py-1 text-xs text-popover-foreground shadow group-hover:block">
-              {d.day} · {d.requests.toLocaleString()} requests · {d.errors.toLocaleString()} errors
+              {t("{{day}} · {{requests}} requests · {{errors}} errors", { day: d.day, requests: d.requests.toLocaleString(), errors: d.errors.toLocaleString() })}
             </div>
           </div>
         ))}
@@ -214,8 +218,8 @@ function DayChart({ days }: { days: Day[] }) {
         {days.map((d) => <span key={d.day} className="flex-1 truncate text-center">{d.day.slice(5)}</span>)}
       </div>
       <table className="sr-only">
-        <caption>Requests per day</caption>
-        <thead><tr><th>Day</th><th>Requests</th><th>Errors</th></tr></thead>
+        <caption>{t("Requests per day")}</caption>
+        <thead><tr><th>{t("Day")}</th><th>{t("Requests")}</th><th>{t("Errors")}</th></tr></thead>
         <tbody>{days.map((d) => <tr key={d.day}><td>{d.day}</td><td>{d.requests}</td><td>{d.errors}</td></tr>)}</tbody>
       </table>
     </section>
@@ -223,6 +227,7 @@ function DayChart({ days }: { days: Day[] }) {
 }
 
 function CallLog({ ws, from, to, includeTryIt }: { ws: string; from: string; to: string; includeTryIt: boolean }) {
+  const { t } = useTranslation();
   const endpoints = useListEndpoints(ws, { trashed: false });
   const [endpointId, setEndpointId] = useState(ANY);
   const [status, setStatus] = useState(ANY);
@@ -238,43 +243,43 @@ function CallLog({ ws, from, to, includeTryIt }: { ws: string; from: string; to:
   return (
     <section aria-labelledby="call-log" className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        <h2 id="call-log" className="mr-2 text-sm font-semibold">Calls</h2>
+        <h2 id="call-log" className="mr-2 text-sm font-semibold">{t("Calls")}</h2>
         <Select value={endpointId} onValueChange={setEndpointId}>
-          <SelectTrigger className="w-56" aria-label="Endpoint filter"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-56" aria-label={t("Endpoint filter")}><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value={ANY}>All endpoints</SelectItem>
+            <SelectItem value={ANY}>{t("All endpoints")}</SelectItem>
             {(endpoints.data ?? []).map((e) => <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={status} onValueChange={setStatus}>
-          <SelectTrigger className="w-32" aria-label="Status filter"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-32" aria-label={t("Status filter")}><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value={ANY}>Any status</SelectItem>
+            <SelectItem value={ANY}>{t("Any status")}</SelectItem>
             <SelectItem value="2xx">2xx</SelectItem>
             <SelectItem value="4xx">4xx</SelectItem>
             <SelectItem value="5xx">5xx</SelectItem>
           </SelectContent>
         </Select>
-        <Input type="search" className="w-72 font-mono text-xs" aria-label="Request id" placeholder="Request id from an error"
+        <Input type="search" className="w-72 font-mono text-xs" aria-label={t("Request id")} placeholder={t("Request id from an error")}
           value={requestId} onChange={(e) => setRequestId(e.target.value)} />
       </div>
-      <QueryBoundary query={query} what="calls">
+      <QueryBoundary query={query} what={t("calls")}>
         {(rows) =>
           rows.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No calls match.</p>
+            <p className="text-sm text-muted-foreground">{t("No calls match.")}</p>
           ) : (
             <>
               <div className="overflow-x-auto rounded-md border">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Time</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Call</TableHead>
-                      <TableHead>Client</TableHead>
-                      <TableHead className="text-right">Duration</TableHead>
-                      <TableHead className="text-right">Rows</TableHead>
-                      <TableHead>Error</TableHead>
+                      <TableHead>{t("Time")}</TableHead>
+                      <TableHead>{t("Status")}</TableHead>
+                      <TableHead>{t("Call")}</TableHead>
+                      <TableHead>{t("Client")}</TableHead>
+                      <TableHead className="text-right">{t("Duration")}</TableHead>
+                      <TableHead className="text-right">{t("Rows")}</TableHead>
+                      <TableHead>{t("Error")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -289,7 +294,7 @@ function CallLog({ ws, from, to, includeTryIt }: { ws: string; from: string; to:
                           {r.version != null && <span className="ml-1 text-muted-foreground">v{r.version}</span>}
                         </TableCell>
                         <TableCell className="font-mono text-xs">
-                          {r.tryIt ? <StatusBadge tone="neutral">Try-it</StatusBadge> : (r.clientId ?? r.ip ?? "—")}
+                          {r.tryIt ? <StatusBadge tone="neutral">{t("Try-it")}</StatusBadge> : (r.clientId ?? r.ip ?? "—")}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{r.durationMs} ms</TableCell>
                         <TableCell className="text-right tabular-nums">{r.rows ?? "—"}</TableCell>
@@ -298,7 +303,7 @@ function CallLog({ ws, from, to, includeTryIt }: { ws: string; from: string; to:
                             <details>
                               <summary className="cursor-pointer font-mono text-xs">{r.errorCode}</summary>
                               {r.error && <p className="mt-1 break-words text-xs">{r.error}</p>}
-                              <p className="mt-1 font-mono text-xs text-muted-foreground">request {r.requestId}{r.traceId ? ` · trace ${r.traceId}` : ""}</p>
+                              <p className="mt-1 font-mono text-xs text-muted-foreground">{t("request {{id}}", { id: r.requestId })}{r.traceId ? ` · ${t("trace {{id}}", { id: r.traceId })}` : ""}</p>
                             </details>
                           )}
                         </TableCell>
@@ -308,7 +313,7 @@ function CallLog({ ws, from, to, includeTryIt }: { ws: string; from: string; to:
                 </Table>
               </div>
               {rows.length >= limit && limit < 500 && (
-                <Button variant="outline" size="sm" onClick={() => setLimit((l) => Math.min(500, l + 100))}>Show more</Button>
+                <Button variant="outline" size="sm" onClick={() => setLimit((l) => Math.min(500, l + 100))}>{t("Show more")}</Button>
               )}
             </>
           )

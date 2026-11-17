@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Fingerprint, Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { useListIdentityProviders } from "@/api/generated/identity-providers/identity-providers";
 import { QueryBoundary } from "@/components/QueryBoundary";
@@ -12,28 +13,29 @@ import { formatDate } from "@/lib/format";
 
 export default function IdentityProvidersPage() {
   const query = useListIdentityProviders();
+  const { t } = useTranslation();
   const newButton = (
     <Button asChild>
       <Link to="new">
         <Plus aria-hidden="true" />
-        New provider
+        {t("New provider")}
       </Link>
     </Button>
   );
   return (
     <ListPageShell
-      title="Identity providers"
-      description="LDAP directories and SSO (OIDC) issuers people can sign in through, and how their groups map to roles."
+      title={t("Identity providers")}
+      description={t("LDAP directories and SSO (OIDC) issuers people can sign in through, and how their groups map to roles.")}
       action={newButton}
     >
-      <QueryBoundary query={query} what="identity providers">
+      <QueryBoundary query={query} what={t("identity providers")}>
         {(providers) =>
           providers.length === 0 ? (
             <EmptyState
               variant="dashed"
               icon={Fingerprint}
-              title="Only local accounts so far"
-              description="Add an LDAP directory or an OIDC issuer to let people sign in with their company account."
+              title={t("Only local accounts so far")}
+              description={t("Add an LDAP directory or an OIDC issuer to let people sign in with their company account.")}
               action={newButton}
             />
           ) : (
@@ -41,11 +43,11 @@ export default function IdentityProvidersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Updated</TableHead>
+                    <TableHead>{t("Name")}</TableHead>
+                    <TableHead>{t("Type")}</TableHead>
+                    <TableHead>{t("Address")}</TableHead>
+                    <TableHead>{t("Status")}</TableHead>
+                    <TableHead>{t("Updated")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -61,7 +63,7 @@ export default function IdentityProvidersPage() {
                         {String((p.type === "ldap" ? p.config.url : p.config.issuerUri) ?? "")}
                       </TableCell>
                       <TableCell>
-                        <StatusBadge tone={p.enabled ? "success" : "inactive"}>{p.enabled ? "Enabled" : "Disabled"}</StatusBadge>
+                        <StatusBadge tone={p.enabled ? "success" : "inactive"}>{p.enabled ? t("Enabled") : t("Disabled")}</StatusBadge>
                       </TableCell>
                       <TableCell className="tabular-nums">{formatDate(p.updatedAt)}</TableCell>
                     </TableRow>

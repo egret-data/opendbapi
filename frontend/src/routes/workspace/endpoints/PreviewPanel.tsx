@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Play } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { usePreviewEndpoint } from "@/api/generated/endpoints/endpoints";
 import type { Finding, PreviewResponse } from "@/api/generated/model";
@@ -18,6 +19,7 @@ import type { DraftForm } from "./endpointForm";
  */
 export function PreviewPanel({ ws, id, form }: { ws: string; id: string; form: DraftForm }) {
   const preview = usePreviewEndpoint();
+  const { t } = useTranslation();
   const [values, setValues] = useState<Record<string, string>>({});
   const [result, setResult] = useState<PreviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,22 +42,24 @@ export function PreviewPanel({ ws, id, form }: { ws: string; id: string; form: D
   return (
     <section aria-labelledby="preview-heading" className="space-y-3 rounded-md border p-4">
       <div className="flex flex-wrap items-end gap-3">
-        <h3 id="preview-heading" className="mr-2 text-sm font-semibold">Preview</h3>
+        <h3 id="preview-heading" className="mr-2 text-sm font-semibold">{t("Preview")}</h3>
         {params.map((p) => (
           <div key={p.name} className="space-y-1">
-            <Label htmlFor={`pv-${p.name}`} className="font-mono text-xs">{p.name || "(unnamed)"}</Label>
+            <Label htmlFor={`pv-${p.name}`} className="font-mono text-xs">{p.name || t("(unnamed)")}</Label>
             <Input id={`pv-${p.name}`} className="h-8 w-36 text-xs" placeholder={p.type.startsWith("array<") ? "a, b, c" : p.type}
               value={values[p.name] ?? ""} onChange={(e) => setValues({ ...values, [p.name]: e.target.value })} />
           </div>
         ))}
         <Button type="button" size="sm" onClick={run} disabled={preview.isPending}>
           <Play aria-hidden="true" />
-          {preview.isPending ? "Running…" : "Run"}
+          {preview.isPending ? t("Running…") : t("Run")}
         </Button>
         {result && (
           <span className="text-xs text-muted-foreground tabular-nums">
-            {result.durationMs} ms · {result.affectedRows != null ? `${result.affectedRows} rows affected (rolled back)` : `${result.rows.length} ${result.rows.length === 1 ? "row" : "rows"}`}
-            {result.truncated ? " · first 100 shown" : ""}
+            {result.durationMs} ms · {result.affectedRows != null
+              ? t("{{n}} rows affected (rolled back)", { n: result.affectedRows })
+              : result.rows.length === 1 ? t("1 row") : t("{{n}} rows", { n: result.rows.length })}
+            {result.truncated ? ` · ${t("first 100 shown")}` : ""}
           </span>
         )}
       </div>
@@ -63,16 +67,16 @@ export function PreviewPanel({ ws, id, form }: { ws: string; id: string; form: D
       {result && (
         <Tabs defaultValue="result">
           <TabsList variant="underline">
-            <TabsTrigger value="result">Result</TabsTrigger>
-            <TabsTrigger value="sql">SQL & binds</TabsTrigger>
-            <TabsTrigger value="checks">Warnings{result.findings.length ? ` (${result.findings.length})` : ""}</TabsTrigger>
-            <TabsTrigger value="schema">Output schema</TabsTrigger>
+            <TabsTrigger value="result">{t("Result")}</TabsTrigger>
+            <TabsTrigger value="sql">{t("SQL & binds")}</TabsTrigger>
+            <TabsTrigger value="checks">{t("Warnings")}{result.findings.length ? ` (${result.findings.length})` : ""}</TabsTrigger>
+            <TabsTrigger value="schema">{t("Output schema")}</TabsTrigger>
           </TabsList>
           <TabsContent value="result" className="pt-3">
             {result.affectedRows != null ? (
-              <p className="text-sm">{result.affectedRows} rows would be affected. Nothing was saved.</p>
+              <p className="text-sm">{t("{{n}} rows would be affected. Nothing was saved.", { n: result.affectedRows })}</p>
             ) : result.rows.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No rows.</p>
+              <p className="text-sm text-muted-foreground">{t("No rows.")}</p>
             ) : (
               <div className="max-h-80 overflow-auto rounded-md border">
                 <Table>
@@ -102,12 +106,12 @@ export function PreviewPanel({ ws, id, form }: { ws: string; id: string; form: D
           </TabsContent>
           <TabsContent value="schema" className="pt-3">
             {result.columns.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No columns: the statement does not return rows.</p>
+              <p className="text-sm text-muted-foreground">{t("No columns: the statement does not return rows.")}</p>
             ) : (
               <div className="max-w-xl overflow-x-auto rounded-md border">
                 <Table>
                   <TableHeader>
-                    <TableRow><TableHead>Column</TableHead><TableHead>Database type</TableHead></TableRow>
+                    <TableRow><TableHead>{t("Column")}</TableHead><TableHead>{t("Database type")}</TableHead></TableRow>
                   </TableHeader>
                   <TableBody>
                     {result.columns.map((c) => (
@@ -120,7 +124,7 @@ export function PreviewPanel({ ws, id, form }: { ws: string; id: string; form: D
                 </Table>
               </div>
             )}
-            <p className="mt-2 text-xs text-muted-foreground">Publishing freezes these columns into the version's API documentation.</p>
+            <p className="mt-2 text-xs text-muted-foreground">{t("Publishing freezes these columns into the version's API documentation.")}</p>
           </TabsContent>
           <TabsContent value="checks" className="pt-3">
             <FindingsList findings={result.findings} />
@@ -132,12 +136,13 @@ export function PreviewPanel({ ws, id, form }: { ws: string; id: string; form: D
 }
 
 export function FindingsList({ findings }: { findings: Finding[] }) {
-  if (findings.length === 0) return <p className="text-sm text-muted-foreground">No problems found.</p>;
+  const { t } = useTranslation();
+  if (findings.length === 0) return <p className="text-sm text-muted-foreground">{t("No problems found.")}</p>;
   return (
     <ul className="space-y-1 text-sm">
       {findings.map((f, i) => (
         <li key={i} className={f.severity === "error" ? "text-destructive" : "text-foreground"}>
-          <span className="font-medium">{f.severity === "error" ? "Error" : "Warning"}:</span> {f.message}
+          <span className="font-medium">{f.severity === "error" ? t("Error") : t("Warning")}:</span> {f.message}
         </li>
       ))}
     </ul>

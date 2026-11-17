@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { Plug, Plus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { useListDatasources } from "@/api/generated/datasources/datasources";
 import {
@@ -40,6 +41,7 @@ const ALL = "__all__";
 export default function EndpointsPage() {
   const { ws = "" } = useParams();
   const { me } = useAuth();
+  const { t } = useTranslation();
   const canAuthor = hasRole(effectiveRole(me, ws) ?? "viewer", "author");
   const [params, setParams] = useSearchParams();
   const trashed = params.get("view") === "trash";
@@ -71,37 +73,37 @@ export default function EndpointsPage() {
     <Button asChild>
       <Link to="new">
         <Plus aria-hidden="true" />
-        New endpoint
+        {t("New endpoint")}
       </Link>
     </Button>
   ) : undefined;
 
   return (
     <ListPageShell
-      title={trashed ? "Trash" : "Endpoints"}
-      description={trashed ? "Endpoints here are not served. Restore them, or delete them for good." : "SQL published as REST APIs."}
-      back={trashed ? <Button variant="link" className="px-0" onClick={() => set({ view: "" })}>← All endpoints</Button> : undefined}
+      title={trashed ? t("Trash") : t("Endpoints")}
+      description={trashed ? t("Endpoints here are not served. Restore them, or delete them for good.") : t("SQL published as REST APIs.")}
+      back={trashed ? <Button variant="link" className="px-0" onClick={() => set({ view: "" })}>{t("← All endpoints")}</Button> : undefined}
       toolbar={
         <div className="flex flex-wrap items-center gap-2">
-          <Input type="search" aria-label="Search endpoints" placeholder="Search name or path" className="w-60" value={q}
+          <Input type="search" aria-label={t("Search endpoints")} placeholder={t("Search name or path")} className="w-60" value={q}
             onChange={(e) => setQ(e.target.value)} />
           <Select value={group || ALL} onValueChange={(v) => set({ group: v === ALL ? "" : v })}>
-            <SelectTrigger className="w-44" aria-label="Group">
+            <SelectTrigger className="w-44" aria-label={t("Group")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>All groups</SelectItem>
+              <SelectItem value={ALL}>{t("All groups")}</SelectItem>
               {(groups.data ?? []).map((g) => (
                 <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>
               ))}
             </SelectContent>
           </Select>
           <Select value={datasource || ALL} onValueChange={(v) => set({ ds: v === ALL ? "" : v })}>
-            <SelectTrigger className="w-44" aria-label="Datasource">
+            <SelectTrigger className="w-44" aria-label={t("Datasource")}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>All datasources</SelectItem>
+              <SelectItem value={ALL}>{t("All datasources")}</SelectItem>
               {(datasources.data ?? []).map((d) => (
                 <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
               ))}
@@ -110,15 +112,15 @@ export default function EndpointsPage() {
           {!trashed && (
             <>
               <Button variant="ghost" size="sm" onClick={() => set({ view: "trash" })}>
-                Trash{trashCount > 0 ? ` (${trashCount})` : ""}
+                {t("Trash")}{trashCount > 0 ? ` (${trashCount})` : ""}
               </Button>
               <Button asChild variant="ghost" size="sm">
                 <a href={`${info.data?.servingBaseUrl ?? "/api"}/${ws}/docs.html`} target="_blank" rel="noreferrer">
-                  API docs
+                  {t("API docs")}
                 </a>
               </Button>
               <Button asChild variant="ghost" size="sm">
-                <a href={`/admin/api/ws/${ws}/openapi.json`} download={`${ws}-openapi.json`}>Download OpenAPI</a>
+                <a href={`/admin/api/ws/${ws}/openapi.json`} download={`${ws}-openapi.json`}>{t("Download OpenAPI")}</a>
               </Button>
             </>
           )}
@@ -126,7 +128,7 @@ export default function EndpointsPage() {
       }
       action={trashed ? undefined : newButton}
     >
-      <QueryBoundary query={query} what="endpoints">
+      <QueryBoundary query={query} what={t("endpoints")}>
         {(all) => {
           const counts = { live: 0, draft: 0, disabled: 0 } as Record<string, number>;
           all.forEach((e) => (counts[e.state] = (counts[e.state] ?? 0) + 1));
@@ -140,10 +142,10 @@ export default function EndpointsPage() {
           );
           if (all.length === 0) {
             return trashed ? (
-              <EmptyState title="The trash is empty" />
+              <EmptyState title={t("The trash is empty")} />
             ) : (
-              <EmptyState variant="dashed" icon={Plug} title="No endpoints yet"
-                description={canAuthor ? "Write a query and publish it as an API." : "Authors of this workspace create endpoints."}
+              <EmptyState variant="dashed" icon={Plug} title={t("No endpoints yet")}
+                description={canAuthor ? t("Write a query and publish it as an API.") : t("Authors of this workspace create endpoints.")}
                 action={newButton} />
             );
           }
@@ -152,27 +154,27 @@ export default function EndpointsPage() {
               {!trashed && (
                 <SummaryStrip
                   items={[
-                    { label: "endpoints", singular: "endpoint", value: all.length, active: !state, onClick: () => set({ state: "" }) },
-                    { label: "live", value: counts.live, active: state === "live", onClick: () => set({ state: "live" }) },
-                    { label: "drafts", singular: "draft", value: counts.draft, active: state === "draft", onClick: () => set({ state: "draft" }) },
-                    { label: "disabled", value: counts.disabled, active: state === "disabled", onClick: () => set({ state: "disabled" }) },
+                    { label: t("endpoints"), singular: t("endpoint"), value: all.length, active: !state, onClick: () => set({ state: "" }) },
+                    { label: t("live"), value: counts.live, active: state === "live", onClick: () => set({ state: "live" }) },
+                    { label: t("drafts"), singular: t("draft"), value: counts.draft, active: state === "draft", onClick: () => set({ state: "draft" }) },
+                    { label: t("disabled"), value: counts.disabled, active: state === "disabled", onClick: () => set({ state: "disabled" }) },
                   ]}
                 />
               )}
               {shown.length === 0 ? (
-                <EmptyState title="No endpoint matches" description="Change the search or the filters." />
+                <EmptyState title={t("No endpoint matches")} description={t("Change the search or the filters.")} />
               ) : (
                 <div className="overflow-x-auto rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Route</TableHead>
-                        <TableHead>State</TableHead>
-                        <TableHead>Version</TableHead>
-                        <TableHead>Datasource</TableHead>
-                        <TableHead>Updated</TableHead>
-                        <TableHead className="w-10"><span className="sr-only">Actions</span></TableHead>
+                        <TableHead>{t("Name")}</TableHead>
+                        <TableHead>{t("Route")}</TableHead>
+                        <TableHead>{t("State")}</TableHead>
+                        <TableHead>{t("Version")}</TableHead>
+                        <TableHead>{t("Datasource")}</TableHead>
+                        <TableHead>{t("Updated")}</TableHead>
+                        <TableHead className="w-10"><span className="sr-only">{t("Actions")}</span></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -186,11 +188,11 @@ export default function EndpointsPage() {
                           </TableCell>
                           <TableCell>
                             <span className="inline-flex items-center gap-2">
-                              <StatusBadge tone={STATE_TONE[e.state]}>{STATE_LABEL[e.state]}</StatusBadge>
+                              <StatusBadge tone={STATE_TONE[e.state]}>{t(STATE_LABEL[e.state])}</StatusBadge>
                               {e.dirty && e.liveVersion != null && (
-                                <span className="text-xs text-muted-foreground" title="The draft differs from the live version">• unpublished changes</span>
+                                <span className="text-xs text-muted-foreground" title={t("The draft differs from the live version")}>{t("• unpublished changes")}</span>
                               )}
-                              {e.access === "public" && <StatusBadge tone="highlight">Public</StatusBadge>}
+                              {e.access === "public" && <StatusBadge tone="highlight">{t("Public")}</StatusBadge>}
                             </span>
                           </TableCell>
                           <TableCell className="tabular-nums">{e.liveVersion != null ? `v${e.liveVersion}` : "—"}</TableCell>
@@ -198,45 +200,45 @@ export default function EndpointsPage() {
                           <TableCell className="tabular-nums">{formatDate(e.updatedAt)}</TableCell>
                           <TableCell>
                             {canAuthor && (
-                              <RowActionsMenu label={`Actions for ${e.name}`}>
+                              <RowActionsMenu label={t("Actions for {{name}}", { name: e.name })}>
                                 {trashed ? (
                                   <>
-                                    <DropdownMenuItem onSelect={() => restore.mutate({ ws, id: e.id }, { onSuccess: () => toast.success(`${e.name} restored.`) })}>
-                                      Restore
+                                    <DropdownMenuItem onSelect={() => restore.mutate({ ws, id: e.id }, { onSuccess: () => toast.success(t("{{name}} restored.", { name: e.name })) })}>
+                                      {t("Restore")}
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => setDeleting(e)}>Delete for good…</DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => setDeleting(e)}>{t("Delete for good…")}</DropdownMenuItem>
                                   </>
                                 ) : (
                                   <>
-                                    <DropdownMenuItem asChild><Link to={e.id}>Open</Link></DropdownMenuItem>
-                                    <DropdownMenuItem onSelect={() => navigator.clipboard?.writeText(url(e)).then(() => toast.success("URL copied."))}>
-                                      Copy URL
+                                    <DropdownMenuItem asChild><Link to={e.id}>{t("Open")}</Link></DropdownMenuItem>
+                                    <DropdownMenuItem onSelect={() => navigator.clipboard?.writeText(url(e)).then(() => toast.success(t("URL copied.")))}>
+                                      {t("Copy URL")}
                                     </DropdownMenuItem>
                                     {e.liveVersion != null && (
                                       <DropdownMenuItem asChild>
-                                        <a href={`/admin/api/ws/${ws}/endpoints/${e.id}/openapi.json`} download>Download OpenAPI</a>
+                                        <a href={`/admin/api/ws/${ws}/endpoints/${e.id}/openapi.json`} download>{t("Download OpenAPI")}</a>
                                       </DropdownMenuItem>
                                     )}
-                                    <DropdownMenuItem onSelect={() => duplicate.mutate({ ws, id: e.id }, { onSuccess: (c) => toast.success(`Copied as /${c.summary.path}.`) })}>
-                                      Duplicate
+                                    <DropdownMenuItem onSelect={() => duplicate.mutate({ ws, id: e.id }, { onSuccess: (c) => toast.success(t("Copied as /{{path}}.", { path: c.summary.path })) })}>
+                                      {t("Duplicate")}
                                     </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     {e.state === "live" && (
-                                      <DropdownMenuItem onSelect={() => disable.mutate({ ws, id: e.id }, { onSuccess: () => toast.success(`${e.name} disabled.`) })}>
-                                        Disable
+                                      <DropdownMenuItem onSelect={() => disable.mutate({ ws, id: e.id }, { onSuccess: () => toast.success(t("{{name}} disabled.", { name: e.name })) })}>
+                                        {t("Disable")}
                                       </DropdownMenuItem>
                                     )}
                                     {e.state === "disabled" && (
-                                      <DropdownMenuItem onSelect={() => enable.mutate({ ws, id: e.id }, { onSuccess: () => toast.success(`${e.name} is live again.`) })}>
-                                        Enable
+                                      <DropdownMenuItem onSelect={() => enable.mutate({ ws, id: e.id }, { onSuccess: () => toast.success(t("{{name}} is live again.", { name: e.name })) })}>
+                                        {t("Enable")}
                                       </DropdownMenuItem>
                                     )}
                                     <DropdownMenuItem
                                       disabled={e.state === "live"}
-                                      title={e.state === "live" ? "Disable it first: a live endpoint cannot go to the trash" : undefined}
-                                      onSelect={() => trash.mutate({ ws, id: e.id }, { onSuccess: () => toast.success(`${e.name} moved to the trash.`) })}
+                                      title={e.state === "live" ? t("Disable it first: a live endpoint cannot go to the trash") : undefined}
+                                      onSelect={() => trash.mutate({ ws, id: e.id }, { onSuccess: () => toast.success(t("{{name}} moved to the trash.", { name: e.name })) })}
                                     >
-                                      Move to trash
+                                      {t("Move to trash")}
                                     </DropdownMenuItem>
                                   </>
                                 )}
@@ -256,9 +258,9 @@ export default function EndpointsPage() {
       <ConfirmDialog
         open={deleting !== null}
         onOpenChange={(o) => !o && setDeleting(null)}
-        title={`Delete ${deleting?.name ?? "endpoint"} for good?`}
-        description={<p>Its versions are deleted too. This cannot be undone.</p>}
-        confirmLabel="Delete"
+        title={t("Delete {{name}} for good?", { name: deleting?.name ?? t("endpoint") })}
+        description={<p>{t("Its versions are deleted too. This cannot be undone.")}</p>}
+        confirmLabel={t("Delete")}
         destructive
         pending={remove.isPending}
         onConfirm={() => deleting && remove.mutate({ ws, id: deleting.id }, { onSuccess: () => setDeleting(null) })}

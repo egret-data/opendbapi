@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
+import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 
 import {
@@ -31,11 +33,13 @@ const MASK_LABEL: Record<MaskType, string> = {
   nullify: "Always null",
 };
 
-export function describeRule(p: DataPolicy): string {
-  if (p.kind === "row_filter") return `Only rows where it equals the caller's "${p.attribute}" attribute`;
+export function describeRule(p: DataPolicy, t: TFunction): string {
+  if (p.kind === "row_filter") return t("Only rows where it equals the caller's \"{{attribute}}\" attribute", { attribute: p.attribute ?? "" });
   if (!p.mask) return "";
-  if (p.mask.type === "partial") return `Keep ${p.mask.keepStart ?? 0} at the start and ${p.mask.keepEnd ?? 0} at the end`;
-  return MASK_LABEL[p.mask.type];
+  if (p.mask.type === "partial") {
+    return t("Keep {{start}} at the start and {{end}} at the end", { start: p.mask.keepStart ?? 0, end: p.mask.keepEnd ?? 0 });
+  }
+  return t(MASK_LABEL[p.mask.type]);
 }
 
 type Scope = { kind: "endpoint"; endpointId: string; datasourceId?: string | null } | { kind: "datasource"; datasourceId: string };
@@ -45,6 +49,7 @@ type Scope = { kind: "endpoint"; endpointId: string; datasourceId?: string | nul
  * endpoint, the masks its datasource adds are listed too, read-only.
  */
 export function DataPoliciesSection({ ws, scope, isAdmin }: { ws: string; scope: Scope; isAdmin: boolean }) {
+  const { t } = useTranslation();
   const own = useListDataPolicies(ws, scope.kind === "endpoint" ? { endpointId: scope.endpointId } : { datasourceId: scope.datasourceId });
   const inheritedId = scope.kind === "endpoint" ? scope.datasourceId : null;
   const inherited = useListDataPolicies(ws, { datasourceId: inheritedId ?? "" }, { query: { enabled: !!inheritedId } });
@@ -53,48 +58,48 @@ export function DataPoliciesSection({ ws, scope, isAdmin }: { ws: string; scope:
   const refresh = () => qc.invalidateQueries({ queryKey: getListDataPoliciesQueryKey(ws) });
   const remove = useDeleteDataPolicy({ mutation: { onSuccess: refresh, onError: (e) => toast.error(errorMessage(e)) } });
   const [editing, setEditing] = useState<{ kind: "mask" | "row_filter"; policy?: DataPolicy } | null>(null);
-  const accountName = (id: string) => accounts.data?.find((a) => a.id === id)?.name ?? "deleted account";
+  const accountName = (id: string) => accounts.data?.find((a) => a.id === id)?.name ?? t("deleted account");
 
   return (
     <section aria-labelledby="policies-heading" className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h2 id="policies-heading" className="text-lg font-semibold">Data policies</h2>
+          <h2 id="policies-heading" className="text-lg font-semibold">{t("Data policies")}</h2>
           <p className="text-sm text-muted-foreground">
             {scope.kind === "endpoint"
-              ? "Mask result columns, or return only the rows that belong to the calling service account. Preview ignores them; Try-it and real calls apply them."
-              : "Masks here apply to every endpoint on this datasource, wherever the column appears in a result, also under another name."}
+              ? t("Mask result columns, or return only the rows that belong to the calling service account. Preview ignores them; Try-it and real calls apply them.")
+              : t("Masks here apply to every endpoint on this datasource, wherever the column appears in a result, also under another name.")}
           </p>
         </div>
         {isAdmin && (
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setEditing({ kind: "mask" })}>
               <Plus aria-hidden="true" />
-              Add mask
+              {t("Add mask")}
             </Button>
             {scope.kind === "endpoint" && !(own.data ?? []).some((p) => p.kind === "row_filter") && (
               <Button variant="outline" size="sm" onClick={() => setEditing({ kind: "row_filter" })}>
                 <Plus aria-hidden="true" />
-                Add row filter
+                {t("Add row filter")}
               </Button>
             )}
           </div>
         )}
       </div>
-      <QueryBoundary query={own} what="data policies">
+      <QueryBoundary query={own} what={t("data policies")}>
         {(rows) => {
           const all = [...rows.map((p) => ({ p, inherited: false })), ...(inherited.data ?? []).map((p) => ({ p, inherited: true }))];
           return all.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No data policies: callers see every row and value the query returns.</p>
+            <p className="text-sm text-muted-foreground">{t("No data policies: callers see every row and value the query returns.")}</p>
           ) : (
             <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Column</TableHead>
-                    <TableHead>Policy</TableHead>
-                    <TableHead>Not applied to</TableHead>
-                    <TableHead className="w-36"><span className="sr-only">Actions</span></TableHead>
+                    <TableHead>{t("Column")}</TableHead>
+                    <TableHead>{t("Policy")}</TableHead>
+                    <TableHead>{t("Not applied to")}</TableHead>
+                    <TableHead className="w-36"><span className="sr-only">{t("Actions")}</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -102,23 +107,23 @@ export function DataPoliciesSection({ ws, scope, isAdmin }: { ws: string; scope:
                     <TableRow key={p.id}>
                       <TableCell className="font-mono text-xs">
                         {p.column}
-                        {fromDatasource && <StatusBadge tone="neutral" className="ml-2 font-sans">From datasource</StatusBadge>}
+                        {fromDatasource && <StatusBadge tone="neutral" className="ml-2 font-sans">{t("From datasource")}</StatusBadge>}
                       </TableCell>
                       <TableCell>
-                        <span className="font-medium">{p.kind === "row_filter" ? "Row filter" : "Mask"}</span>
-                        <span className="text-muted-foreground"> · {describeRule(p)}</span>
+                        <span className="font-medium">{p.kind === "row_filter" ? t("Row filter") : t("Mask")}</span>
+                        <span className="text-muted-foreground"> · {describeRule(p, t)}</span>
                       </TableCell>
                       <TableCell className="text-sm">
-                        {p.exemptServiceAccounts.length === 0 ? <span className="text-muted-foreground">Everyone</span>
+                        {p.exemptServiceAccounts.length === 0 ? <span className="text-muted-foreground">{t("Everyone")}</span>
                           : p.exemptServiceAccounts.map(accountName).join(", ")}
                       </TableCell>
                       <TableCell className="text-right">
                         {isAdmin && !fromDatasource && (
                           <>
-                            <Button variant="ghost" size="sm" onClick={() => setEditing({ kind: p.kind, policy: p })}>Edit</Button>
-                            <Button variant="ghost" size="sm" aria-label={`Remove policy on ${p.column}`}
+                            <Button variant="ghost" size="sm" onClick={() => setEditing({ kind: p.kind, policy: p })}>{t("Edit")}</Button>
+                            <Button variant="ghost" size="sm" aria-label={t("Remove policy on {{column}}", { column: p.column })}
                               onClick={() => remove.mutate({ ws, id: p.id })}>
-                              Remove
+                              {t("Remove")}
                             </Button>
                           </>
                         )}
@@ -149,6 +154,7 @@ function PolicyDialog({ ws, scope, kind, policy, accounts, onClose, onSaved }: {
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const { t } = useTranslation();
   const [column, setColumn] = useState(policy?.column ?? "");
   const [type, setType] = useState<MaskType>(policy?.mask?.type ?? "partial");
   const [keepStart, setKeepStart] = useState(String(policy?.mask?.keepStart ?? 2));
@@ -177,7 +183,9 @@ function PolicyDialog({ ws, scope, kind, policy, accounts, onClose, onSaved }: {
     else create.mutate({ ws, data }, handlers);
   };
 
-  const title = `${policy ? "Edit" : "New"} ${kind === "mask" ? "mask" : "row filter"}`;
+  const title = kind === "mask"
+    ? policy ? t("Edit mask") : t("New mask")
+    : policy ? t("Edit row filter") : t("New row filter");
   return (
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent>
@@ -186,14 +194,14 @@ function PolicyDialog({ ws, scope, kind, policy, accounts, onClose, onSaved }: {
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>
               {kind === "row_filter"
-                ? "Callers get only rows whose column equals their service account's attribute. Without the attribute, a call is refused."
+                ? t("Callers get only rows whose column equals their service account's attribute. Without the attribute, a call is refused.")
                 : scope.kind === "datasource"
-                  ? "Name a table column. Results computed from it are masked, under any alias."
-                  : "Name a column as this endpoint returns it."}
+                  ? t("Name a table column. Results computed from it are masked, under any alias.")
+                  : t("Name a column as this endpoint returns it.")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1">
-            <Label htmlFor="policy-column">{scope.kind === "datasource" ? "Table column" : "Result column"}</Label>
+            <Label htmlFor="policy-column">{scope.kind === "datasource" ? t("Table column") : t("Result column")}</Label>
             <Input id="policy-column" required className="font-mono text-xs" value={column}
               placeholder={scope.kind === "datasource" ? "customers.email" : kind === "row_filter" ? "tenant_id" : "phone"}
               onChange={(e) => setColumn(e.target.value)} />
@@ -201,22 +209,22 @@ function PolicyDialog({ ws, scope, kind, policy, accounts, onClose, onSaved }: {
           {kind === "mask" ? (
             <div className="flex flex-wrap items-end gap-3">
               <div className="space-y-1">
-                <Label htmlFor="policy-type">Mask</Label>
+                <Label htmlFor="policy-type">{t("Mask")}</Label>
                 <Select value={type} onValueChange={(v) => setType(v as MaskType)}>
                   <SelectTrigger id="policy-type" className="w-60"><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {(Object.keys(MASK_LABEL) as MaskType[]).map((t) => <SelectItem key={t} value={t}>{MASK_LABEL[t]}</SelectItem>)}
+                    {(Object.keys(MASK_LABEL) as MaskType[]).map((m) => <SelectItem key={m} value={m}>{t(MASK_LABEL[m])}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               {type === "partial" && (
                 <>
                   <div className="space-y-1">
-                    <Label htmlFor="policy-start">Keep at start</Label>
+                    <Label htmlFor="policy-start">{t("Keep at start")}</Label>
                     <Input id="policy-start" type="number" min={0} max={64} className="w-24" value={keepStart} onChange={(e) => setKeepStart(e.target.value)} />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="policy-end">Keep at end</Label>
+                    <Label htmlFor="policy-end">{t("Keep at end")}</Label>
                     <Input id="policy-end" type="number" min={0} max={64} className="w-24" value={keepEnd} onChange={(e) => setKeepEnd(e.target.value)} />
                   </div>
                 </>
@@ -224,16 +232,16 @@ function PolicyDialog({ ws, scope, kind, policy, accounts, onClose, onSaved }: {
             </div>
           ) : (
             <div className="space-y-1">
-              <Label htmlFor="policy-attribute">Service account attribute</Label>
+              <Label htmlFor="policy-attribute">{t("Service account attribute")}</Label>
               <Input id="policy-attribute" required className="font-mono text-xs" value={attribute} placeholder="tenant"
                 onChange={(e) => setAttribute(e.target.value)} />
-              <p className="text-xs text-muted-foreground">Set it on each service account's page. A list allows several values.</p>
+              <p className="text-xs text-muted-foreground">{t("Set it on each service account's page. A list allows several values.")}</p>
             </div>
           )}
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">Not applied to</legend>
+            <legend className="text-sm font-medium">{t("Not applied to")}</legend>
             {accounts.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No service accounts yet.</p>
+              <p className="text-sm text-muted-foreground">{t("No service accounts yet.")}</p>
             ) : (
               <div className="max-h-40 space-y-1 overflow-y-auto">
                 {accounts.map((a) => (
@@ -248,8 +256,8 @@ function PolicyDialog({ ws, scope, kind, policy, accounts, onClose, onSaved }: {
           </fieldset>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={pending}>Save</Button>
+            <Button type="button" variant="outline" onClick={onClose}>{t("Cancel")}</Button>
+            <Button type="submit" disabled={pending}>{t("Save")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

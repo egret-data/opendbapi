@@ -3,6 +3,13 @@ import { Slot } from "@radix-ui/react-slot"
 import { ChevronRight, MoreHorizontal } from "lucide-react"
 
 import { cn } from "@/lib/utils"
+import { useTranslation } from "react-i18next";
+
+/** Screen-reader text for an icon-only control. */
+function MoreLabel() {
+  const { t } = useTranslation();
+  return <span className="sr-only">{t("More")}</span>;
+}
 
 const Breadcrumb = React.forwardRef<
     HTMLElement,
@@ -99,7 +106,7 @@ const BreadcrumbEllipsis = ({
         {...props}
     >
         <MoreHorizontal className="h-4 w-4" />
-        <span className="sr-only">More</span>
+        <MoreLabel />
     </span>
 )
 BreadcrumbEllipsis.displayName = "BreadcrumbElipssis"

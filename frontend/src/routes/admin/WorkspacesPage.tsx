@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Building2, Plus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { useMe } from "@/api/auth";
 import {
@@ -47,6 +48,7 @@ export function slugify(name: string): string {
 
 export default function WorkspacesPage() {
   const query = useListWorkspaces();
+  const { t } = useTranslation();
   const [filter, setFilter] = useState<Filter>("all");
   const [creating, setCreating] = useState(false);
   const [archiving, setArchiving] = useState<WorkspaceView | null>(null);
@@ -57,16 +59,16 @@ export default function WorkspacesPage() {
 
   return (
     <ListPageShell
-      title="Workspaces"
-      description="Each workspace has its own endpoints, datasources, clients and members."
+      title={t("Workspaces")}
+      description={t("Each workspace has its own endpoints, datasources, clients and members.")}
       action={
         <Button onClick={() => setCreating(true)}>
           <Plus aria-hidden="true" />
-          New workspace
+          {t("New workspace")}
         </Button>
       }
     >
-      <QueryBoundary query={query} what="workspaces">
+      <QueryBoundary query={query} what={t("workspaces")}>
         {(workspaces) => {
           const active = workspaces.filter((w) => w.status === "active").length;
           const shown = workspaces.filter((w) => filter === "all" || w.status === filter);
@@ -75,9 +77,9 @@ export default function WorkspacesPage() {
               <EmptyState
                 variant="dashed"
                 icon={Building2}
-                title="No workspaces yet"
-                description="Create the first workspace and choose its owner."
-                action={<Button onClick={() => setCreating(true)}>New workspace</Button>}
+                title={t("No workspaces yet")}
+                description={t("Create the first workspace and choose its owner.")}
+                action={<Button onClick={() => setCreating(true)}>{t("New workspace")}</Button>}
               />
             );
           }
@@ -85,23 +87,26 @@ export default function WorkspacesPage() {
             <div className="space-y-3">
               <SummaryStrip
                 items={[
-                  { label: "workspaces", singular: "workspace", value: workspaces.length, active: filter === "all", onClick: () => setFilter("all") },
-                  { label: "active", value: active, active: filter === "active", onClick: () => setFilter("active") },
-                  { label: "archived", value: workspaces.length - active, active: filter === "archived", onClick: () => setFilter("archived") },
+                  { label: t("workspaces"), singular: t("workspace"), value: workspaces.length, active: filter === "all", onClick: () => setFilter("all") },
+                  { label: t("active"), value: active, active: filter === "active", onClick: () => setFilter("active") },
+                  { label: t("archived"), value: workspaces.length - active, active: filter === "archived", onClick: () => setFilter("archived") },
                 ]}
               />
               {shown.length === 0 ? (
-                <EmptyState title={`No ${filter} workspaces`} description="Choose another filter above." />
+                <EmptyState
+                  title={filter === "archived" ? t("No archived workspaces") : t("No active workspaces")}
+                  description={t("Choose another filter above.")}
+                />
               ) : (
                 <div className="overflow-x-auto rounded-md border">
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Slug</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Created</TableHead>
-                        <TableHead className="w-10"><span className="sr-only">Actions</span></TableHead>
+                        <TableHead>{t("Name")}</TableHead>
+                        <TableHead>{t("Slug")}</TableHead>
+                        <TableHead>{t("Status")}</TableHead>
+                        <TableHead>{t("Created")}</TableHead>
+                        <TableHead className="w-10"><span className="sr-only">{t("Actions")}</span></TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -119,18 +124,18 @@ export default function WorkspacesPage() {
                           <TableCell className="font-mono text-xs">{w.slug}</TableCell>
                           <TableCell>
                             <StatusBadge tone={w.status === "active" ? "success" : "inactive"}>
-                              {w.status === "active" ? "Active" : "Archived"}
+                              {w.status === "active" ? t("Active") : t("Archived")}
                             </StatusBadge>
                           </TableCell>
                           <TableCell className="tabular-nums">{formatDate(w.createdAt)}</TableCell>
                           <TableCell>
-                            <RowActionsMenu label={`Actions for ${w.name}`}>
+                            <RowActionsMenu label={t("Actions for {{name}}", { name: w.name })}>
                               {w.status === "active" ? (
                                 <>
                                   <DropdownMenuItem asChild>
-                                    <Link to={`/w/${w.slug}/settings`}>Open settings</Link>
+                                    <Link to={`/w/${w.slug}/settings`}>{t("Open settings")}</Link>
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem onSelect={() => setArchiving(w)}>Archive…</DropdownMenuItem>
+                                  <DropdownMenuItem onSelect={() => setArchiving(w)}>{t("Archive…")}</DropdownMenuItem>
                                 </>
                               ) : (
                                 <DropdownMenuItem
@@ -138,13 +143,13 @@ export default function WorkspacesPage() {
                                     restore.mutate(
                                       { ws: w.slug },
                                       {
-                                        onSuccess: () => toast.success(`${w.name} is active again.`),
+                                        onSuccess: () => toast.success(t("{{name}} is active again.", { name: w.name })),
                                         onError: (e) => toast.error(errorMessage(e)),
                                       },
                                     )
                                   }
                                 >
-                                  Restore
+                                  {t("Restore")}
                                 </DropdownMenuItem>
                               )}
                             </RowActionsMenu>
@@ -164,14 +169,14 @@ export default function WorkspacesPage() {
       <ConfirmDialog
         open={archiving !== null}
         onOpenChange={(open) => !open && setArchiving(null)}
-        title={`Archive ${archiving?.name ?? "workspace"}?`}
+        title={t("Archive {{name}}?", { name: archiving?.name ?? t("workspace") })}
         description={
           <>
-            <p>Its endpoints stop answering immediately and members no longer see it.</p>
-            <p>You can restore it later from this page.</p>
+            <p>{t("Its endpoints stop answering immediately and members no longer see it.")}</p>
+            <p>{t("You can restore it later from this page.")}</p>
           </>
         }
-        confirmLabel="Archive"
+        confirmLabel={t("Archive")}
         destructive
         pending={archive.isPending}
         onConfirm={() =>
@@ -180,7 +185,7 @@ export default function WorkspacesPage() {
             { ws: archiving.slug },
             {
               onSuccess: () => {
-                toast.success(`${archiving.name} archived.`);
+                toast.success(t("{{name}} archived.", { name: archiving.name }));
                 setArchiving(null);
               },
               onError: (e) => toast.error(errorMessage(e)),
@@ -204,6 +209,7 @@ function CreateWorkspaceDialog({
   onCreated: () => void;
 }) {
   const { data: me } = useMe();
+  const { t } = useTranslation();
   const users = useListUsers({ query: { enabled: open } });
   const create = useCreateWorkspace();
   const [name, setName] = useState("");
@@ -230,7 +236,7 @@ function CreateWorkspaceDialog({
       { data: { name, slug, ownerUserId: owner === ME ? null : owner } },
       {
         onSuccess: (created) => {
-          toast.success(`Workspace ${created.name} created.`);
+          toast.success(t("Workspace {{name}} created.", { name: created.name }));
           onCreated();
           reset();
           onOpenChange(false);
@@ -251,11 +257,11 @@ function CreateWorkspaceDialog({
       <DialogContent>
         <form onSubmit={submit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>New workspace</DialogTitle>
-            <DialogDescription>The slug is part of every endpoint URL and cannot change later.</DialogDescription>
+            <DialogTitle>{t("New workspace")}</DialogTitle>
+            <DialogDescription>{t("The slug is part of every endpoint URL and cannot change later.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-1">
-            <Label htmlFor={nameId}>Name</Label>
+            <Label htmlFor={nameId}>{t("Name")}</Label>
             <Input
               id={nameId}
               value={name}
@@ -268,13 +274,13 @@ function CreateWorkspaceDialog({
             />
           </div>
           <div className="space-y-1">
-            <Label htmlFor={slugId}>Slug</Label>
+            <Label htmlFor={slugId}>{t("Slug")}</Label>
             <Input
               id={slugId}
               value={slug}
               required
               pattern="[a-z0-9][a-z0-9-]{1,62}"
-              title="2-63 lowercase letters, digits or hyphens"
+              title={t("2-63 lowercase letters, digits or hyphens")}
               className="font-mono"
               onChange={(e) => {
                 setSlugEdited(true);
@@ -282,17 +288,17 @@ function CreateWorkspaceDialog({
               }}
             />
             <p className="text-xs text-muted-foreground">
-              Endpoints will live under <span className="font-mono">/api/{slug || "slug"}/…</span>
+              {t("Endpoints will live under")} <span className="font-mono">/api/{slug || "slug"}/…</span>
             </p>
           </div>
           <div className="space-y-1">
-            <Label htmlFor={ownerId}>First owner</Label>
+            <Label htmlFor={ownerId}>{t("First owner")}</Label>
             <Select value={owner} onValueChange={setOwner}>
               <SelectTrigger id={ownerId} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ME}>Me ({me?.displayName ?? me?.username})</SelectItem>
+                <SelectItem value={ME}>{t("Me ({{name}})", { name: me?.displayName ?? me?.username })}</SelectItem>
                 {(users.data ?? [])
                   .filter((u) => u.id !== me?.id && !u.disabled)
                   .map((u) => (
@@ -310,10 +316,10 @@ function CreateWorkspaceDialog({
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" disabled={create.isPending}>
-              Create workspace
+              {t("Create workspace")}
             </Button>
           </DialogFooter>
         </form>

@@ -3,6 +3,13 @@ import { XIcon } from "lucide-react";
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
+
+/** Screen-reader text for an icon-only control. */
+function CloseLabel() {
+  const { t } = useTranslation();
+  return <span className="sr-only">{t("Close")}</span>;
+}
 
 /**
  * A panel that slides in from the right edge, over an overlay: a Radix dialog,
@@ -42,7 +49,7 @@ const SheetContent = React.forwardRef<
         className="bg-background absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none [&_svg]:size-4"
       >
         <XIcon aria-hidden />
-        <span className="sr-only">Close</span>
+        <CloseLabel />
       </DialogPrimitive.Close>
     </DialogPrimitive.Content>
   </DialogPrimitive.Portal>

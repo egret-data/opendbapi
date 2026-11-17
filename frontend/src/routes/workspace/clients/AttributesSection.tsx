@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import i18n from "i18next";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import { useUpdateServiceAccount } from "@/api/generated/service-accounts/service-accounts";
 import type { ServiceAccount } from "@/api/generated/model";
@@ -26,12 +29,12 @@ export function toRows(attributes: Record<string, unknown>): Row[] {
 }
 
 /** @returns the attributes, or a message naming the first bad row */
-export function fromRows(rows: Row[]): Record<string, unknown> | string {
+export function fromRows(rows: Row[], t: TFunction = i18n.t.bind(i18n)): Record<string, unknown> | string {
   const out: Record<string, unknown> = {};
   for (const r of rows) {
     const name = r.name.trim();
     if (!name) continue;
-    if (name in out) return `Attribute "${name}" is listed twice.`;
+    if (name in out) return t('Attribute "{{name}}" is listed twice.', { name });
     const parts = r.value.split(",").map((p) => p.trim()).filter((p) => p !== "");
     const asNumber = (s: string) => (s !== "" && Number.isFinite(Number(s)) ? Number(s) : null);
     switch (r.kind) {
@@ -40,7 +43,7 @@ export function fromRows(rows: Row[]): Record<string, unknown> | string {
         break;
       case "number": {
         const n = asNumber(r.value.trim());
-        if (n === null) return `Attribute "${name}" must be a number.`;
+        if (n === null) return t('Attribute "{{name}}" must be a number.', { name });
         out[name] = n;
         break;
       }
@@ -49,7 +52,7 @@ export function fromRows(rows: Row[]): Record<string, unknown> | string {
         break;
       case "numbers": {
         const ns = parts.map(asNumber);
-        if (ns.some((n) => n === null)) return `Every value of "${name}" must be a number.`;
+        if (ns.some((n) => n === null)) return t('Every value of "{{name}}" must be a number.', { name });
         out[name] = ns;
         break;
       }
@@ -66,19 +69,20 @@ function show(v: unknown): string {
 export function AttributesSection({ ws, sa, isAdmin, onChanged }: { ws: string; sa: ServiceAccount; isAdmin: boolean; onChanged: () => void }) {
   const [editing, setEditing] = useState(false);
   const entries = Object.entries(sa.attributes ?? {});
+  const { t } = useTranslation();
   return (
     <section aria-labelledby="attributes-heading" className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 id="attributes-heading" className="text-lg font-semibold">Attributes</h2>
-        {isAdmin && <Button variant="outline" size="sm" onClick={() => setEditing(true)}>Edit attributes</Button>}
+        <h2 id="attributes-heading" className="text-lg font-semibold">{t("Attributes")}</h2>
+        {isAdmin && <Button variant="outline" size="sm" onClick={() => setEditing(true)}>{t("Edit attributes")}</Button>}
       </div>
       {entries.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No attributes. Row filters read them to decide which rows this account may see.</p>
+        <p className="text-sm text-muted-foreground">{t("No attributes. Row filters read them to decide which rows this account may see.")}</p>
       ) : (
         <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
-              <TableRow><TableHead>Name</TableHead><TableHead>Value</TableHead></TableRow>
+              <TableRow><TableHead>{t("Name")}</TableHead><TableHead>{t("Value")}</TableHead></TableRow>
             </TableHeader>
             <TableBody>
               {entries.map(([name, v]) => (
@@ -100,11 +104,12 @@ function AttributesDialog({ ws, sa, onClose, onSaved }: { ws: string; sa: Servic
   const [rows, setRows] = useState<Row[]>(() => toRows(sa.attributes ?? {}));
   const [error, setError] = useState<string | null>(null);
   const update = useUpdateServiceAccount();
+  const { t } = useTranslation();
   const set = (i: number, patch: Partial<Row>) => setRows(rows.map((r, k) => (k === i ? { ...r, ...patch } : r)));
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    const attributes = fromRows(rows);
+    const attributes = fromRows(rows, t);
     if (typeof attributes === "string") {
       setError(attributes);
       return;
@@ -120,25 +125,25 @@ function AttributesDialog({ ws, sa, onClose, onSaved }: { ws: string; sa: Servic
       <DialogContent className="sm:max-w-2xl">
         <form onSubmit={submit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>Edit attributes</DialogTitle>
+            <DialogTitle>{t("Edit attributes")}</DialogTitle>
             <DialogDescription>
-              Use the type the filtered column has: a number for a numeric column. Separate list values with commas.
+              {t("Use the type the filtered column has: a number for a numeric column. Separate list values with commas.")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             {rows.map((r, i) => (
               <div key={i} className="flex flex-wrap items-center gap-2">
-                <Input aria-label={`Attribute ${i + 1} name`} className="w-40 font-mono text-xs" value={r.name} placeholder="tenant"
+                <Input aria-label={t("Attribute {{n}} name", { n: i + 1 })} className="w-40 font-mono text-xs" value={r.name} placeholder="tenant"
                   onChange={(e) => set(i, { name: e.target.value })} />
                 <Select value={r.kind} onValueChange={(v) => set(i, { kind: v as Kind })}>
-                  <SelectTrigger className="w-40" aria-label={`Attribute ${i + 1} type`}><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-40" aria-label={t("Attribute {{n}} type", { n: i + 1 })}><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {(Object.keys(KIND_LABEL) as Kind[]).map((k) => <SelectItem key={k} value={k}>{KIND_LABEL[k]}</SelectItem>)}
+                    {(Object.keys(KIND_LABEL) as Kind[]).map((k) => <SelectItem key={k} value={k}>{t(KIND_LABEL[k])}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                <Input aria-label={`Attribute ${i + 1} value`} className="min-w-0 flex-1 font-mono text-xs" value={r.value}
+                <Input aria-label={t("Attribute {{n}} value", { n: i + 1 })} className="min-w-0 flex-1 font-mono text-xs" value={r.value}
                   onChange={(e) => set(i, { value: e.target.value })} />
-                <Button type="button" variant="ghost" size="icon" aria-label={`Remove attribute ${i + 1}`}
+                <Button type="button" variant="ghost" size="icon" aria-label={t("Remove attribute {{n}}", { n: i + 1 })}
                   onClick={() => setRows(rows.filter((_, k) => k !== i))}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -146,13 +151,13 @@ function AttributesDialog({ ws, sa, onClose, onSaved }: { ws: string; sa: Servic
             ))}
             <Button type="button" variant="outline" size="sm" onClick={() => setRows([...rows, { name: "", kind: "text", value: "" }])}>
               <Plus aria-hidden="true" />
-              Add attribute
+              {t("Add attribute")}
             </Button>
           </div>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={update.isPending}>Save</Button>
+            <Button type="button" variant="outline" onClick={onClose}>{t("Cancel")}</Button>
+            <Button type="submit" disabled={update.isPending}>{t("Save")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -2,6 +2,7 @@ import { useId, useState, type FormEvent } from "react";
 import { Plus, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { useMe } from "@/api/auth";
 import {
@@ -30,14 +31,16 @@ import { formatDateTime } from "@/lib/format";
 
 const MIN_PASSWORD = 12;
 
-function userStatus(u: UserView) {
-  if (u.disabled) return <StatusBadge tone="inactive">Disabled</StatusBadge>;
-  if (u.locked) return <StatusBadge tone="highlight">Locked</StatusBadge>;
-  return <StatusBadge tone="success">Active</StatusBadge>;
+function UserStatus({ user: u }: { user: UserView }) {
+  const { t } = useTranslation();
+  if (u.disabled) return <StatusBadge tone="inactive">{t("Disabled")}</StatusBadge>;
+  if (u.locked) return <StatusBadge tone="highlight">{t("Locked")}</StatusBadge>;
+  return <StatusBadge tone="success">{t("Active")}</StatusBadge>;
 }
 
 export default function UsersPage() {
   const query = useListUsers();
+  const { t } = useTranslation();
   const { data: me } = useMe();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -62,13 +65,13 @@ export default function UsersPage() {
 
   return (
     <ListPageShell
-      title="Users"
-      description="Local accounts are created here. LDAP and SSO users appear after their first sign-in."
+      title={t("Users")}
+      description={t("Local accounts are created here. LDAP and SSO users appear after their first sign-in.")}
       toolbar={
         <Input
           type="search"
-          aria-label="Search users"
-          placeholder="Search by name, username or email"
+          aria-label={t("Search users")}
+          placeholder={t("Search by name, username or email")}
           className="w-72"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -77,11 +80,11 @@ export default function UsersPage() {
       action={
         <Button onClick={() => setCreating(true)}>
           <Plus aria-hidden="true" />
-          New local user
+          {t("New local user")}
         </Button>
       }
     >
-      <QueryBoundary query={query} what="users">
+      <QueryBoundary query={query} what={t("users")}>
         {(users) => {
           const q = search.trim().toLowerCase();
           const shown = users.filter((u) =>
@@ -89,9 +92,9 @@ export default function UsersPage() {
           );
           if (shown.length === 0) {
             return q ? (
-              <EmptyState title="No users match your search" description="Try another name, username or email." />
+              <EmptyState title={t("No users match your search")} description={t("Try another name, username or email.")} />
             ) : (
-              <EmptyState variant="dashed" icon={Users} title="No users" />
+              <EmptyState variant="dashed" icon={Users} title={t("No users")} />
             );
           }
           return (
@@ -99,11 +102,11 @@ export default function UsersPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Sign-in</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Last sign-in</TableHead>
-                    <TableHead className="w-10"><span className="sr-only">Actions</span></TableHead>
+                    <TableHead>{t("Name")}</TableHead>
+                    <TableHead>{t("Sign-in")}</TableHead>
+                    <TableHead>{t("Status")}</TableHead>
+                    <TableHead>{t("Last sign-in")}</TableHead>
+                    <TableHead className="w-10"><span className="sr-only">{t("Actions")}</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -116,7 +119,7 @@ export default function UsersPage() {
                             {u.displayName ?? u.username}
                             {u.systemAdmin && (
                               <StatusBadge tone="primary" className="ml-2">
-                                System admin
+                                {t("System admin")}
                               </StatusBadge>
                             )}
                           </div>
@@ -126,39 +129,39 @@ export default function UsersPage() {
                           </div>
                         </TableCell>
                         <TableCell>{u.source.toUpperCase()}</TableCell>
-                        <TableCell>{userStatus(u)}</TableCell>
+                        <TableCell><UserStatus user={u} /></TableCell>
                         <TableCell className="tabular-nums">{formatDateTime(u.lastLoginAt)}</TableCell>
                         <TableCell>
-                          <RowActionsMenu label={`Actions for ${u.username}`}>
+                          <RowActionsMenu label={t("Actions for {{name}}", { name: u.username })}>
                             {u.systemAdmin ? (
                               <DropdownMenuItem
                                 disabled={self}
-                                title={self ? "You cannot remove your own system admin role" : undefined}
-                                onSelect={() => change(u, { systemAdmin: false }, `${u.username} is no longer a system admin.`)}
+                                title={self ? t("You cannot remove your own system admin role") : undefined}
+                                onSelect={() => change(u, { systemAdmin: false }, t("{{name}} is no longer a system admin.", { name: u.username }))}
                               >
-                                Remove system admin
+                                {t("Remove system admin")}
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem
-                                onSelect={() => change(u, { systemAdmin: true }, `${u.username} is now a system admin.`)}
+                                onSelect={() => change(u, { systemAdmin: true }, t("{{name}} is now a system admin.", { name: u.username }))}
                               >
-                                Make system admin
+                                {t("Make system admin")}
                               </DropdownMenuItem>
                             )}
                             {u.source === "local" && (
-                              <DropdownMenuItem onSelect={() => setResetting(u)}>Reset password…</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => setResetting(u)}>{t("Reset password…")}</DropdownMenuItem>
                             )}
                             {u.disabled ? (
-                              <DropdownMenuItem onSelect={() => change(u, { disabled: false }, `${u.username} can sign in again.`)}>
-                                Enable
+                              <DropdownMenuItem onSelect={() => change(u, { disabled: false }, t("{{name}} can sign in again.", { name: u.username }))}>
+                                {t("Enable")}
                               </DropdownMenuItem>
                             ) : (
                               <DropdownMenuItem
                                 disabled={self}
-                                title={self ? "You cannot disable yourself" : undefined}
+                                title={self ? t("You cannot disable yourself") : undefined}
                                 onSelect={() => setDisabling(u)}
                               >
-                                Disable…
+                                {t("Disable…")}
                               </DropdownMenuItem>
                             )}
                           </RowActionsMenu>
@@ -178,12 +181,12 @@ export default function UsersPage() {
       <ConfirmDialog
         open={disabling !== null}
         onOpenChange={(open) => !open && setDisabling(null)}
-        title={`Disable ${disabling?.username ?? "user"}?`}
-        description={<p>They are signed out at once and cannot sign in until enabled again.</p>}
-        confirmLabel="Disable"
+        title={t("Disable {{name}}?", { name: disabling?.username ?? t("user") })}
+        description={<p>{t("They are signed out at once and cannot sign in until enabled again.")}</p>}
+        confirmLabel={t("Disable")}
         destructive
         pending={update.isPending}
-        onConfirm={() => disabling && change(disabling, { disabled: true }, `${disabling.username} disabled.`)}
+        onConfirm={() => disabling && change(disabling, { disabled: true }, t("{{name}} disabled.", { name: disabling.username }))}
       />
     </ListPageShell>
   );
@@ -192,6 +195,7 @@ export default function UsersPage() {
 function CreateUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const qc = useQueryClient();
   const create = useCreateUser();
+  const { t } = useTranslation();
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [email, setEmail] = useState("");
@@ -217,7 +221,7 @@ function CreateUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
       { data: { username, displayName: displayName || null, email: email || null, password, systemAdmin } },
       {
         onSuccess: (u) => {
-          toast.success(`User ${u.username} created. Share the password with them securely.`);
+          toast.success(t("User {{name}} created. Share the password with them securely.", { name: u.username }));
           qc.invalidateQueries({ queryKey: getListUsersQueryKey() });
           close();
         },
@@ -231,34 +235,34 @@ function CreateUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
       <DialogContent>
         <form onSubmit={submit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>New local user</DialogTitle>
-            <DialogDescription>For people who do not sign in through LDAP or SSO.</DialogDescription>
+            <DialogTitle>{t("New local user")}</DialogTitle>
+            <DialogDescription>{t("For people who do not sign in through LDAP or SSO.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-1">
-            <Label htmlFor={ids.username}>Username</Label>
+            <Label htmlFor={ids.username}>{t("Username")}</Label>
             <Input id={ids.username} value={username} required maxLength={64} autoComplete="off"
               onChange={(e) => setUsername(e.target.value)} />
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1">
-              <Label htmlFor={ids.displayName}>Display name</Label>
+              <Label htmlFor={ids.displayName}>{t("Display name")}</Label>
               <Input id={ids.displayName} value={displayName} maxLength={120}
                 onChange={(e) => setDisplayName(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label htmlFor={ids.email}>Email</Label>
+              <Label htmlFor={ids.email}>{t("Email")}</Label>
               <Input id={ids.email} type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
           </div>
           <div className="space-y-1">
-            <Label htmlFor={ids.password}>Initial password</Label>
+            <Label htmlFor={ids.password}>{t("Initial password")}</Label>
             <Input id={ids.password} type="password" value={password} required minLength={MIN_PASSWORD}
               autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
-            <p className="text-xs text-muted-foreground">At least {MIN_PASSWORD} characters.</p>
+            <p className="text-xs text-muted-foreground">{t("At least {{count}} characters.", { count: MIN_PASSWORD })}</p>
           </div>
           <div className="flex items-center gap-2">
             <Checkbox id={ids.admin} checked={systemAdmin} onCheckedChange={(v) => setSystemAdmin(v === true)} />
-            <Label htmlFor={ids.admin}>System admin</Label>
+            <Label htmlFor={ids.admin}>{t("System admin")}</Label>
           </div>
           {error && (
             <p role="alert" className="text-sm text-destructive">
@@ -267,10 +271,10 @@ function CreateUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={close}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" disabled={create.isPending}>
-              Create user
+              {t("Create user")}
             </Button>
           </DialogFooter>
         </form>
@@ -281,6 +285,7 @@ function CreateUserDialog({ open, onOpenChange }: { open: boolean; onOpenChange:
 
 function ResetPasswordDialog({ user, onClose }: { user: UserView | null; onClose: () => void }) {
   const reset = useResetUserPassword();
+  const { t } = useTranslation();
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const id = useId();
@@ -298,7 +303,7 @@ function ResetPasswordDialog({ user, onClose }: { user: UserView | null; onClose
       { id: user.id, data: { password } },
       {
         onSuccess: () => {
-          toast.success(`Password for ${user.username} reset. Their lockout is cleared too.`);
+          toast.success(t("Password for {{name}} reset. Their lockout is cleared too.", { name: user.username }));
           close();
         },
         onError: (err) => setError(errorMessage(err)),
@@ -311,11 +316,11 @@ function ResetPasswordDialog({ user, onClose }: { user: UserView | null; onClose
       <DialogContent>
         <form onSubmit={submit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>Reset password for {user?.username}</DialogTitle>
-            <DialogDescription>Share the new password with them securely.</DialogDescription>
+            <DialogTitle>{t("Reset password for {{name}}", { name: user?.username })}</DialogTitle>
+            <DialogDescription>{t("Share the new password with them securely.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-1">
-            <Label htmlFor={id}>New password</Label>
+            <Label htmlFor={id}>{t("New password")}</Label>
             <Input id={id} type="password" value={password} required minLength={MIN_PASSWORD}
               autoComplete="new-password" onChange={(e) => setPassword(e.target.value)} />
           </div>
@@ -326,10 +331,10 @@ function ResetPasswordDialog({ user, onClose }: { user: UserView | null; onClose
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={close}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" disabled={reset.isPending}>
-              Reset password
+              {t("Reset password")}
             </Button>
           </DialogFooter>
         </form>

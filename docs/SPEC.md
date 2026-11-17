@@ -1035,7 +1035,7 @@ Tabs: Query | Settings | Access | Try it | Versions
 | FE-FORM | State form viết tay, `Label` gắn với input, picker cho giá trị đã biết, lỗi nằm cạnh trường |
 | FE-DATA | Hook sinh bằng Orval, mỗi domain một key factory, `localStorage` chỉ lưu tuỳ chọn hiển thị |
 | FE-A11Y | jsx-a11y, dùng được bằng bàn phím, không truyền đạt thông tin chỉ bằng màu, tôn trọng reduced motion |
-| FE-COPY | Tiếng Anh, sentence case. i18n tiếng Việt ở P2 (`react-i18next`, file `en.json`/`vi.json`) |
+| FE-COPY | Tiếng Anh, sentence case. Có giao diện tiếng Việt (`react-i18next`). Chính câu tiếng Anh được dùng làm khoá, nên tiếng Anh không cần file từ điển; bản tiếng Việt nằm trong `src/i18n/vi/*.json`, chia theo vùng UI. Người dùng chọn ngôn ngữ trong menu người dùng; lựa chọn được lưu ở trình duyệt, mặc định là tiếng Anh. Test `i18n.test.ts` bắt lỗi khi một chuỗi trong `t("…")` thiếu bản tiếng Việt, hoặc khi `{{placeholder}}` của hai bản không khớp. Chuỗi thiếu bản dịch sẽ hiện bằng tiếng Anh. Thông báo lỗi từ server vẫn bằng tiếng Anh |
 
 ### 17.6 Kiểm chứng UI
 
@@ -1242,7 +1242,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 20. ~~Executor Elasticsearch và HTTP (§6), driver ClickHouse.~~ Bỏ khỏi P2 (quyết định 2026-11-17): chưa cần. Chỉ làm khi có nhu cầu thật.
 21. ✅ (2026-11-17) Thống kê đầy đủ trên trang Activity (`/activity/summary` thêm endpoint chậm nhất, top client, top IP, lọc theo endpoint; §21.2); lưu và hiện kết quả lần test kết nối datasource gần nhất (xoá khi đổi cấu hình kết nối).
 22. ✅ (2026-11-17) Export YAML (§15.1) và import từ DBAPI có chạy thử và báo cáo (§15.3), ở Settings → Import & export.
-23. Giao diện tiếng Việt (`react-i18next`, §17).
+23. ✅ (2026-11-17) Giao diện tiếng Việt (`react-i18next`, FE-COPY ở §17): chọn ở menu người dùng; thông báo lỗi từ server vẫn bằng tiếng Anh.
 
 ---
 
@@ -1255,7 +1255,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 | 1 | Metadata DB | Chỉ PostgreSQL |
 | 2 | Đăng nhập người viết | Nội bộ + LDAP + SSO (OIDC), cả ba ở P1 |
 | 3 | Độc lập hay tích hợp Egret | Độc lập |
-| 4 | Ngôn ngữ UI | Tiếng Anh, i18n tiếng Việt ở P2 |
+| 4 | Ngôn ngữ UI | Tiếng Anh, i18n tiếng Việt ở P2 (đã có) |
 | 5 | Đa tenant | Có, theo workspace, từ P1 |
 | 6 | Mức dùng lại Egret | Chỉ lấy khung (§17.1); UI thiết kế lại gọn cho tính năng DBAPI |
 | 7 | Plugin SPI (2026-11-17) | Bỏ hẳn. Cần gì thì viết thẳng thành tính năng (§13) |

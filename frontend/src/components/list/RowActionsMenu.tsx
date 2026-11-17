@@ -1,9 +1,12 @@
 import type { ReactNode } from "react";
 import { MoreHorizontal } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
-export function RowActionsMenu({ children, label = "Actions" }: { children: ReactNode; label?: string }) {
+export function RowActionsMenu({ children, label: given }: { children: ReactNode; label?: string }) {
+  const { t } = useTranslation();
+  const label = given ?? t("Actions");
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
