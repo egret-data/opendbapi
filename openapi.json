@@ -1078,6 +1078,163 @@
         "tags" : [ "audit" ]
       }
     },
+    "/admin/api/ws/{ws}/config:apply" : {
+      "post" : {
+        "operationId" : "applyConfig",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "environment",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "prune",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        }, {
+          "in" : "query",
+          "name" : "publish",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        }, {
+          "description" : "Refuse with 409 plan_changed unless the plan still has this digest",
+          "in" : "query",
+          "name" : "expectedDigest",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "format",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "json"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/yaml" : {
+              "schema" : {
+                "type" : "string"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConfigApplyResult"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "format=json: what was done; format=text: the same for a terminal"
+          }
+        },
+        "summary" : "Make the workspace match a YAML file in one transaction, then publish endpoints after their tests (admin)",
+        "tags" : [ "config" ]
+      }
+    },
+    "/admin/api/ws/{ws}/config:plan" : {
+      "post" : {
+        "operationId" : "planConfig",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Maps logical datasource names",
+          "in" : "query",
+          "name" : "environment",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "Delete what the file does not list",
+          "in" : "query",
+          "name" : "prune",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        }, {
+          "description" : "Publish endpoints whose metadata.state is live, disable those marked disabled",
+          "in" : "query",
+          "name" : "publish",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        }, {
+          "in" : "query",
+          "name" : "format",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "json"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/yaml" : {
+              "schema" : {
+                "type" : "string"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConfigPlan"
+                }
+              },
+              "text/plain" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "format=json: the plan; format=text: the plan for a terminal"
+          }
+        },
+        "summary" : "Compare a YAML file with the workspace without changing anything (admin)",
+        "tags" : [ "config" ]
+      }
+    },
     "/admin/api/ws/{ws}/data-policies" : {
       "get" : {
         "operationId" : "listDataPolicies",
@@ -2620,6 +2777,105 @@
         "tags" : [ "endpoints" ]
       }
     },
+    "/admin/api/ws/{ws}/environments" : {
+      "get" : {
+        "operationId" : "listEnvironments",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ConfigEnvironment"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Environments and their datasource bindings (admin)",
+        "tags" : [ "config" ]
+      }
+    },
+    "/admin/api/ws/{ws}/environments/{name}" : {
+      "delete" : {
+        "operationId" : "deleteEnvironment",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "summary" : "Delete an environment (admin)",
+        "tags" : [ "config" ]
+      },
+      "put" : {
+        "operationId" : "putEnvironment",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "name",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PutEnvironment"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ConfigEnvironment"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Create or replace an environment (admin)",
+        "tags" : [ "config" ]
+      }
+    },
     "/admin/api/ws/{ws}/export" : {
       "get" : {
         "operationId" : "exportWorkspace",
@@ -3910,6 +4166,101 @@
           }
         }
       },
+      "ConfigApplyResult" : {
+        "required" : [ "plan", "published" ],
+        "type" : "object",
+        "properties" : {
+          "plan" : {
+            "$ref" : "#/components/schemas/ConfigPlan"
+          },
+          "published" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PublishOutcome"
+            }
+          }
+        }
+      },
+      "ConfigChange" : {
+        "required" : [ "action", "details", "kind", "name" ],
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "type" : "string",
+            "enum" : [ "create", "update", "delete", "unchanged", "skip" ]
+          },
+          "details" : {
+            "type" : "array",
+            "description" : "What differs, e.g. spec.task or publish",
+            "items" : {
+              "type" : "string",
+              "description" : "What differs, e.g. spec.task or publish"
+            }
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ConfigEnvironment" : {
+        "required" : [ "bindings", "name", "updatedAt" ],
+        "type" : "object",
+        "properties" : {
+          "bindings" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string",
+              "description" : "Logical datasource name in configuration files → datasource name in this workspace"
+            },
+            "description" : "Logical datasource name in configuration files → datasource name in this workspace"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
+      "ConfigPlan" : {
+        "required" : [ "changes", "counts", "digest", "prune", "publish" ],
+        "type" : "object",
+        "properties" : {
+          "changes" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ConfigChange"
+            }
+          },
+          "counts" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "integer",
+              "description" : "Number of changes per action",
+              "format" : "int32"
+            },
+            "description" : "Number of changes per action"
+          },
+          "digest" : {
+            "type" : "string",
+            "description" : "Identifies this plan; pass it to apply to refuse a workspace that changed since"
+          },
+          "environment" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "prune" : {
+            "type" : "boolean"
+          },
+          "publish" : {
+            "type" : "boolean"
+          }
+        }
+      },
       "CreateClient" : {
         "type" : "object",
         "properties" : {
@@ -5195,6 +5546,23 @@
           }
         }
       },
+      "PublishOutcome" : {
+        "required" : [ "endpoint", "result" ],
+        "type" : "object",
+        "properties" : {
+          "endpoint" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "result" : {
+            "type" : "string",
+            "enum" : [ "published", "disabled", "tests_failed", "failed" ]
+          }
+        }
+      },
       "PublishRequest" : {
         "type" : "object",
         "properties" : {
@@ -5203,6 +5571,20 @@
             "minLength" : 0,
             "type" : "string",
             "nullable" : true
+          }
+        }
+      },
+      "PutEnvironment" : {
+        "required" : [ "bindings" ],
+        "type" : "object",
+        "properties" : {
+          "bindings" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string",
+              "description" : "Logical datasource name in configuration files → datasource name here"
+            },
+            "description" : "Logical datasource name in configuration files → datasource name here"
           }
         }
       },

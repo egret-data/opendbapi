@@ -100,6 +100,14 @@ public class ApiClient {
         return send("PUT", path, body);
     }
 
+    /** A YAML request body (configuration files, spec §15). */
+    public record Yaml(String text) {
+    }
+
+    public Response postYaml(String path, String yaml) {
+        return send("POST", path, new Yaml(yaml));
+    }
+
     public Response delete(String path) {
         return send("DELETE", path, null);
     }
@@ -127,10 +135,11 @@ public class ApiClient {
                 get("/admin/api/auth/providers"); // first visit issues the CSRF cookie
             }
             HttpRequest.Builder request = HttpRequest.newBuilder(URI.create(base + path))
-                    .header("Accept", "application/json");
+                    .header("Accept", body instanceof Yaml ? "*/*" : "application/json");
             boolean form = body instanceof Form;
             if (body != null) {
-                request.header("Content-Type", form ? "application/x-www-form-urlencoded" : "application/json");
+                request.header("Content-Type", form ? "application/x-www-form-urlencoded"
+                        : body instanceof Yaml ? "application/yaml" : "application/json");
             }
             extraHeaders.forEach(request::header);
             if (!form && !"GET".equals(method) && sendCsrf && cookie("XSRF-TOKEN") != null) {
@@ -138,7 +147,7 @@ public class ApiClient {
             }
             HttpRequest.BodyPublisher publisher = body == null
                     ? HttpRequest.BodyPublishers.noBody()
-                    : HttpRequest.BodyPublishers.ofString(body instanceof Form f ? f.encoded()
+                    : HttpRequest.BodyPublishers.ofString(body instanceof Form f ? f.encoded() : body instanceof Yaml y ? y.text()
                             : body instanceof String s ? s : JSON.writeValueAsString(body));
             HttpResponse<String> response = http.send(request.method(method, publisher).build(),
                     HttpResponse.BodyHandlers.ofString());

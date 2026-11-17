@@ -22,6 +22,7 @@
         <module>opendbapi-core</module>
         <module>opendbapi-admin</module>
         <module>opendbapi-serving</module>
+        <module>opendbapi-cli</module>
         <module>opendbapi-app</module>
     </modules>
 

@@ -15,6 +15,12 @@
     <dependencies>
         <dependency>
             <groupId>io.opendbapi</groupId>
+            <artifactId>opendbapi-cli</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.opendbapi</groupId>
             <artifactId>opendbapi-admin</artifactId>
         </dependency>
         <dependency>

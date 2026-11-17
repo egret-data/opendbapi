@@ -872,24 +872,34 @@ spec:
       expect: { status: 200 }
 ```
 
-Các `kind` khác: `Datasource` (không chứa bí mật, chỉ `secretRef`), `Group`, `ServiceAccount`, `Grant`, `DataPolicy`.
+Các `kind` khác: `Datasource` (không chứa bí mật, chỉ `passwordRef: secret:NAME` hoặc `env:NAME`), `Group`, `ServiceAccount`, `Grant` (`serviceAccount` + `endpoint: "GET /path"` hoặc `group`), `DataPolicy`.
 
-**Export (P2, bước 22):** `GET /export?format=yaml` (workspace admin; nút **Download YAML** ở Settings → Import & export) trả nhiều tài liệu YAML nối nhau. Thứ tự: Datasource, Group, Endpoint, ServiceAccount, Grant, DataPolicy.
+**Export:** `GET /export?format=yaml` (workspace admin; nút **Download YAML** ở Settings → Import & export) trả nhiều tài liệu YAML nối nhau, theo thứ tự Datasource, Group, ServiceAccount, Endpoint, DataPolicy, Grant.
 
-- Các tài liệu tham chiếu nhau bằng tên, không bằng id. Ví dụ endpoint ghi `datasource: crm` và `metadata.group`; grant và data policy ghi tên service account và tên endpoint (`GET /path`).
-- Với endpoint, export lấy **bản draft đã lưu** (`metadata.state` cho biết đang live hay không), kèm toàn bộ definition và các test case.
-- Không bao giờ có bí mật trong file: mật khẩu datasource chỉ xuất hiện dưới dạng `passwordRef: env:…` nếu được cấu hình như vậy; service account không kèm client; URL webhook không xuất.
-- Import YAML (`plan`/`apply`) và môi trường thuộc P3.
+- Các tài liệu tham chiếu nhau bằng tên, không bằng id. Endpoint được nhận diện bằng route (`GET /path`); endpoint ghi `datasource: crm` và `metadata.group`; test case ghi `serviceAccount` theo tên.
+- Với endpoint, export lấy **bản draft đã lưu** (`metadata.state` cho biết draft, live hay disabled), kèm toàn bộ definition và các test case.
+- Không bao giờ có bí mật trong file: mật khẩu datasource chỉ xuất hiện dưới dạng `passwordRef` (`env:`/`secret:`); service account không kèm client; URL webhook không xuất. File chứa trường `password` bị từ chối.
+
+**Plan / apply:** `POST /config:plan` và `POST /config:apply` (workspace admin), body là YAML theo đúng định dạng export.
+
+- Tham số: `environment` (ánh xạ tên datasource, xem 15.2), `prune` (xoá những gì file không liệt kê; mặc định không xoá gì), `publish` (publish endpoint có `metadata.state: live`, disable endpoint `disabled`; mặc định chỉ lưu draft), `format=text` (bản in cho terminal; kết quả nằm trong header `X-OpenDBAPI-Changes`, `X-OpenDBAPI-Digest`, `X-OpenDBAPI-Result`).
+- `plan` không thay đổi gì. Mỗi tài liệu có action `create`, `update` (kèm các trường khác nhau, ví dụ `spec.task`, và `publish`/`disable`), `unchanged`, `delete` (chỉ khi `prune`) hoặc `skip` (datasource được environment ánh xạ). Export một workspace rồi plan lại chính nó luôn ra toàn `unchanged`.
+- `plan` trả `digest`; `apply?expectedDigest=…` từ chối bằng 409 `plan_changed` nếu file hoặc workspace đã đổi kể từ lúc plan.
+- `apply` ghi mọi thay đổi trong **một transaction** (lỗi ở bất kỳ tài liệu nào thì không có gì được ghi), rồi xử lý từng endpoint cần publish: chạy các test case của nó, chỉ publish khi tất cả pass (`tests_failed` nếu không). Endpoint không publish được vẫn giữ bản live cũ.
+- Với `prune`: endpoint đang live được disable rồi chuyển vào thùng rác (khôi phục được); datasource còn được dùng thì báo lỗi; datasource được environment ánh xạ không bao giờ bị xoá.
+- Mỗi lần apply ghi audit `config.apply` kèm số lượng thay đổi và digest.
 
 ### 15.2 Môi trường
 
-- Bảng `environment(name, datasource_bindings jsonb)` ánh xạ tên logic (`main-db`) sang datasource thật của từng môi trường.
-- CLI:
-  - `opendbapi export --dir ./api`: ghi YAML ra thư mục.
-  - `opendbapi plan --env prod`: so sánh khác biệt, giống `terraform plan`.
-  - `opendbapi apply --env prod [--publish]`: áp dụng thay đổi, chạy test case trước khi publish.
-- Đường đi đề xuất: viết trên dev → export vào Git → PR review → CI chạy `test` + `plan` → merge → `apply` lên staging/prod.
-- Môi trường prod có thể bật **chế độ chỉ đọc cho UI** (`opendbapi.ui.readOnly = true`): mọi thay đổi phải đi qua Git.
+- Bảng `environment(workspace_id, name, bindings jsonb)` ánh xạ tên datasource logic trong file (`main-db`) sang datasource thật của workspace (`prod-db`). API: `GET /environments`, `PUT/DELETE /environments/{name}` (workspace admin).
+- Khi plan/apply với `environment`, tài liệu Datasource có tên được ánh xạ bị bỏ qua (`skip`): datasource thật, kèm mật khẩu, do từng môi trường tự quản lý. Endpoint và data policy dùng tên đã ánh xạ.
+- CLI `opendbapi` (có sẵn trong image: `docker run ghcr.io/egret-data/opendbapi plan …`; hoặc `java -jar opendbapi-cli.jar`):
+  - `opendbapi export --out api.yaml`: ghi YAML của workspace.
+  - `opendbapi plan --dir ./api --env prod [--prune] [--publish] [--detailed-exitcode]`: so sánh khác biệt, giống `terraform plan`; `--detailed-exitcode` thoát với mã 2 khi có thay đổi.
+  - `opendbapi apply --dir ./api --env prod [--prune] [--publish] [--expected-digest D]`: áp dụng; thoát với mã 1 nếu có endpoint không publish được.
+  - Cấu hình qua `--url`/`OPENDBAPI_URL`, `--workspace`/`OPENDBAPI_WORKSPACE`; đăng nhập bằng user local `OPENDBAPI_USER`/`OPENDBAPI_PASSWORD` (admin của workspace).
+- Đường đi đề xuất: viết trên dev → export vào Git → PR review → CI chạy `plan` → merge → `apply --publish` lên staging/prod.
+- Chưa làm: chế độ chỉ đọc cho UI ở prod (mọi thay đổi đi qua Git) và token API riêng cho CI.
 
 ### 15.3 Import từ DBAPI (P2)
 
@@ -1129,6 +1139,7 @@ Quyền tối thiểu theo bảng §8.4.
 | Firewall | `GET/PUT /firewall` |
 | Activity | `GET /activity/log` (lọc theo endpoint, client, status, request id; phân trang bằng `before`), `GET /activity/summary?from&to&includeTryIt&endpointId` (tổng số, tỷ lệ lỗi, p95, theo ngày, top endpoint, endpoint chậm nhất theo p95 với ít nhất 5 lời gọi, top client kèm tên service account, top địa chỉ IP, top mã lỗi; khoảng tối đa 93 ngày) |
 | Secret | `GET/POST /secrets`, `PATCH/DELETE /secrets/{name}` (workspace admin; giá trị chỉ ghi) |
+| Cấu hình dưới dạng code | `POST /config:plan`, `POST /config:apply`, `GET /environments`, `PUT/DELETE /environments/{name}` (workspace admin) |
 | Audit workspace | `GET /audit` |
 | Import/Export | `POST /import/dbapi?dryRun=` (P2), `GET /export?format=yaml` (P2), `POST /import?format=yaml&mode=plan|apply` (P3) |
 | Môi trường | `GET/POST /environments`, `PATCH /environments/{name}` |
