@@ -1,4 +1,5 @@
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { useAuth } from "@/auth/useAuth";
 import { cn } from "@/lib/utils";
@@ -14,12 +15,13 @@ export function WorkspaceSwitcher({ className }: { className?: string }) {
   const { ws } = useParams();
   const { pathname } = useLocation();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const area = pathname.split("/")[3] || "endpoints";
 
   return (
     <Select value={ws ?? ""} onValueChange={(slug) => navigate(`/w/${slug}/${area}`)}>
-      <SelectTrigger className={cn("w-56", className)} aria-label="Workspace">
-        <SelectValue placeholder="Select a workspace" />
+      <SelectTrigger className={cn("w-56", className)} aria-label={t("Workspace")}>
+        <SelectValue placeholder={t("Select a workspace")} />
       </SelectTrigger>
       <SelectContent>
         {me.workspaces.map((w) => (

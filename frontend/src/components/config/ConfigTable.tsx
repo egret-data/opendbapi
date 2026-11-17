@@ -1,6 +1,7 @@
 import { ExternalLink, Info } from "lucide-react";
 import { createContext, useContext } from "react";
 import type { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -38,7 +39,7 @@ import {
  */
 export function ConfigTable({
   children,
-  settingLabel = "Setting",
+  settingLabel,
   valueClassName = "w-52",
   detailsClassName,
 }: {
@@ -49,15 +50,16 @@ export function ConfigTable({
   /** Class for a wrapper around each Details cell's content. Omitted = no wrapper. */
   detailsClassName?: string;
 }) {
+  const { t } = useTranslation();
   return (
     // table-fixed so the (often long) Details help text wraps instead of
     // blowing the table past the viewport and pushing Value off-screen.
     <Table className="w-full table-fixed">
       <TableHeader>
         <TableRow>
-          <TableHead className="w-72">{settingLabel}</TableHead>
-          <TableHead className="hidden lg:table-cell">Details</TableHead>
-          <TableHead className={valueClassName}>Value</TableHead>
+          <TableHead className="w-72">{settingLabel ?? t("Setting")}</TableHead>
+          <TableHead className="hidden lg:table-cell">{t("Details")}</TableHead>
+          <TableHead className={valueClassName}>{t("Value")}</TableHead>
         </TableRow>
       </TableHeader>
       {/* Through context rather than a prop on every `ConfigTableRow`: this is
@@ -112,11 +114,12 @@ export function ConfigTableGroup({ label }: { label: string }) {
  * than a hover tooltip, so it opens by keyboard and on touch as well.
  */
 function MoreDetails({ label, text }: { label: ReactNode; text: string }) {
+  const { t } = useTranslation();
   return (
     <Popover>
       <PopoverTrigger
         type="button"
-        aria-label={typeof label === "string" ? `More about ${label}` : "More details"}
+        aria-label={typeof label === "string" ? t("More about {{label}}", { label }) : t("More details")}
         className="ml-1 inline-flex size-5 translate-y-0.5 items-center justify-center rounded text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Info className="size-3.5" aria-hidden />
@@ -161,6 +164,7 @@ export function ConfigTableRow({
   children: ReactNode;
 }) {
   const { detailsClassName } = useContext(ConfigTableContext);
+  const { t } = useTranslation();
   const detailText = details;
   const link = docsUrl;
 
@@ -185,7 +189,7 @@ export function ConfigTableRow({
             href={link}
             target="_blank"
             rel="noreferrer"
-            aria-label="documentation"
+            aria-label={t("documentation")}
             className="ml-1 inline-flex text-muted-foreground hover:text-foreground"
           >
             <ExternalLink className="size-3.5" />

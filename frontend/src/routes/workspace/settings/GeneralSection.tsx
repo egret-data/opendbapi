@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { authKeys, type WorkspaceRole } from "@/api/auth";
 import { useSystemInfo } from "@/api/generated/system/system";
@@ -34,6 +35,7 @@ function GeneralForm({ workspace, role }: { workspace: WorkspaceView; role: Work
   const dirty = name.trim() !== workspace.name;
   useUnsavedChangesWarning(dirty);
   const quotas = Object.entries(workspace.quotas);
+  const { t } = useTranslation();
 
   const save = (e: FormEvent) => {
     e.preventDefault();
@@ -42,7 +44,7 @@ function GeneralForm({ workspace, role }: { workspace: WorkspaceView; role: Work
       { ws: workspace.slug, data: { name: name.trim(), quotas: null } },
       {
         onSuccess: () => {
-          toast.success("Workspace renamed.");
+          toast.success(t("Workspace renamed."));
           qc.invalidateQueries({ queryKey: getGetWorkspaceQueryKey(workspace.slug) });
           qc.invalidateQueries({ queryKey: authKeys.me });
         },
@@ -54,29 +56,29 @@ function GeneralForm({ workspace, role }: { workspace: WorkspaceView; role: Work
   return (
     <form onSubmit={save} className="space-y-4">
       <ConfigTable valueClassName="w-96" detailsClassName="max-w-prose">
-        <ConfigTableGroup label="Workspace" />
-        <ConfigTableRow label="Name" htmlFor={nameId} details={canEdit ? "Shown in the workspace switcher" : "Only owners can rename the workspace"}>
+        <ConfigTableGroup label={t("Workspace")} />
+        <ConfigTableRow label={t("Name")} htmlFor={nameId} details={canEdit ? t("Shown in the workspace switcher") : t("Only owners can rename the workspace")}>
           <Input id={nameId} value={name} required maxLength={120} disabled={!canEdit} onChange={(e) => setName(e.target.value)} />
         </ConfigTableRow>
-        <ConfigTableRow label="Slug" details="Part of every endpoint URL; it never changes">
+        <ConfigTableRow label={t("Slug")} details={t("Part of every endpoint URL; it never changes")}>
           <span className="font-mono text-sm">{workspace.slug}</span>
         </ConfigTableRow>
-        <ConfigTableRow label="Endpoint base URL" details="Published endpoints answer under this address">
+        <ConfigTableRow label={t("Endpoint base URL")} details={t("Published endpoints answer under this address")}>
           <span className="font-mono text-sm break-all">
             {info.data ? `${info.data.servingBaseUrl}/${workspace.slug}/` : "…"}
           </span>
         </ConfigTableRow>
-        <ConfigTableRow label="Your role" details="Change it on the Members tab, if you are allowed to">
-          {ROLE_LABEL[role]}
+        <ConfigTableRow label={t("Your role")} details={t("Change it on the Members tab, if you are allowed to")}>
+          {t(ROLE_LABEL[role])}
         </ConfigTableRow>
-        <ConfigTableGroup label="Quotas" />
+        <ConfigTableGroup label={t("Quotas")} />
         {quotas.length === 0 ? (
-          <ConfigTableRow label="Limits" details="Set by a system administrator">
-            <span className="text-sm text-muted-foreground">Defaults</span>
+          <ConfigTableRow label={t("Limits")} details={t("Set by a system administrator")}>
+            <span className="text-sm text-muted-foreground">{t("Defaults")}</span>
           </ConfigTableRow>
         ) : (
           quotas.map(([key, value]) => (
-            <ConfigTableRow key={key} label={key} details="Set by a system administrator">
+            <ConfigTableRow key={key} label={key} details={t("Set by a system administrator")}>
               <span className="tabular-nums">{String(value)}</span>
             </ConfigTableRow>
           ))
@@ -89,11 +91,11 @@ function GeneralForm({ workspace, role }: { workspace: WorkspaceView; role: Work
       )}
       {canEdit && (
         <div className="flex gap-2">
-          <Button type="submit" disabled={!dirty || update.isPending} title={!dirty ? "No changes to save" : undefined}>
-            Save changes
+          <Button type="submit" disabled={!dirty || update.isPending} title={!dirty ? t("No changes to save") : undefined}>
+            {t("Save changes")}
           </Button>
           <Button type="button" variant="outline" disabled={!dirty} onClick={() => setName(workspace.name)}>
-            Discard
+            {t("Discard")}
           </Button>
         </div>
       )}

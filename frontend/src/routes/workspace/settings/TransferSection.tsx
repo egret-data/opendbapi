@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Download } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import type { WorkspaceRole } from "@/api/auth";
 import type { DbapiExport, ImportReport, JsonNode } from "@/api/generated/model";
@@ -31,9 +32,10 @@ export function TransferSection({ ws, role }: { ws: string; role: WorkspaceRole 
   const [error, setError] = useState<string | null>(null);
   const run = useImportDbapi();
   const qc = useQueryClient();
+  const { t } = useTranslation();
 
   if (!isAdmin) {
-    return <p className="text-sm text-muted-foreground">Export and import are for workspace admins.</p>;
+    return <p className="text-sm text-muted-foreground">{t("Export and import are for workspace admins.")}</p>;
   }
 
   const read = async (key: FileKey, file: File | undefined) => {
@@ -47,7 +49,7 @@ export function TransferSection({ ws, role }: { ws: string; role: WorkspaceRole 
       const parsed: unknown = JSON.parse(await file.text());
       setFiles((f) => ({ ...f, [key]: parsed }));
     } catch {
-      setError(`${file.name} is not valid JSON.`);
+      setError(t("{{file}} is not valid JSON.", { file: file.name }));
     }
   };
 
@@ -62,7 +64,7 @@ export function TransferSection({ ws, role }: { ws: string; role: WorkspaceRole 
       onSuccess: (r) => {
         setReport(r);
         if (!dryRun) {
-          toast.success(`Imported: ${r.created} created, ${r.skipped} skipped.`);
+          toast.success(t("Imported: {{created}} created, {{skipped}} skipped.", { created: r.created, skipped: r.skipped }));
           qc.invalidateQueries();
         }
       },
@@ -74,56 +76,56 @@ export function TransferSection({ ws, role }: { ws: string; role: WorkspaceRole 
   return (
     <div className="space-y-8">
       <section aria-labelledby="export-heading" className="space-y-2">
-        <h2 id="export-heading" className="text-lg font-semibold">Export</h2>
+        <h2 id="export-heading" className="text-lg font-semibold">{t("Export")}</h2>
         <p className="max-w-prose text-sm text-muted-foreground">
-          Datasources, groups, endpoint drafts with their tests, service accounts, grants and data policies as YAML, referring to
-          each other by name. Passwords, client secrets and webhook URLs are never included.
+          {t("Datasources, groups, endpoint drafts with their tests, service accounts, grants and data policies as YAML, referring to each other by name. Passwords, client secrets and webhook URLs are never included.")}
         </p>
         <Button asChild variant="outline">
           <a href={`/admin/api/ws/${ws}/export?format=yaml`} download={`${ws}.yaml`}>
             <Download aria-hidden="true" />
-            Download YAML
+            {t("Download YAML")}
           </a>
         </Button>
       </section>
 
       <section aria-labelledby="import-heading" className="space-y-3">
-        <h2 id="import-heading" className="text-lg font-semibold">Import from DBAPI</h2>
+        <h2 id="import-heading" className="text-lg font-semibold">{t("Import from DBAPI")}</h2>
         <p className="max-w-prose text-sm text-muted-foreground">
-          Choose the files DBAPI exports. APIs arrive as drafts, groups are matched by name, and datasources are created read-only
-          without passwords. Check first: nothing is written until you import.
+          {t("Choose the files DBAPI exports. APIs arrive as drafts, groups are matched by name, and datasources are created read-only without passwords. Check first: nothing is written until you import.")}
         </p>
         <div className="grid gap-3 sm:grid-cols-3">
           {FILES.map((f) => (
             <div key={f.key} className="space-y-1">
-              <Label htmlFor={`dbapi-${f.key}`}>{f.label}</Label>
+              <Label htmlFor={`dbapi-${f.key}`}>{t(f.label)}</Label>
               <Input id={`dbapi-${f.key}`} type="file" accept="application/json,.json"
                 onChange={(e) => void read(f.key, e.target.files?.[0])} />
-              <p className="text-xs text-muted-foreground">{f.hint}</p>
+              <p className="text-xs text-muted-foreground">{t(f.hint)}</p>
             </div>
           ))}
         </div>
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         <div className="flex gap-2">
-          <Button variant="outline" disabled={!chosen || run.isPending} onClick={() => submit(true)}>Check</Button>
-          <Button disabled={!report?.dryRun || run.isPending} title={!report?.dryRun ? "Check the files first" : undefined}
+          <Button variant="outline" disabled={!chosen || run.isPending} onClick={() => submit(true)}>{t("Check")}</Button>
+          <Button disabled={!report?.dryRun || run.isPending} title={!report?.dryRun ? t("Check the files first") : undefined}
             onClick={() => submit(false)}>
-            Import
+            {t("Import")}
           </Button>
         </div>
         {report && (
           <div className="space-y-2">
             <p className="text-sm">
-              {report.dryRun ? "Would create" : "Created"} {report.created}, skipped {report.skipped}.
+              {report.dryRun
+                ? t("Would create {{created}}, skipped {{skipped}}.", { created: report.created, skipped: report.skipped })
+                : t("Created {{created}}, skipped {{skipped}}.", { created: report.created, skipped: report.skipped })}
             </p>
             <div className="overflow-x-auto rounded-md border">
-              <Table aria-label="Import report">
+              <Table aria-label={t("Import report")}>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Kind</TableHead>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Result</TableHead>
-                    <TableHead>Notes</TableHead>
+                    <TableHead>{t("Kind")}</TableHead>
+                    <TableHead>{t("Name")}</TableHead>
+                    <TableHead>{t("Result")}</TableHead>
+                    <TableHead>{t("Notes")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>

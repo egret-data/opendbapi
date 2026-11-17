@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import type { WorkspaceRole } from "@/api/auth";
 import { getGetServingPolicyQueryKey, useGetServingPolicy, useSaveServingPolicy } from "@/api/generated/serving-policy/serving-policy";
@@ -42,6 +43,7 @@ function PolicyForm({ ws, policy, canEdit }: { ws: string; policy: ServingPolicy
   const [perClient, setPerClient] = useState(policy.rateLimits.perClientPerMinute?.toString() ?? "");
   const [perIp, setPerIp] = useState(policy.rateLimits.perIpPerMinute?.toString() ?? "");
   const [error, setError] = useState<string | null>(null);
+  const { t } = useTranslation();
   const next: ServingPolicy = {
     firewall: { mode, entries: entries.split(/[\s,]+/).map((e) => e.trim()).filter(Boolean) },
     rateLimits: { perClientPerMinute: toNumber(perClient), perIpPerMinute: toNumber(perIp) },
@@ -58,7 +60,7 @@ function PolicyForm({ ws, policy, canEdit }: { ws: string; policy: ServingPolicy
     save.mutate({ ws, data: next }, {
       onSuccess: (saved) => {
         qc.setQueryData(getGetServingPolicyQueryKey(ws), saved);
-        toast.success("Saved. Every instance applies it within a few seconds.");
+        toast.success(t("Saved. Every instance applies it within a few seconds."));
       },
       onError: (err) => setError(errorMessage(err)),
     });
@@ -68,39 +70,38 @@ function PolicyForm({ ws, policy, canEdit }: { ws: string; policy: ServingPolicy
     <form onSubmit={submit} className="space-y-4">
       <fieldset disabled={!canEdit} className="min-w-0">
         <ConfigTable valueClassName="w-96" detailsClassName="max-w-prose">
-          <ConfigTableGroup label="Firewall" />
-          <ConfigTableRow label="Mode" details="Applies to every endpoint of this workspace, public or private">
-            <RadioGroup value={mode} onValueChange={(v) => setMode(v as FirewallMode)} aria-label="Firewall mode" className="space-y-1">
+          <ConfigTableGroup label={t("Firewall")} />
+          <ConfigTableRow label={t("Mode")} details={t("Applies to every endpoint of this workspace, public or private")}>
+            <RadioGroup value={mode} onValueChange={(v) => setMode(v as FirewallMode)} aria-label={t("Firewall mode")} className="space-y-1">
               {MODES.map((m) => (
                 <div key={m.value} className="flex items-center gap-2">
                   <RadioGroupItem id={`fw-${m.value}`} value={m.value} />
-                  <Label htmlFor={`fw-${m.value}`}>{m.label}</Label>
-                  <span className="text-xs text-muted-foreground">{m.hint}</span>
+                  <Label htmlFor={`fw-${m.value}`}>{t(m.label)}</Label>
+                  <span className="text-xs text-muted-foreground">{t(m.hint)}</span>
                 </div>
               ))}
             </RadioGroup>
           </ConfigTableRow>
-          <ConfigTableRow label="Addresses" htmlFor="fw-entries" details="One IP address or CIDR range per line, e.g. 10.0.0.0/8 or 2001:db8::/32">
+          <ConfigTableRow label={t("Addresses")} htmlFor="fw-entries" details={t("One IP address or CIDR range per line, e.g. 10.0.0.0/8 or 2001:db8::/32")}>
             <Textarea id="fw-entries" rows={5} className="font-mono text-xs" value={entries} disabled={!canEdit || mode === "off"}
               onChange={(e) => setEntries(e.target.value)} />
           </ConfigTableRow>
-          <ConfigTableGroup label="Rate limits" />
-          <ConfigTableRow label="Per client" htmlFor="rl-client" unit="calls / minute"
-            details="For each OAuth2 client calling private endpoints. Empty = no limit.">
+          <ConfigTableGroup label={t("Rate limits")} />
+          <ConfigTableRow label={t("Per client")} htmlFor="rl-client" unit={t("calls / minute")}
+            details={t("For each OAuth2 client calling private endpoints. Empty = no limit.")}>
             <Input id="rl-client" type="number" min={1} className="w-32 tabular-nums" value={perClient} onChange={(e) => setPerClient(e.target.value)} />
           </ConfigTableRow>
-          <ConfigTableRow label="Per IP address" htmlFor="rl-ip" unit="calls / minute"
-            details="For each caller address on public endpoints. Empty = no limit.">
+          <ConfigTableRow label={t("Per IP address")} htmlFor="rl-ip" unit={t("calls / minute")}
+            details={t("For each caller address on public endpoints. Empty = no limit.")}>
             <Input id="rl-ip" type="number" min={1} className="w-32 tabular-nums" value={perIp} onChange={(e) => setPerIp(e.target.value)} />
           </ConfigTableRow>
         </ConfigTable>
       </fieldset>
       <p className="max-w-prose text-xs text-muted-foreground">
-        Limits are counted by each server instance separately: with three instances a caller can make up to three times the limit.
-        Each endpoint can also set its own limit in its Settings tab.
+        {t("Limits are counted by each server instance separately: with three instances a caller can make up to three times the limit. Each endpoint can also set its own limit in its Settings tab.")}
       </p>
       {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-      {canEdit && <Button type="submit" disabled={!dirty || save.isPending}>Save</Button>}
+      {canEdit && <Button type="submit" disabled={!dirty || save.isPending}>{t("Save")}</Button>}
     </form>
   );
 }

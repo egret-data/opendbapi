@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { useSaveClientSecurity } from "@/api/generated/service-accounts/service-accounts";
 import type { Client } from "@/api/generated/model";
@@ -23,6 +24,7 @@ export function ClientSecurityDialog({ ws, saId, client, onClose, onSaved }: {
   const [error, setError] = useState<string | null>(null);
   const [issuedKey, setIssuedKey] = useState<string | null>(null);
   const save = useSaveClientSecurity();
+  const { t } = useTranslation();
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -46,21 +48,20 @@ export function ClientSecurityDialog({ ws, saId, client, onClose, onSaved }: {
       <Dialog open>
         <DialogContent showCloseButton={false} onEscapeKeyDown={(e) => e.preventDefault()} onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
-            <DialogTitle>Signing key issued</DialogTitle>
-            <DialogDescription>Copy it now; it is stored encrypted and cannot be shown again.</DialogDescription>
+            <DialogTitle>{t("Signing key issued")}</DialogTitle>
+            <DialogDescription>{t("Copy it now; it is stored encrypted and cannot be shown again.")}</DialogDescription>
           </DialogHeader>
           <div className="flex items-center gap-2">
             <code className="min-w-0 flex-1 break-all rounded-md border bg-muted px-2 py-1.5 text-xs">{issuedKey}</code>
-            <Button variant="outline" size="icon" aria-label="Copy signing key"
-              onClick={() => navigator.clipboard.writeText(issuedKey).then(() => toast.success("Signing key copied."))}>
+            <Button variant="outline" size="icon" aria-label={t("Copy signing key")}
+              onClick={() => navigator.clipboard.writeText(issuedKey).then(() => toast.success(t("Signing key copied.")))}>
               <Copy className="h-4 w-4" />
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Sign each request: X-Signature = base64(HMAC-SHA256(key, METHOD, path, sorted query, SHA-256 of the body in hex,
-            X-Timestamp in ms, X-Nonce; joined by newlines)).
+            {t("Sign each request: X-Signature = base64(HMAC-SHA256(key, METHOD, path, sorted query, SHA-256 of the body in hex, X-Timestamp in ms, X-Nonce; joined by newlines)).")}
           </p>
-          <DialogFooter><Button onClick={onClose}>I have stored the key</Button></DialogFooter>
+          <DialogFooter><Button onClick={onClose}>{t("I have stored the key")}</Button></DialogFooter>
         </DialogContent>
       </Dialog>
     );
@@ -71,38 +72,38 @@ export function ClientSecurityDialog({ ws, saId, client, onClose, onSaved }: {
       <DialogContent className="sm:max-w-xl">
         <form onSubmit={submit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>Client security</DialogTitle>
+            <DialogTitle>{t("Client security")}</DialogTitle>
             <DialogDescription className="font-mono text-xs">{client.clientId}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Switch id="sec-hmac" checked={hmac} onCheckedChange={setHmac} />
-              <Label htmlFor="sec-hmac">Require signed requests</Label>
+              <Label htmlFor="sec-hmac">{t("Require signed requests")}</Label>
             </div>
-            <p className="text-xs text-muted-foreground">Requests without a valid HMAC signature, older than 5 minutes or replayed are refused.</p>
+            <p className="text-xs text-muted-foreground">{t("Requests without a valid HMAC signature, older than 5 minutes or replayed are refused.")}</p>
             {hmac && client.hmacRequired && (
               <div className="flex items-center gap-2">
                 <Checkbox id="sec-rotate" checked={rotate} onCheckedChange={(c) => setRotate(c === true)} />
-                <Label htmlFor="sec-rotate" className="font-normal">Issue a new signing key (the current one stops working)</Label>
+                <Label htmlFor="sec-rotate" className="font-normal">{t("Issue a new signing key (the current one stops working)")}</Label>
               </div>
             )}
           </div>
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <Switch id="sec-encrypt" checked={encrypt} onCheckedChange={setEncrypt} />
-              <Label htmlFor="sec-encrypt">Encrypt responses</Label>
+              <Label htmlFor="sec-encrypt">{t("Encrypt responses")}</Label>
             </div>
             <p className="text-xs text-muted-foreground">
-              Answers become {"{encryptedKey, iv, data}"}: AES-256-GCM, the key wrapped with this RSA key (OAEP, SHA-256). Streams are refused.
+              {t("Answers become {{shape}}: AES-256-GCM, the key wrapped with this RSA key (OAEP, SHA-256). Streams are refused.", { shape: "{encryptedKey, iv, data}" })}
             </p>
-            <Label htmlFor="sec-key" className="sr-only">Public key</Label>
+            <Label htmlFor="sec-key" className="sr-only">{t("Public key")}</Label>
             <Textarea id="sec-key" rows={5} className="font-mono text-xs" value={publicKey} disabled={!encrypt && !publicKey}
               placeholder="-----BEGIN PUBLIC KEY-----" onChange={(e) => setPublicKey(e.target.value)} />
           </div>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={save.isPending}>Save</Button>
+            <Button type="button" variant="outline" onClick={onClose}>{t("Cancel")}</Button>
+            <Button type="submit" disabled={save.isPending}>{t("Save")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

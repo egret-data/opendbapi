@@ -1,5 +1,6 @@
 import { Link, useParams } from "react-router-dom";
 import { Database, Plus } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { useListEndpoints } from "@/api/generated/endpoints/endpoints";
 import { useListDatasources } from "@/api/generated/datasources/datasources";
@@ -17,6 +18,7 @@ import { DIALECT_LABEL } from "./datasourceForm";
 export default function DatasourcesPage() {
   const { ws = "" } = useParams();
   const { me } = useAuth();
+  const { t } = useTranslation();
   const canManage = hasRole(effectiveRole(me, ws) ?? "viewer", "admin");
   const query = useListDatasources(ws);
   const endpoints = useListEndpoints(ws, { trashed: false });
@@ -26,28 +28,28 @@ export default function DatasourcesPage() {
     <Button asChild>
       <Link to="new">
         <Plus aria-hidden="true" />
-        New datasource
+        {t("New datasource")}
       </Link>
     </Button>
   ) : undefined;
 
   return (
     <ListPageShell
-      title="Datasources"
-      description="Databases this workspace's endpoints query. Passwords are stored encrypted and never shown again."
+      title={t("Datasources")}
+      description={t("Databases this workspace's endpoints query. Passwords are stored encrypted and never shown again.")}
       action={newButton}
     >
-      <QueryBoundary query={query} what="datasources">
+      <QueryBoundary query={query} what={t("datasources")}>
         {(datasources) =>
           datasources.length === 0 ? (
             <EmptyState
               variant="dashed"
               icon={Database}
-              title="No datasources yet"
+              title={t("No datasources yet")}
               description={
                 canManage
-                  ? "Connect a database to start writing endpoints."
-                  : "Ask a workspace admin to connect a database."
+                  ? t("Connect a database to start writing endpoints.")
+                  : t("Ask a workspace admin to connect a database.")
               }
               action={newButton}
             />
@@ -56,13 +58,13 @@ export default function DatasourcesPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Database</TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead>Access</TableHead>
-                    <TableHead>Connection</TableHead>
-                    <TableHead className="text-right">Endpoints</TableHead>
-                    <TableHead>Updated</TableHead>
+                    <TableHead>{t("Name")}</TableHead>
+                    <TableHead>{t("Database")}</TableHead>
+                    <TableHead>{t("Address")}</TableHead>
+                    <TableHead>{t("Access")}</TableHead>
+                    <TableHead>{t("Connection")}</TableHead>
+                    <TableHead className="text-right">{t("Endpoints")}</TableHead>
+                    <TableHead>{t("Updated")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -79,7 +81,7 @@ export default function DatasourcesPage() {
                         {d.host}:{d.port}/{d.database}
                       </TableCell>
                       <TableCell>
-                        <StatusBadge tone={d.readOnly ? "neutral" : "highlight"}>{d.readOnly ? "Read only" : "Read & write"}</StatusBadge>
+                        <StatusBadge tone={d.readOnly ? "neutral" : "highlight"}>{d.readOnly ? t("Read only") : t("Read & write")}</StatusBadge>
                       </TableCell>
                       <TableCell>
                         <ConnectionBadge test={d.lastTest} />

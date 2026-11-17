@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { UseQueryResult } from "@tanstack/react-query";
 import { RotateCw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -21,16 +22,19 @@ export function QueryBoundary<T>({
   what: string;
   children: (data: T) => ReactNode;
 }) {
+  const { t } = useTranslation();
+  // Callers pass English; a Vietnamese entry for `what` translates it, otherwise it stays as given.
+  const subject = t(what);
   if (query.isError) {
     return (
       <Alert variant="destructive">
         <AlertDescription className="flex flex-wrap items-center gap-3">
           <span>
-            Could not load {what}: {errorMessage(query.error)}
+            {t("Could not load {{what}}: {{error}}", { what: subject, error: errorMessage(query.error) })}
           </span>
           <Button variant="outline" size="sm" onClick={() => query.refetch()}>
             <RotateCw aria-hidden="true" />
-            Try again
+            {t("Try again")}
           </Button>
         </AlertDescription>
       </Alert>
@@ -38,7 +42,7 @@ export function QueryBoundary<T>({
   }
   if (query.isPending) {
     return (
-      <div className="space-y-2" aria-busy="true" aria-label={`Loading ${what}`}>
+      <div className="space-y-2" aria-busy="true" aria-label={t("Loading {{what}}", { what: subject })}>
         <Skeleton className="h-9 w-full" />
         <Skeleton className="h-9 w-full" />
         <Skeleton className="h-9 w-2/3" />

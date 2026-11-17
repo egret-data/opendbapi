@@ -1,5 +1,6 @@
 import { useId, useState, type FormEvent } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 import { oidcStartUrl, useAuthProviders, useLogin, useMe, type LoginSource } from "@/api/auth";
 import { ApiError } from "@/api/client";
@@ -17,9 +18,10 @@ function safeNext(next: string | null): string {
 
 export function LoginPage() {
   const [params] = useSearchParams();
+  const { t } = useTranslation();
   const next = safeNext(params.get("next"));
   // Set by the backend when SSO fails: /login?error=sso&reason=...
-  const ssoError = params.get("error") === "sso" ? (params.get("reason") ?? "Single sign-on failed.") : null;
+  const ssoError = params.get("error") === "sso" ? (params.get("reason") ?? t("Single sign-on failed.")) : null;
   // Break-glass: local sign-in stays reachable for system admins even when it is not offered.
   const forceLocal = params.get("local") === "1";
   const me = useMe();
@@ -38,7 +40,7 @@ export function LoginPage() {
 
   const passwordSources: { value: string; label: string; source: LoginSource }[] = [
     ...(providers.data?.local || forceLocal
-      ? [{ value: "local", label: "Local account", source: { kind: "local" } as const }]
+      ? [{ value: "local", label: t("Local account"), source: { kind: "local" } as const }]
       : []),
     ...(providers.data?.ldap ?? []).map((p) => ({
       value: `ldap:${p.id}`,
@@ -62,8 +64,8 @@ export function LoginPage() {
         err instanceof ApiError && err.status === 429
           ? err.message
           : err instanceof ApiError && err.status >= 500
-            ? `Sign-in is unavailable: ${err.message}`
-            : "Invalid username or password.",
+            ? t("Sign-in is unavailable: {{error}}", { error: err.message })
+            : t("Invalid username or password."),
       );
     }
   };
@@ -73,20 +75,20 @@ export function LoginPage() {
       <Card className="w-full max-w-sm space-y-4 p-6">
         <div className="flex items-center gap-2">
           <img src="/favicon.svg" alt="" className="h-8 w-8 rounded-lg" />
-          <h1 className="text-xl font-semibold">Sign in to OpenDBAPI</h1>
+          <h1 className="text-xl font-semibold">{t("Sign in to OpenDBAPI")}</h1>
         </div>
 
         {ssoError && (
           <p role="alert" className="text-sm text-destructive">
-            Single sign-on did not complete: {ssoError}
+            {t("Single sign-on did not complete: {{error}}", { error: ssoError })}
           </p>
         )}
         {providers.isError ? (
           <p role="alert" className="text-sm text-destructive">
-            Could not load sign-in options: {providers.error.message}. Reload the page to try again.
+            {t("Could not load sign-in options: {{error}}. Reload the page to try again.", { error: providers.error.message })}
           </p>
         ) : providers.isPending ? (
-          <div className="space-y-3" aria-busy="true" aria-label="Loading sign-in options">
+          <div className="space-y-3" aria-busy="true" aria-label={t("Loading sign-in options")}>
             <Skeleton className="h-9 w-full" />
             <Skeleton className="h-9 w-full" />
           </div>
@@ -94,18 +96,18 @@ export function LoginPage() {
           <>
             {sso.map((p) => (
               <Button key={p.id} asChild className="w-full">
-                <a href={oidcStartUrl(p.id)}>Sign in with {p.name}</a>
+                <a href={oidcStartUrl(p.id)}>{t("Sign in with {{name}}", { name: p.name })}</a>
               </Button>
             ))}
 
             {passwordSources.length > 0 && (
               <form onSubmit={onSubmit} className="space-y-3">
-                {sso.length > 0 && <p className="text-center text-xs text-muted-foreground">or with a password</p>}
+                {sso.length > 0 && <p className="text-center text-xs text-muted-foreground">{t("or with a password")}</p>}
                 {passwordSources.length > 1 && (
                   <RadioGroup
                     value={selected?.value}
                     onValueChange={setSourceValue}
-                    aria-label="Account type"
+                    aria-label={t("Account type")}
                     className="flex flex-wrap gap-4"
                   >
                     {passwordSources.map((s) => (
@@ -117,7 +119,7 @@ export function LoginPage() {
                   </RadioGroup>
                 )}
                 <div className="space-y-1">
-                  <Label htmlFor={usernameId}>Username</Label>
+                  <Label htmlFor={usernameId}>{t("Username")}</Label>
                   <Input
                     id={usernameId}
                     autoComplete="username"
@@ -127,7 +129,7 @@ export function LoginPage() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor={passwordId}>Password</Label>
+                  <Label htmlFor={passwordId}>{t("Password")}</Label>
                   <Input
                     id={passwordId}
                     type="password"
@@ -143,14 +145,14 @@ export function LoginPage() {
                   </p>
                 )}
                 <Button type="submit" variant={sso.length ? "outline" : "default"} className="w-full" disabled={login.isPending}>
-                  Sign in
+                  {t("Sign in")}
                 </Button>
               </form>
             )}
 
             {passwordSources.length === 0 && sso.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                No sign-in method is enabled. Ask the operator to enable local accounts, LDAP or SSO.
+                {t("No sign-in method is enabled. Ask the operator to enable local accounts, LDAP or SSO.")}
               </p>
             )}
           </>

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import { getListDatasourcesQueryKey, useCreateDatasource } from "@/api/generated/datasources/datasources";
 import { DetailHeader } from "@/components/layout/DetailHeader";
@@ -15,6 +16,7 @@ export default function NewDatasourcePage() {
   const { ws = "" } = useParams();
   const navigate = useNavigate();
   const qc = useQueryClient();
+  const { t } = useTranslation();
   const create = useCreateDatasource();
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +39,7 @@ export default function NewDatasourcePage() {
 
   return (
     <PageContainer>
-      <DetailHeader back={{ to: `/w/${ws}/datasources`, label: "Datasources" }} title="New datasource" />
+      <DetailHeader back={{ to: `/w/${ws}/datasources`, label: t("Datasources") }} title={t("New datasource")} />
       <form onSubmit={submit} className="space-y-4">
         <DatasourceFields ws={ws} form={form} onChange={setForm} />
         {error && (
@@ -47,10 +49,10 @@ export default function NewDatasourcePage() {
         )}
         <div className="flex flex-wrap items-start gap-2">
           <Button type="submit" disabled={create.isPending}>
-            Create datasource
+            {t("Create datasource")}
           </Button>
           <Button asChild variant="outline">
-            <Link to={`/w/${ws}/datasources`}>Cancel</Link>
+            <Link to={`/w/${ws}/datasources`}>{t("Cancel")}</Link>
           </Button>
           <div className="ml-auto">
             <TestConnection ws={ws} form={form} />

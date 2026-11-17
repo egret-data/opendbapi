@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "./PageContainer";
@@ -45,6 +46,7 @@ export function StatePage({
 /** `Go back` (when there is somewhere to go back to) and one link onwards. */
 export function StateActions({ link }: { link: { to: string; label: string } }) {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   // react-router gives the first location of a tab the key "default": there
   // is no page of this app to go back to, and `navigate(-1)` would leave it.
   const canGoBack = useLocation().key !== "default";
@@ -53,7 +55,7 @@ export function StateActions({ link }: { link: { to: string; label: string } }) 
       {canGoBack ? (
         <Button variant="outline" size="sm" onClick={() => navigate(-1)}>
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-          Go back
+          {t("Go back")}
         </Button>
       ) : null}
       <Button asChild size="sm">

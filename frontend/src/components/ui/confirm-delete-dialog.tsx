@@ -1,4 +1,5 @@
 import React, { useId, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import {
   AlertDialog, AlertDialogContent, AlertDialogHeader, AlertDialogTitle,
   AlertDialogDescription, AlertDialogFooter, AlertDialogCancel,
@@ -65,10 +66,11 @@ interface ConfirmDeleteDialogProps {
 }
 
 export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
-  open, onOpenChange, title, description, confirmText = 'delete', confirmLabel = 'Delete',
+  open, onOpenChange, title, description, confirmText = 'delete', confirmLabel,
   confirmDisabled = false, confirmDisabledReason, typeToConfirmReason, caseSensitive = false, onCloseAutoFocus, onConfirm, children,
 }) => {
   const [inputValue, setInputValue] = useState('');
+  const { t } = useTranslation();
   const reasonId = useId();
   const typeReasonId = useId();
   const blocked = confirmDisabledReason !== undefined && confirmDisabledReason !== null;
@@ -99,7 +101,13 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
           <div id={reasonId} className="text-sm">{confirmDisabledReason}</div>
         ) : (
           <div className="space-y-2">
-            <p className="text-sm">Type <span className="font-mono font-bold">{confirmText}</span> to confirm:</p>
+            <p className="text-sm">
+              <Trans
+                i18nKey="Type <word>{{word}}</word> to confirm:"
+                values={{ word: confirmText }}
+                components={{ word: <span className="font-mono font-bold" /> }}
+              />
+            </p>
             <Input
               value={inputValue}
               onChange={e => setInputValue(e.target.value)}
@@ -113,7 +121,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
           </div>
         )}
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={() => setInputValue('')}>Cancel</AlertDialogCancel>
+          <AlertDialogCancel onClick={() => setInputValue('')}>{t("Cancel")}</AlertDialogCancel>
           <Button
             variant="destructive"
             onClick={handleConfirm}
@@ -121,7 +129,7 @@ export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
             aria-disabled={blocked || awaitingText ? true : undefined}
             aria-describedby={blocked ? reasonId : awaitingText ? typeReasonId : undefined}
           >
-            {confirmLabel}
+            {confirmLabel ?? t("Delete")}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

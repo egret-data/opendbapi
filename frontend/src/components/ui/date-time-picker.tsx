@@ -1,6 +1,7 @@
 import { lazy, Suspense, useId, useState } from "react";
 import dayjs from "dayjs";
 import { CalendarIcon } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,9 +48,10 @@ export function DateTimePicker({
   value,
   onChange,
   defaultTime = "00:00",
-  placeholder = "Any time",
+  placeholder,
   className,
 }: Props) {
+  const { t } = useTranslation();
   const timeId = useId();
   const valueId = useId();
   const errorId = useId();
@@ -95,7 +97,7 @@ export function DateTimePicker({
           className={cn("h-10 w-52 justify-start font-normal tabular-nums", !shown && "text-muted-foreground", className)}
         >
           <CalendarIcon aria-hidden="true" />
-          <span id={valueId}>{shown ?? placeholder}</span>
+          <span id={valueId}>{shown ?? placeholder ?? t("Any time")}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-auto space-y-3 p-3">
@@ -109,7 +111,7 @@ export function DateTimePicker({
           />
         </Suspense>
         <div className="space-y-1.5">
-          <Label htmlFor={timeId}>Time</Label>
+          <Label htmlFor={timeId}>{t("Time")}</Label>
           <div className="flex items-center gap-2">
             <Input
               id={timeId}
@@ -139,12 +141,12 @@ export function DateTimePicker({
                 setOpen(false);
               }}
             >
-              Clear
+              {t("Clear")}
             </Button>
           </div>
           {timeError && (
             <p id={errorId} className="text-xs text-destructive">
-              Enter a time as HH:mm, from 00:00 to 23:59.
+              {t("Enter a time as HH:mm, from 00:00 to 23:59.")}
             </p>
           )}
         </div>

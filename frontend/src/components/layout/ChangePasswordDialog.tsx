@@ -1,5 +1,6 @@
 import { useId, useState, type FormEvent } from "react";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { useChangeMyPassword } from "@/api/generated/me/me";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ const MIN_PASSWORD = 12;
 
 export function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const change = useChangeMyPassword();
+  const { t } = useTranslation();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -35,7 +37,7 @@ export function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; on
       { data: { currentPassword: current, newPassword: next } },
       {
         onSuccess: () => {
-          toast.success("Password changed.");
+          toast.success(t("Password changed."));
           close();
         },
         onError: (err) => setError(errorMessage(err)),
@@ -48,27 +50,27 @@ export function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; on
       <DialogContent>
         <form onSubmit={submit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>Change password</DialogTitle>
-            <DialogDescription>At least {MIN_PASSWORD} characters.</DialogDescription>
+            <DialogTitle>{t("Change password")}</DialogTitle>
+            <DialogDescription>{t("At least {{count}} characters.", { count: MIN_PASSWORD })}</DialogDescription>
           </DialogHeader>
           <div className="space-y-1">
-            <Label htmlFor={ids.current}>Current password</Label>
+            <Label htmlFor={ids.current}>{t("Current password")}</Label>
             <Input id={ids.current} type="password" autoComplete="current-password" required value={current}
               onChange={(e) => setCurrent(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor={ids.next}>New password</Label>
+            <Label htmlFor={ids.next}>{t("New password")}</Label>
             <Input id={ids.next} type="password" autoComplete="new-password" required minLength={MIN_PASSWORD} value={next}
               onChange={(e) => setNext(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor={ids.confirm}>Repeat new password</Label>
+            <Label htmlFor={ids.confirm}>{t("Repeat new password")}</Label>
             <Input id={ids.confirm} type="password" autoComplete="new-password" required value={confirm}
               aria-invalid={mismatch} aria-describedby={mismatch ? `${ids.confirm}-err` : undefined}
               onChange={(e) => setConfirm(e.target.value)} />
             {mismatch && (
               <p id={`${ids.confirm}-err`} className="text-xs text-destructive">
-                The two new passwords differ.
+                {t("The two new passwords differ.")}
               </p>
             )}
           </div>
@@ -79,10 +81,10 @@ export function ChangePasswordDialog({ open, onOpenChange }: { open: boolean; on
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={close}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button type="submit" disabled={change.isPending || mismatch}>
-              Change password
+              {t("Change password")}
             </Button>
           </DialogFooter>
         </form>

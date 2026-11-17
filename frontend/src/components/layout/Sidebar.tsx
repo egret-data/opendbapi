@@ -1,4 +1,5 @@
 import { NavLink, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import {
   Activity,
   Building2,
@@ -39,23 +40,25 @@ const ADMIN_ITEMS: NavItem[] = [
 export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle?: () => void }) {
   const { me } = useAuth();
   const { ws } = useParams();
+  const { t } = useTranslation();
 
   const linkClass = ({ isActive }: { isActive: boolean }) =>
     `flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
       collapsed ? "justify-center" : ""
     } ${isActive ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground"}`;
 
-  const renderItem = ({ label, icon: Icon, to }: NavItem) => {
+  const renderItem = ({ label: english, icon: Icon, to }: NavItem) => {
+    const label = t(english);
     const path = to.startsWith("/") ? to : `/w/${ws}/${to}`;
     const link = (
-      <NavLink key={label} to={path} className={linkClass} aria-label={collapsed ? label : undefined}>
+      <NavLink key={english} to={path} className={linkClass} aria-label={collapsed ? label : undefined}>
         <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
         {!collapsed && label}
       </NavLink>
     );
     if (!collapsed) return link;
     return (
-      <Tooltip key={label}>
+      <Tooltip key={english}>
         <TooltipTrigger asChild>{link}</TooltipTrigger>
         <TooltipContent side="right">{label}</TooltipContent>
       </Tooltip>
@@ -65,7 +68,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle?
   return (
     <nav
       data-testid="app-sidebar"
-      aria-label="Main"
+      aria-label={t("Main")}
       data-collapsed={collapsed ? "true" : "false"}
       className={`flex shrink-0 flex-col gap-1 overflow-y-auto border-r border-border bg-card p-3 transition-[width] duration-200 motion-reduce:transition-none ${
         collapsed ? "w-16" : "w-56"
@@ -85,7 +88,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle?
             <hr className="my-2 border-border" />
           ) : (
             <p className="px-3 pb-1 pt-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">
-              Administration
+              {t("Administration")}
             </p>
           )}
           {ADMIN_ITEMS.map(renderItem)}
@@ -99,23 +102,23 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle?
               <button
                 type="button"
                 onClick={onToggle}
-                aria-label="Expand sidebar"
+                aria-label={t("Expand sidebar")}
                 className="mt-auto flex items-center justify-center rounded-md px-3 py-2 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
               >
                 <PanelLeftOpen className="h-4 w-4 shrink-0" />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="right">Expand</TooltipContent>
+            <TooltipContent side="right">{t("Expand")}</TooltipContent>
           </Tooltip>
         ) : (
           <button
             type="button"
             onClick={onToggle}
-            aria-label="Collapse sidebar"
+            aria-label={t("Collapse sidebar")}
             className="mt-auto flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
           >
             <PanelLeftClose className="h-4 w-4 shrink-0" />
-            <span>Collapse</span>
+            <span>{t("Collapse")}</span>
           </button>
         ))}
     </nav>

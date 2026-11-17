@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Copy, MoreHorizontal } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 
 import { useListDatasources } from "@/api/generated/datasources/datasources";
 import {
@@ -49,9 +50,10 @@ const TABS = ["query", "try", "tests", "settings", "access", "versions"] as cons
 export default function EndpointDetailPage() {
   const { ws = "", id = "" } = useParams();
   const query = useGetEndpoint(ws, id);
+  const { t } = useTranslation();
   return (
     <PageContainer>
-      <QueryBoundary query={query} what="the endpoint">
+      <QueryBoundary query={query} what={t("the endpoint")}>
         {(detail) => <Editor key={detail.summary.id} ws={ws} detail={detail} />}
       </QueryBoundary>
     </PageContainer>
@@ -60,6 +62,7 @@ export default function EndpointDetailPage() {
 
 function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
   const { me } = useAuth();
+  const { t } = useTranslation();
   const canAuthor = hasRole(effectiveRole(me, ws) ?? "viewer", "author");
   const canScript = hasRole(effectiveRole(me, ws) ?? "viewer", "script_author");
   const isAdmin = hasRole(effectiveRole(me, ws) ?? "viewer", "admin");
@@ -79,7 +82,7 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
   // Each tab is a child route (spec §17.3): /w/:ws/endpoints/:id/settings survives a reload.
   const { tab: tabParam } = useParams();
   const tab = TABS.includes(tabParam as (typeof TABS)[number]) ? tabParam! : "query";
-  const goTab = (t: string) => navigate(`/w/${ws}/endpoints/${detail.summary.id}${t === "query" ? "" : `/${t}`}`, { replace: true });
+  const goTab = (next: string) => navigate(`/w/${ws}/endpoints/${detail.summary.id}${next === "query" ? "" : `/${next}`}`, { replace: true });
   const qc = useQueryClient();
   const navigate = useNavigate();
   const info = useSystemInfo();
@@ -110,31 +113,31 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
       {
         onSuccess: () => {
           refresh();
-          if (after) after(); else toast.success("Draft saved. Callers still get the live version until you publish.");
+          if (after) after(); else toast.success(t("Draft saved. Callers still get the live version until you publish."));
         },
         onError: fail,
       },
     );
 
-  const publishBlockedReason = dirty ? "Save the draft first: publish freezes what is saved" : !canAuthor ? "Authors publish" : undefined;
+  const publishBlockedReason = dirty ? t("Save the draft first: publish freezes what is saved") : !canAuthor ? t("Authors publish") : undefined;
 
   return (
     <>
       <DetailHeader
-        back={{ to: `/w/${ws}/endpoints`, label: "Endpoints" }}
+        back={{ to: `/w/${ws}/endpoints`, label: t("Endpoints") }}
         title={s.name}
         status={
           <span className="inline-flex flex-wrap items-center gap-2">
-            <StatusBadge tone={STATE_TONE[s.state]}>{STATE_LABEL[s.state]}{s.liveVersion != null ? ` · v${s.liveVersion}` : ""}</StatusBadge>
-            {s.dirty && s.liveVersion != null && <StatusBadge tone="highlight">Unpublished changes</StatusBadge>}
-            {s.access === "public" && <StatusBadge tone="highlight">Public</StatusBadge>}
+            <StatusBadge tone={STATE_TONE[s.state]}>{t(STATE_LABEL[s.state])}{s.liveVersion != null ? ` · v${s.liveVersion}` : ""}</StatusBadge>
+            {s.dirty && s.liveVersion != null && <StatusBadge tone="highlight">{t("Unpublished changes")}</StatusBadge>}
+            {s.access === "public" && <StatusBadge tone="highlight">{t("Public")}</StatusBadge>}
           </span>
         }
         description={
           <span className="inline-flex items-center gap-2 font-mono text-xs">
             <span className="font-semibold">{s.method}</span> {url}
-            <Button variant="ghost" size="iconSm" aria-label="Copy URL"
-              onClick={() => navigator.clipboard?.writeText(url).then(() => toast.success("URL copied."))}>
+            <Button variant="ghost" size="iconSm" aria-label={t("Copy URL")}
+              onClick={() => navigator.clipboard?.writeText(url).then(() => toast.success(t("URL copied.")))}>
               <Copy className="h-3.5 w-3.5" />
             </Button>
           </span>
@@ -142,35 +145,35 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
         actions={
           canAuthor && (
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" disabled={!dirty || update.isPending} title={!dirty ? "No changes to save" : undefined}
+              <Button variant="outline" disabled={!dirty || update.isPending} title={!dirty ? t("No changes to save") : undefined}
                 onClick={() => save()}>
-                Save
+                {t("Save")}
               </Button>
               <Button disabled={publishBlockedReason !== undefined} title={publishBlockedReason} onClick={openPublish}>
-                Publish
+                {t("Publish")}
               </Button>
-              {s.state === "live" && <Button variant="outline" onClick={() => disable.mutate({ ws, id: s.id })}>Disable</Button>}
-              {s.state === "disabled" && <Button variant="outline" onClick={() => enable.mutate({ ws, id: s.id })}>Enable</Button>}
+              {s.state === "live" && <Button variant="outline" onClick={() => disable.mutate({ ws, id: s.id })}>{t("Disable")}</Button>}
+              {s.state === "disabled" && <Button variant="outline" onClick={() => enable.mutate({ ws, id: s.id })}>{t("Enable")}</Button>}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" aria-label="More actions"><MoreHorizontal className="h-4 w-4" /></Button>
+                  <Button variant="ghost" size="icon" aria-label={t("More actions")}><MoreHorizontal className="h-4 w-4" /></Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   {s.liveVersion != null && (
                     <DropdownMenuItem asChild>
-                      <a href={`/admin/api/ws/${ws}/endpoints/${s.id}/openapi.json`} download>Download OpenAPI</a>
+                      <a href={`/admin/api/ws/${ws}/endpoints/${s.id}/openapi.json`} download>{t("Download OpenAPI")}</a>
                     </DropdownMenuItem>
                   )}
                   <DropdownMenuItem onSelect={() => duplicate.mutate({ ws, id: s.id }, {
                     onSuccess: (c) => navigate(`/w/${ws}/endpoints/${c.summary.id}`) })}>
-                    Duplicate
+                    {t("Duplicate")}
                   </DropdownMenuItem>
-                  <DropdownMenuItem disabled={s.state === "live"} title={s.state === "live" ? "Disable it first" : undefined}
+                  <DropdownMenuItem disabled={s.state === "live"} title={s.state === "live" ? t("Disable it first") : undefined}
                     onSelect={() => trash.mutate({ ws, id: s.id }, { onSuccess: () => {
                       qc.invalidateQueries({ queryKey: getListEndpointsQueryKey(ws) });
                       navigate(`/w/${ws}/endpoints`);
                     } })}>
-                    Move to trash
+                    {t("Move to trash")}
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -180,38 +183,38 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
       />
       <Tabs value={tab} onValueChange={goTab}>
         <TabsList>
-          <TabsTrigger value="query">Query</TabsTrigger>
-          {canAuthor && <TabsTrigger value="try">Try it</TabsTrigger>}
-          <TabsTrigger value="tests">Tests</TabsTrigger>
-          <TabsTrigger value="settings">Settings</TabsTrigger>
-          <TabsTrigger value="access">Access</TabsTrigger>
-          <TabsTrigger value="versions">Versions</TabsTrigger>
+          <TabsTrigger value="query">{t("Query")}</TabsTrigger>
+          {canAuthor && <TabsTrigger value="try">{t("Try it")}</TabsTrigger>}
+          <TabsTrigger value="tests">{t("Tests")}</TabsTrigger>
+          <TabsTrigger value="settings">{t("Settings")}</TabsTrigger>
+          <TabsTrigger value="access">{t("Access")}</TabsTrigger>
+          <TabsTrigger value="versions">{t("Versions")}</TabsTrigger>
         </TabsList>
         <TabsContent value="query" className="space-y-4 pt-4">
           <div className="flex flex-wrap items-center gap-3">
-            <Label htmlFor="ep-datasource">Datasource</Label>
+            <Label htmlFor="ep-datasource">{t("Datasource")}</Label>
             <Select value={form.definition.task.datasourceId ?? ""} disabled={!canAuthor}
               onValueChange={(v) => setForm({ ...form, definition: { ...form.definition, task: { ...form.definition.task, datasourceId: v } } })}>
-              <SelectTrigger id="ep-datasource" className="w-64"><SelectValue placeholder="Choose a datasource" /></SelectTrigger>
+              <SelectTrigger id="ep-datasource" className="w-64"><SelectValue placeholder={t("Choose a datasource")} /></SelectTrigger>
               <SelectContent>
                 {(datasources.data ?? []).map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Label htmlFor="ep-language">Language</Label>
+            <Label htmlFor="ep-language">{t("Language")}</Label>
             <Select value={script ? "groovy" : "sql"} disabled={!canAuthor || !canScript}
               onValueChange={(v) => setForm({ ...form, definition: withLanguage(form.definition, v === "groovy") })}>
               <SelectTrigger id="ep-language" className="w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="sql">SQL template</SelectItem>
-                <SelectItem value="groovy">Groovy script</SelectItem>
+                <SelectItem value="sql">{t("SQL template")}</SelectItem>
+                <SelectItem value="groovy">{t("Groovy script")}</SelectItem>
               </SelectContent>
             </Select>
             {script && !canScript && (
-              <span className="text-sm text-muted-foreground">Only script authors can change or preview the script.</span>
+              <span className="text-sm text-muted-foreground">{t("Only script authors can change or preview the script.")}</span>
             )}
           </div>
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)]">
-            <div className="h-[22rem] overflow-hidden rounded-md border" aria-label={script ? "Groovy script" : "SQL template"}>
+            <div className="h-[22rem] overflow-hidden rounded-md border" aria-label={script ? t("Groovy script") : t("SQL template")}>
               <MonacoEditor
                 language={script ? "java" : "sql"}
                 value={mainSql(form.definition)}
@@ -255,6 +258,7 @@ function PublishDialog({ ws, id, open, onOpenChange, onPublished, validating, va
   validating: boolean; validation: ValidationView | null; validationError: string | null;
 }) {
   const publish = usePublishEndpoint();
+  const { t } = useTranslation();
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -262,26 +266,26 @@ function PublishDialog({ ws, id, open, onOpenChange, onPublished, validating, va
     <Dialog open={open} onOpenChange={(o) => { if (!o) setError(null); onOpenChange(o); }}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Publish a new version</DialogTitle>
-          <DialogDescription>The saved draft is frozen as a new version and served at once.</DialogDescription>
+          <DialogTitle>{t("Publish a new version")}</DialogTitle>
+          <DialogDescription>{t("The saved draft is frozen as a new version and served at once.")}</DialogDescription>
         </DialogHeader>
-        {validating && <p className="text-sm text-muted-foreground">Checking the draft…</p>}
+        {validating && <p className="text-sm text-muted-foreground">{t("Checking the draft…")}</p>}
         {validation && <FindingsList findings={validation.findings} />}
         {validation?.ok && (
           <div className="space-y-1">
-            <Label htmlFor="publish-note">Note (optional)</Label>
-            <Input id="publish-note" value={note} maxLength={500} placeholder="What changed" onChange={(e) => setNote(e.target.value)} />
+            <Label htmlFor="publish-note">{t("Note (optional)")}</Label>
+            <Input id="publish-note" value={note} maxLength={500} placeholder={t("What changed")} onChange={(e) => setNote(e.target.value)} />
           </div>
         )}
         {(error ?? validationError) && <p role="alert" className="text-sm text-destructive">{error ?? validationError}</p>}
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={!validation?.ok || publish.isPending} title={validation && !validation.ok ? "Fix the errors above first" : undefined}
+          <Button variant="outline" onClick={() => onOpenChange(false)}>{t("Cancel")}</Button>
+          <Button disabled={!validation?.ok || publish.isPending} title={validation && !validation.ok ? t("Fix the errors above first") : undefined}
             onClick={() => publish.mutate({ ws, id, data: { note: note.trim() || null } }, {
-              onSuccess: (v) => { toast.success(`Version ${v.version} is live.`); setNote(""); onOpenChange(false); onPublished(); },
+              onSuccess: (v) => { toast.success(t("Version {{version}} is live.", { version: v.version })); setNote(""); onOpenChange(false); onPublished(); },
               onError: (e) => setError(errorMessage(e)),
             })}>
-            Publish
+            {t("Publish")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { ScrollText } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import type { AuditEntry } from "@/api/generated/model";
 import { QueryBoundary } from "@/components/QueryBoundary";
@@ -13,9 +14,9 @@ import { formatDateTime } from "@/lib/format";
 const PAGE = 50;
 
 /** Plain-text summary of an entry's detail object, for one table cell. */
-function summarize(detail: AuditEntry["detail"]): string {
+function summarize(detail: AuditEntry["detail"], none: string): string {
   return Object.entries(detail ?? {})
-    .map(([k, v]) => `${k}: ${Array.isArray(v) ? (v.length ? v.join("; ") : "none") : String(v)}`)
+    .map(([k, v]) => `${k}: ${Array.isArray(v) ? (v.length ? v.join("; ") : none) : String(v)}`)
     .join(" · ");
 }
 
@@ -31,6 +32,7 @@ export function AuditTable({
   fetchPage: (params: { action?: string; before?: number; limit: number }) => Promise<AuditEntry[]>;
 }) {
   const [action, setAction] = useState("");
+  const { t } = useTranslation();
   const query = useInfiniteQuery({
     queryKey: [...queryKey, action],
     initialPageParam: undefined as number | undefined,
@@ -42,20 +44,23 @@ export function AuditTable({
     <div className="space-y-3">
       <Input
         type="search"
-        aria-label="Filter by action"
-        placeholder="Filter by action, e.g. auth. or member."
+        aria-label={t("Filter by action")}
+        placeholder={t("Filter by action, e.g. auth. or member.")}
         className="w-72"
         value={action}
         onChange={(e) => setAction(e.target.value.trim())}
       />
-      <QueryBoundary query={query} what="the audit log">
+      <QueryBoundary query={query} what={t("the audit log")}>
         {(data) => {
           const entries = data.pages.flat();
           if (entries.length === 0) {
             return action ? (
-              <EmptyState title={`No entries starting with “${action}”`} description="Clear the filter to see everything." />
+              <EmptyState
+                title={t("No entries starting with “{{action}}”", { action })}
+                description={t("Clear the filter to see everything.")}
+              />
             ) : (
-              <EmptyState variant="dashed" icon={ScrollText} title="Nothing recorded yet" />
+              <EmptyState variant="dashed" icon={ScrollText} title={t("Nothing recorded yet")} />
             );
           }
           return (
@@ -64,24 +69,24 @@ export function AuditTable({
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Time</TableHead>
-                      <TableHead>Who</TableHead>
-                      <TableHead>Action</TableHead>
-                      <TableHead>Target</TableHead>
-                      <TableHead>Details</TableHead>
+                      <TableHead>{t("Time")}</TableHead>
+                      <TableHead>{t("Who")}</TableHead>
+                      <TableHead>{t("Action")}</TableHead>
+                      <TableHead>{t("Target")}</TableHead>
+                      <TableHead>{t("Details")}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {entries.map((e) => (
                       <TableRow key={e.id}>
                         <TableCell className="tabular-nums">{formatDateTime(e.ts)}</TableCell>
-                        <TableCell>{e.username ?? <span className="text-muted-foreground">anonymous</span>}</TableCell>
+                        <TableCell>{e.username ?? <span className="text-muted-foreground">{t("anonymous")}</span>}</TableCell>
                         <TableCell className="font-mono text-xs">{e.action}</TableCell>
                         <TableCell className="max-w-48 truncate text-xs" title={e.targetId ?? undefined}>
                           {e.targetType ? `${e.targetType}: ${e.targetId ?? ""}` : "—"}
                         </TableCell>
                         <TableCell className="max-w-md whitespace-normal break-words text-xs text-muted-foreground">
-                          {summarize(e.detail)}
+                          {summarize(e.detail, t("none"))}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -90,7 +95,7 @@ export function AuditTable({
               </div>
               {query.hasNextPage && (
                 <Button variant="outline" disabled={query.isFetchingNextPage} onClick={() => query.fetchNextPage()}>
-                  Load older entries
+                  {t("Load older entries")}
                 </Button>
               )}
             </>

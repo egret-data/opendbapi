@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import { useListDialects, useTestDatasourceSettings } from "@/api/generated/datasources/datasources";
 import type { DatasourceTestResult } from "@/api/generated/model";
@@ -32,6 +33,7 @@ export function DatasourceFields({
   hasPassword?: boolean;
   passwordEnv?: string | null;
 }) {
+  const { t } = useTranslation();
   const dialects = useListDialects(ws);
   const info = dialects.data?.find((d) => d.dialect === form.dialect);
   const allowed = info?.allowedProperties ?? [];
@@ -39,23 +41,25 @@ export function DatasourceFields({
   const setProperty = (i: number, patch: Partial<DatasourceForm["properties"][number]>) =>
     set({ properties: form.properties.map((p, j) => (j === i ? { ...p, ...patch } : p)) });
   const passwordHelp = hasPassword
-    ? `Stored${passwordEnv ? ` as ${passwordEnv}` : " encrypted"}. Leave empty to keep it.`
-    : "Saved encrypted. Or type env:NAME to read it from the server's environment.";
+    ? passwordEnv
+      ? t("Stored as {{env}}. Leave empty to keep it.", { env: passwordEnv })
+      : t("Stored encrypted. Leave empty to keep it.")
+    : t("Saved encrypted. Or type env:NAME to read it from the server's environment.");
 
   return (
     <fieldset disabled={disabled} className="min-w-0">
       <ConfigTable valueClassName="w-96" detailsClassName="max-w-prose">
-        <ConfigTableGroup label="Datasource" />
-        <ConfigTableRow label="Name" htmlFor="ds-name" details="How endpoints and people refer to it; unique in the workspace">
+        <ConfigTableGroup label={t("Datasource")} />
+        <ConfigTableRow label={t("Name")} htmlFor="ds-name" details={t("How endpoints and people refer to it; unique in the workspace")}>
           <Input id="ds-name" value={form.name} required maxLength={120} onChange={(e) => set({ name: e.target.value })} />
         </ConfigTableRow>
-        <ConfigTableRow label="Description" htmlFor="ds-description" details="Optional">
+        <ConfigTableRow label={t("Description")} htmlFor="ds-description" details={t("Optional")}>
           <Textarea id="ds-description" rows={2} value={form.description} maxLength={1000}
             onChange={(e) => set({ description: e.target.value })} />
         </ConfigTableRow>
 
-        <ConfigTableGroup label="Connection" />
-        <ConfigTableRow label="Database type" htmlFor="ds-dialect" details="Drivers for these are built in">
+        <ConfigTableGroup label={t("Connection")} />
+        <ConfigTableRow label={t("Database type")} htmlFor="ds-dialect" details={t("Drivers for these are built in")}>
           <Select value={form.dialect} onValueChange={(v) => set({ dialect: v as Dialect, properties: [] })} disabled={disabled}>
             <SelectTrigger id="ds-dialect" className="w-full">
               <SelectValue />
@@ -69,27 +73,28 @@ export function DatasourceFields({
             </SelectContent>
           </Select>
         </ConfigTableRow>
-        <ConfigTableRow label="Host" htmlFor="ds-host" details="Host name or IP address, without port">
+        <ConfigTableRow label={t("Host")} htmlFor="ds-host" details={t("Host name or IP address, without port")}>
           <Input id="ds-host" className="font-mono text-xs" value={form.host} required placeholder="db.corp.local"
             onChange={(e) => set({ host: e.target.value })} />
         </ConfigTableRow>
-        <ConfigTableRow label="Port" htmlFor="ds-port" details={`Leave empty for the default${info ? ` (${info.defaultPort})` : ""}`}>
+        <ConfigTableRow label={t("Port")} htmlFor="ds-port"
+          details={info ? t("Leave empty for the default ({{port}})", { port: info.defaultPort }) : t("Leave empty for the default")}>
           <Input id="ds-port" type="number" min={1} max={65535} className="w-32 tabular-nums" value={form.port}
             placeholder={info ? String(info.defaultPort) : undefined} onChange={(e) => set({ port: e.target.value })} />
         </ConfigTableRow>
-        <ConfigTableRow label={DATABASE_LABEL[form.dialect]} htmlFor="ds-database"
-          details={form.dialect === "ORACLE" ? "The service name, e.g. ORCLPDB1" : "The database to connect to"}>
+        <ConfigTableRow label={t(DATABASE_LABEL[form.dialect])} htmlFor="ds-database"
+          details={form.dialect === "ORACLE" ? t("The service name, e.g. ORCLPDB1") : t("The database to connect to")}>
           <Input id="ds-database" className="font-mono text-xs" value={form.database} required
             onChange={(e) => set({ database: e.target.value })} />
         </ConfigTableRow>
-        <ConfigTableRow label="Driver properties"
-          details={allowed.length ? "Only properties that are safe to set are offered" : "None can be set for this database"}>
+        <ConfigTableRow label={t("Driver properties")}
+          details={allowed.length ? t("Only properties that are safe to set are offered") : t("None can be set for this database")}>
           <div className="space-y-2">
             {form.properties.map((p, i) => (
               <div key={i} className="flex items-center gap-2">
                 <Select value={p.key} onValueChange={(v) => setProperty(i, { key: v })} disabled={disabled}>
-                  <SelectTrigger className="w-44" aria-label={`Property ${i + 1} name`}>
-                    <SelectValue placeholder="Property" />
+                  <SelectTrigger className="w-44" aria-label={t("Property {{number}} name", { number: i + 1 })}>
+                    <SelectValue placeholder={t("Property")} />
                   </SelectTrigger>
                   <SelectContent>
                     {allowed.map((k) => (
@@ -99,9 +104,9 @@ export function DatasourceFields({
                     ))}
                   </SelectContent>
                 </Select>
-                <Input aria-label={`Property ${i + 1} value`} className="font-mono text-xs" value={p.value}
+                <Input aria-label={t("Property {{number}} value", { number: i + 1 })} className="font-mono text-xs" value={p.value}
                   onChange={(e) => setProperty(i, { value: e.target.value })} />
-                <Button type="button" variant="ghost" size="icon" aria-label={`Remove property ${i + 1}`}
+                <Button type="button" variant="ghost" size="icon" aria-label={t("Remove property {{number}}", { number: i + 1 })}
                   onClick={() => set({ properties: form.properties.filter((_, j) => j !== i) })}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -111,39 +116,40 @@ export function DatasourceFields({
               <Button type="button" variant="outline" size="sm"
                 onClick={() => set({ properties: [...form.properties, { key: "", value: "" }] })}>
                 <Plus aria-hidden="true" />
-                Add property
+                {t("Add property")}
               </Button>
             )}
           </div>
         </ConfigTableRow>
 
-        <ConfigTableGroup label="Credentials" />
-        <ConfigTableRow label="Username" htmlFor="ds-username" details="Prefer an account that can only read what endpoints need">
+        <ConfigTableGroup label={t("Credentials")} />
+        <ConfigTableRow label={t("Username")} htmlFor="ds-username" details={t("Prefer an account that can only read what endpoints need")}>
           <Input id="ds-username" value={form.username} required autoComplete="off" onChange={(e) => set({ username: e.target.value })} />
         </ConfigTableRow>
-        <ConfigTableRow label="Password" htmlFor="ds-password" details={passwordHelp}>
+        <ConfigTableRow label={t("Password")} htmlFor="ds-password" details={passwordHelp}>
           <Input id="ds-password" type="password" autoComplete="new-password" value={form.password}
             placeholder={hasPassword ? "••••••••" : undefined} required={!hasPassword}
             onChange={(e) => set({ password: e.target.value })} />
         </ConfigTableRow>
 
-        <ConfigTableGroup label="Pool" />
-        <ConfigTableRow label="Maximum connections" htmlFor="ds-max" details="Per server instance, 1 to 50">
+        <ConfigTableGroup label={t("Pool")} />
+        <ConfigTableRow label={t("Maximum connections")} htmlFor="ds-max" details={t("Per server instance, 1 to 50")}>
           <Input id="ds-max" type="number" min={1} max={50} className="w-32 tabular-nums" value={form.maximumPoolSize}
             onChange={(e) => set({ maximumPoolSize: e.target.value })} />
         </ConfigTableRow>
-        <ConfigTableRow label="Idle connections kept" htmlFor="ds-min" details="0 opens connections only when needed">
+        <ConfigTableRow label={t("Idle connections kept")} htmlFor="ds-min" details={t("0 opens connections only when needed")}>
           <Input id="ds-min" type="number" min={0} max={50} className="w-32 tabular-nums" value={form.minimumIdle}
             onChange={(e) => set({ minimumIdle: e.target.value })} />
         </ConfigTableRow>
-        <ConfigTableRow label="Connection timeout" htmlFor="ds-timeout" unit="milliseconds" details="How long a request waits for a free connection">
+        <ConfigTableRow label={t("Connection timeout")} htmlFor="ds-timeout" unit={t("milliseconds")}
+          details={t("How long a request waits for a free connection")}>
           <Input id="ds-timeout" type="number" min={250} max={60000} className="w-32 tabular-nums" value={form.connectionTimeoutMs}
             onChange={(e) => set({ connectionTimeoutMs: e.target.value })} />
         </ConfigTableRow>
 
-        <ConfigTableGroup label="Safety" />
-        <ConfigTableRow label="Read only" htmlFor="ds-readonly"
-          details="Endpoints cannot publish SQL that writes, and PostgreSQL, MySQL and MariaDB sessions are opened read-only. A read-only database account is still the stronger guarantee, and the only one for SQL Server and Oracle.">
+        <ConfigTableGroup label={t("Safety")} />
+        <ConfigTableRow label={t("Read only")} htmlFor="ds-readonly"
+          details={t("Endpoints cannot publish SQL that writes, and PostgreSQL, MySQL and MariaDB sessions are opened read-only. A read-only database account is still the stronger guarantee, and the only one for SQL Server and Oracle.")}>
           <Switch id="ds-readonly" checked={form.readOnly} onCheckedChange={(v) => set({ readOnly: v })} />
         </ConfigTableRow>
       </ConfigTable>
@@ -153,6 +159,7 @@ export function DatasourceFields({
 
 /** Tries the settings on screen (saved password reused when the field is empty). */
 export function TestConnection({ ws, form, existingId }: { ws: string; form: DatasourceForm; existingId?: string }) {
+  const { t } = useTranslation();
   const test = useTestDatasourceSettings();
   const [result, setResult] = useState<DatasourceTestResult | null>(null);
   return (
@@ -172,12 +179,12 @@ export function TestConnection({ ws, form, existingId }: { ws: string; form: Dat
           );
         }}
       >
-        {test.isPending ? "Testing…" : "Test connection"}
+        {test.isPending ? t("Testing…") : t("Test connection")}
       </Button>
       {result && (
         <Alert variant={result.ok ? "default" : "destructive"}>
           <AlertDescription className="break-words">
-            <span className="font-medium">{result.ok ? "Connected. " : "Could not connect. "}</span>
+            <span className="font-medium">{result.ok ? t("Connected.") : t("Could not connect.")} </span>
             {result.ok ? result.message : result.message.replace(/^Could not connect: /, "")}
           </AlertDescription>
         </Alert>

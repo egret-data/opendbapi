@@ -1,5 +1,6 @@
 import React, { Suspense, type ReactNode } from "react";
 import { RotateCw } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
@@ -31,25 +32,32 @@ class LazyAreaErrorBoundary extends React.Component<
   }
   render() {
     if (this.state.error) {
-      return (
-        <div className="p-4">
-          <Alert variant="destructive">
-            <AlertDescription className="flex flex-wrap items-center gap-3">
-              <span>
-                The {this.props.area} pages could not be loaded. The app may have been updated
-                since you opened it. Reload the page to try again.
-              </span>
-              <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
-                <RotateCw aria-hidden="true" />
-                Reload page
-              </Button>
-            </AlertDescription>
-          </Alert>
-        </div>
-      );
+      return <LazyAreaError area={this.props.area} />;
     }
     return this.props.children;
   }
+}
+
+function LazyAreaError({ area }: { area: string }) {
+  const { t } = useTranslation();
+  return (
+    <div className="p-4">
+      <Alert variant="destructive">
+        <AlertDescription className="flex flex-wrap items-center gap-3">
+          <span>
+            {t(
+              "The {{area}} pages could not be loaded. The app may have been updated since you opened it. Reload the page to try again.",
+              { area: t(area) },
+            )}
+          </span>
+          <Button variant="outline" size="sm" onClick={() => window.location.reload()}>
+            <RotateCw aria-hidden="true" />
+            {t("Reload page")}
+          </Button>
+        </AlertDescription>
+      </Alert>
+    </div>
+  );
 }
 
 /**

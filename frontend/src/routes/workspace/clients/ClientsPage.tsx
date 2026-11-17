@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { KeyRound, Plus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 
 import {
   getListServiceAccountsQueryKey,
@@ -29,36 +30,37 @@ export default function ClientsPage() {
   const isAdmin = hasRole(effectiveRole(me, ws) ?? "viewer", "admin");
   const query = useListServiceAccounts(ws);
   const [creating, setCreating] = useState(false);
+  const { t } = useTranslation();
 
   const newButton = isAdmin ? (
     <Button onClick={() => setCreating(true)}>
       <Plus aria-hidden="true" />
-      New service account
+      {t("New service account")}
     </Button>
   ) : undefined;
 
   return (
     <ListPageShell
-      title="Clients"
-      description="A service account is a caller. Give it clients (credentials) and grants (endpoints it may call)."
+      title={t("Clients")}
+      description={t("A service account is a caller. Give it clients (credentials) and grants (endpoints it may call).")}
       action={newButton}
     >
       <QueryBoundary query={query} what="service accounts">
         {(accounts) =>
           accounts.length === 0 ? (
-            <EmptyState variant="dashed" icon={KeyRound} title="No service accounts yet"
-              description={isAdmin ? "Create one for each system that calls your private endpoints." : "Workspace admins create service accounts."}
+            <EmptyState variant="dashed" icon={KeyRound} title={t("No service accounts yet")}
+              description={isAdmin ? t("Create one for each system that calls your private endpoints.") : t("Workspace admins create service accounts.")}
               action={newButton} />
           ) : (
             <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Active clients</TableHead>
-                    <TableHead>Grants</TableHead>
-                    <TableHead>Last token</TableHead>
+                    <TableHead>{t("Name")}</TableHead>
+                    <TableHead>{t("Status")}</TableHead>
+                    <TableHead>{t("Active clients")}</TableHead>
+                    <TableHead>{t("Grants")}</TableHead>
+                    <TableHead>{t("Last token")}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -69,11 +71,11 @@ export default function ClientsPage() {
                         {a.description && <p className="max-w-md truncate text-xs text-muted-foreground">{a.description}</p>}
                       </TableCell>
                       <TableCell>
-                        <StatusBadge tone={a.disabled ? "inactive" : "success"}>{a.disabled ? "Disabled" : "Active"}</StatusBadge>
+                        <StatusBadge tone={a.disabled ? "inactive" : "success"}>{a.disabled ? t("Disabled") : t("Active")}</StatusBadge>
                       </TableCell>
                       <TableCell className="tabular-nums">{a.clientCount}</TableCell>
                       <TableCell className="tabular-nums">{a.grantCount}</TableCell>
-                      <TableCell className="tabular-nums">{a.lastUsedAt ? formatDateTime(a.lastUsedAt) : "Never"}</TableCell>
+                      <TableCell className="tabular-nums">{a.lastUsedAt ? formatDateTime(a.lastUsedAt) : t("Never")}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -94,6 +96,7 @@ function CreateDialog({ ws, open, onOpenChange }: { ws: string; open: boolean; o
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const { t } = useTranslation();
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
@@ -115,21 +118,21 @@ function CreateDialog({ ws, open, onOpenChange }: { ws: string; open: boolean; o
       <DialogContent>
         <form onSubmit={submit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>New service account</DialogTitle>
-            <DialogDescription>Name it after the system that will call the API.</DialogDescription>
+            <DialogTitle>{t("New service account")}</DialogTitle>
+            <DialogDescription>{t("Name it after the system that will call the API.")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-1">
-            <Label htmlFor="sa-name">Name</Label>
+            <Label htmlFor="sa-name">{t("Name")}</Label>
             <Input id="sa-name" required maxLength={120} value={name} placeholder="billing-service" onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-1">
-            <Label htmlFor="sa-desc">Description (optional)</Label>
+            <Label htmlFor="sa-desc">{t("Description (optional)")}</Label>
             <Textarea id="sa-desc" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} />
           </div>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={create.isPending}>Create</Button>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>{t("Cancel")}</Button>
+            <Button type="submit" disabled={create.isPending}>{t("Create")}</Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -2,6 +2,8 @@ import { useEffect, useId, useState, type FormEvent } from "react";
 import { Info, UserPlus, Users } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 
 import { authKeys, useMe, type WorkspaceRole } from "@/api/auth";
 import {
@@ -29,11 +31,11 @@ import { errorMessage } from "@/lib/errors";
 import { ROLE_HINT, ROLE_LABEL, ROLE_ORDER } from "@/lib/roles";
 
 /** Why the caller cannot change this member, or null when they can (FE-ACTION-4). */
-function lockReason(member: MemberView, myRole: WorkspaceRole, ownerCount: number): string | null {
-  if (member.fromMapping) return "This role comes from a directory group mapping. Change the group or the mapping.";
-  if (!hasRole(myRole, "admin")) return "Only workspace admins can change members.";
-  if (member.role === "owner" && myRole !== "owner") return "Only an owner can change another owner.";
-  if (member.role === "owner" && ownerCount <= 1) return "A workspace needs at least one owner. Make someone else owner first.";
+function lockReason(t: TFunction, member: MemberView, myRole: WorkspaceRole, ownerCount: number): string | null {
+  if (member.fromMapping) return t("This role comes from a directory group mapping. Change the group or the mapping.");
+  if (!hasRole(myRole, "admin")) return t("Only workspace admins can change members.");
+  if (member.role === "owner" && myRole !== "owner") return t("Only an owner can change another owner.");
+  if (member.role === "owner" && ownerCount <= 1) return t("A workspace needs at least one owner. Make someone else owner first.");
   return null;
 }
 
@@ -41,6 +43,7 @@ export function MembersSection({ ws, role }: { ws: string; role: WorkspaceRole }
   const query = useListMembers(ws);
   const qc = useQueryClient();
   const { data: me } = useMe();
+  const { t } = useTranslation();
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<MemberView | null>(null);
   const invalidate = () => {
@@ -56,33 +59,33 @@ export function MembersSection({ ws, role }: { ws: string; role: WorkspaceRole }
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          People can also get roles from directory groups; those rows are marked and can only be changed through the mapping.
+          {t("People can also get roles from directory groups; those rows are marked and can only be changed through the mapping.")}
         </p>
         {canManage && (
           <Button onClick={() => setAdding(true)}>
             <UserPlus aria-hidden="true" />
-            Add member
+            {t("Add member")}
           </Button>
         )}
       </div>
       <QueryBoundary query={query} what="members">
         {(members) =>
           members.length === 0 ? (
-            <EmptyState variant="dashed" icon={Users} title="No members" />
+            <EmptyState variant="dashed" icon={Users} title={t("No members")} />
           ) : (
             <div className="overflow-x-auto rounded-md border">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Member</TableHead>
-                    <TableHead>Sign-in</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead className="w-24"><span className="sr-only">Remove</span></TableHead>
+                    <TableHead>{t("Member")}</TableHead>
+                    <TableHead>{t("Sign-in")}</TableHead>
+                    <TableHead>{t("Role")}</TableHead>
+                    <TableHead className="w-24"><span className="sr-only">{t("Remove")}</span></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {members.map((m) => {
-                    const reason = lockReason(m, role, members.filter((x) => x.role === "owner").length);
+                    const reason = lockReason(t, m, role, members.filter((x) => x.role === "owner").length);
                     const roleSelect = (
                       <Select
                         value={m.role}
@@ -91,19 +94,19 @@ export function MembersSection({ ws, role }: { ws: string; role: WorkspaceRole }
                           change.mutate(
                             { ws, userId: m.userId, data: { role: next as WorkspaceRole } },
                             {
-                              onSuccess: () => toast.success(`${m.displayName ?? m.username} is now ${ROLE_LABEL[next as WorkspaceRole]}.`),
+                              onSuccess: () => toast.success(t("{{name}} is now {{role}}.", { name: m.displayName ?? m.username, role: t(ROLE_LABEL[next as WorkspaceRole]) })),
                               onError: (e) => toast.error(errorMessage(e)),
                             },
                           )
                         }
                       >
-                        <SelectTrigger className="w-40" aria-label={`Role of ${m.username}`}>
+                        <SelectTrigger className="w-40" aria-label={t("Role of {{name}}", { name: m.username })}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
                           {(m.role === "owner" && role !== "owner" ? ROLE_ORDER.slice().reverse() : grantable).map((r) => (
                             <SelectItem key={r} value={r}>
-                              {ROLE_LABEL[r]}
+                              {t(ROLE_LABEL[r])}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -114,7 +117,7 @@ export function MembersSection({ ws, role }: { ws: string; role: WorkspaceRole }
                         <TableCell>
                           <div className="font-medium">
                             {m.displayName ?? m.username}
-                            {m.userId === me?.id && <span className="ml-1 text-xs text-muted-foreground">(you)</span>}
+                            {m.userId === me?.id && <span className="ml-1 text-xs text-muted-foreground">{t("(you)")}</span>}
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {m.username}
@@ -125,17 +128,17 @@ export function MembersSection({ ws, role }: { ws: string; role: WorkspaceRole }
                           {m.source.toUpperCase()}
                           {m.fromMapping && (
                             <StatusBadge tone="neutral" className="ml-2">
-                              From group
+                              {t("From group")}
                             </StatusBadge>
                           )}
                         </TableCell>
                         <TableCell>
                           {reason ? (
                             <span className="inline-flex items-center gap-1">
-                              {ROLE_LABEL[m.role]}
+                              {t(ROLE_LABEL[m.role])}
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <Button variant="ghost" size="iconSm" aria-label={`Why the role of ${m.username} is locked`}>
+                                  <Button variant="ghost" size="iconSm" aria-label={t("Why the role of {{name}} is locked", { name: m.username })}>
                                     <Info className="h-3.5 w-3.5" />
                                   </Button>
                                 </TooltipTrigger>
@@ -149,7 +152,7 @@ export function MembersSection({ ws, role }: { ws: string; role: WorkspaceRole }
                         <TableCell>
                           {reason === null && (
                             <Button variant="ghost" size="sm" onClick={() => setRemoving(m)}>
-                              Remove
+                              {t("Remove")}
                             </Button>
                           )}
                         </TableCell>
@@ -169,9 +172,9 @@ export function MembersSection({ ws, role }: { ws: string; role: WorkspaceRole }
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(open) => !open && setRemoving(null)}
-        title={`Remove ${removing?.displayName ?? removing?.username ?? "member"}?`}
-        description={<p>They lose access to this workspace at once.</p>}
-        confirmLabel="Remove"
+        title={t("Remove {{name}}?", { name: removing?.displayName ?? removing?.username ?? t("member") })}
+        description={<p>{t("They lose access to this workspace at once.")}</p>}
+        confirmLabel={t("Remove")}
         destructive
         pending={remove.isPending}
         onConfirm={() =>
@@ -180,7 +183,7 @@ export function MembersSection({ ws, role }: { ws: string; role: WorkspaceRole }
             { ws, userId: removing.userId },
             {
               onSuccess: () => {
-                toast.success(`${removing.username} removed.`);
+                toast.success(t("{{name}} removed.", { name: removing.username }));
                 setRemoving(null);
               },
               onError: (e) => {
@@ -226,6 +229,7 @@ function AddMemberDialog({
   const add = useAddMember();
   const searchId = useId();
   const roleId = useId();
+  const { t } = useTranslation();
 
   const close = () => {
     setQ("");
@@ -243,7 +247,7 @@ function AddMemberDialog({
       { ws, data: { userId: picked.id, role } },
       {
         onSuccess: () => {
-          toast.success(`${picked.displayName ?? picked.username} added as ${ROLE_LABEL[role]}.`);
+          toast.success(t("{{name}} added as {{role}}.", { name: picked.displayName ?? picked.username, role: t(ROLE_LABEL[role]) }));
           onAdded();
           close();
         },
@@ -257,13 +261,13 @@ function AddMemberDialog({
       <DialogContent>
         <form onSubmit={submit} className="space-y-4">
           <DialogHeader>
-            <DialogTitle>Add member</DialogTitle>
+            <DialogTitle>{t("Add member")}</DialogTitle>
             <DialogDescription>
-              People from LDAP or SSO can be added after their first sign-in. To add whole groups, use a group mapping.
+              {t("People from LDAP or SSO can be added after their first sign-in. To add whole groups, use a group mapping.")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-1">
-            <Label htmlFor={searchId}>User</Label>
+            <Label htmlFor={searchId}>{t("User")}</Label>
             {picked ? (
               <div className="flex items-center justify-between rounded-md border px-3 py-2 text-sm">
                 <span>
@@ -273,7 +277,7 @@ function AddMemberDialog({
                   </span>
                 </span>
                 <Button type="button" variant="ghost" size="sm" onClick={() => setPicked(null)}>
-                  Change
+                  {t("Change")}
                 </Button>
               </div>
             ) : (
@@ -281,17 +285,17 @@ function AddMemberDialog({
                 <Input
                   id={searchId}
                   type="search"
-                  placeholder="Name, username or email"
+                  placeholder={t("Name, username or email")}
                   autoComplete="off"
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
                 />
                 {term && (
-                  <ul className="max-h-56 overflow-y-auto rounded-md border" aria-label="Matching users">
+                  <ul className="max-h-56 overflow-y-auto rounded-md border" aria-label={t("Matching users")}>
                     {results.isError && <li className="p-2 text-sm text-destructive">{errorMessage(results.error)}</li>}
-                    {results.isPending && <li className="p-2 text-sm text-muted-foreground">Searching…</li>}
+                    {results.isPending && <li className="p-2 text-sm text-muted-foreground">{t("Searching…")}</li>}
                     {results.data?.length === 0 && (
-                      <li className="p-2 text-sm text-muted-foreground">Nobody matches “{term}”.</li>
+                      <li className="p-2 text-sm text-muted-foreground">{t("Nobody matches “{{term}}”.", { term })}</li>
                     )}
                     {results.data?.map((u) => (
                       <li key={u.id}>
@@ -313,7 +317,7 @@ function AddMemberDialog({
             )}
           </div>
           <div className="space-y-1">
-            <Label htmlFor={roleId}>Role</Label>
+            <Label htmlFor={roleId}>{t("Role")}</Label>
             <Select value={role} onValueChange={(v) => setRole(v as WorkspaceRole)}>
               <SelectTrigger id={roleId} className="w-full">
                 <SelectValue />
@@ -321,7 +325,7 @@ function AddMemberDialog({
               <SelectContent>
                 {grantable.map((r) => (
                   <SelectItem key={r} value={r}>
-                    {ROLE_LABEL[r]} · <span className="text-muted-foreground">{ROLE_HINT[r]}</span>
+                    {t(ROLE_LABEL[r])} · <span className="text-muted-foreground">{t(ROLE_HINT[r])}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -334,10 +338,10 @@ function AddMemberDialog({
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={close}>
-              Cancel
+              {t("Cancel")}
             </Button>
-            <Button type="submit" disabled={!picked || add.isPending} title={!picked ? "Choose a user first" : undefined}>
-              Add member
+            <Button type="submit" disabled={!picked || add.isPending} title={!picked ? t("Choose a user first") : undefined}>
+              {t("Add member")}
             </Button>
           </DialogFooter>
         </form>

@@ -1,6 +1,8 @@
 import "@testing-library/jest-dom/vitest";
 import { beforeEach } from "vitest";
 
+import "./src/i18n";
+
 // jsdom lacks ResizeObserver; Radix Switch (via @radix-ui/react-use-size) needs it.
 if (typeof globalThis.ResizeObserver === "undefined") {
   globalThis.ResizeObserver = class ResizeObserver {
