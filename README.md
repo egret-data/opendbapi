@@ -36,6 +36,7 @@ backend/            Maven multi-module, Java 21, Spring Boot 3.3
   opendbapi-core/     schema (Flyway), workspace isolation, configuration
   opendbapi-admin/    management API under /admin/api
   opendbapi-serving/  published endpoints under /{context}/{workspace}/**
+  opendbapi-cli/      `opendbapi export|plan|apply` command line (no dependencies)
   opendbapi-app/      standalone Spring Boot app (bundles the UI)
 frontend/           React 19 + Vite + Tailwind v4 (shell and primitives from Egret)
 deploy/dev/         docker compose: PostgreSQL, OpenLDAP, Keycloak
@@ -174,6 +175,24 @@ helm install opendbapi deploy/helm/opendbapi \
 
 See `deploy/helm/opendbapi/values.yaml` for ingress, autoscaling, resources and extra
 environment (LDAP/OIDC settings).
+
+## Configuration as code
+
+A workspace exports as YAML (Settings → Import & export, or `opendbapi export`). Keep it in
+Git and apply it to other workspaces or installations; an environment maps the file's
+logical datasource names to the target's datasources.
+
+```bash
+export OPENDBAPI_URL=https://opendbapi.example.com OPENDBAPI_WORKSPACE=sales
+export OPENDBAPI_USER=deployer OPENDBAPI_PASSWORD=...
+docker run --rm -v "$PWD/api:/api" -e OPENDBAPI_URL -e OPENDBAPI_WORKSPACE -e OPENDBAPI_USER -e OPENDBAPI_PASSWORD \
+  ghcr.io/egret-data/opendbapi:0.1.0 plan --dir /api --env prod --publish --detailed-exitcode
+# then the same with: apply --dir /api --env prod --publish
+```
+
+`plan` changes nothing; `apply` writes everything in one transaction, then publishes each
+endpoint marked `state: live` only after its test cases pass. `--prune` also deletes what the
+files no longer list. See `docs/SPEC.md` §15.
 
 ## License
 

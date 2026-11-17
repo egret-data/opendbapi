@@ -127,6 +127,8 @@ jobs:
           npm ci --no-audit --no-fund
           npx playwright install --with-deps chromium
           npx playwright test
+      - name: Command line in the image
+        run: docker run --rm opendbapi:ci help | grep -q "Usage: opendbapi"
       - name: App log
         if: failure()
         run: docker logs opendbapi

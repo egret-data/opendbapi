@@ -18,6 +18,7 @@ import io.opendbapi.core.endpoint.test.EndpointTestStore;
 import io.opendbapi.core.workspace.WorkspaceScope;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -28,8 +29,8 @@ import org.springframework.stereotype.Service;
  * Writes a workspace as YAML documents (spec §15.1): Datasource, Group, Endpoint (the saved
  * draft, with its tests), ServiceAccount, Grant and DataPolicy. References use names, not ids,
  * so the file reads well in a review and can later be applied to another environment.
- * Secrets never appear: a datasource shows its {@code env:} reference at most, service
- * accounts carry no clients.
+ * Secrets never appear: a datasource shows its {@code env:}/{@code secret:} reference at most,
+ * service accounts carry no clients. {@link ConfigPlanner} compares these documents with a file.
  */
 @Service
 public class YamlExporter {
@@ -63,95 +64,125 @@ public class YamlExporter {
     }
 
     public String export(UUID workspaceId) {
-        return scope.call(workspaceId, () -> {
-            StringWriter out = new StringWriter();
-            out.write("# OpenDBAPI workspace export. Secrets are not included.\n");
-            Map<UUID, String> dsNames = new HashMap<>();
-            for (Datasource d : datasources.list()) {
-                dsNames.put(d.id(), d.name());
-                ObjectNode spec = json.valueToTree(d.config());
-                spec.put("readOnly", d.readOnly());
-                if (d.description() != null) {
-                    spec.put("description", d.description());
-                }
-                if (d.secretRef() != null && (d.secretRef().startsWith("env:") || d.secretRef().startsWith("secret:"))) {
-                    spec.put("passwordRef", d.secretRef());
-                }
-                write(out, "Datasource", meta(d.name(), null), spec);
+        StringWriter out = new StringWriter();
+        out.write("# OpenDBAPI workspace export. Secrets are not included.\n");
+        for (ConfigDocument d : scope.call(workspaceId, this::documents)) {
+            write(out, d);
+        }
+        return out.toString();
+    }
+
+    /** The workspace as documents, in {@link ConfigDocument#ORDER}; call inside the workspace scope. */
+    public List<ConfigDocument> documents() {
+        List<ConfigDocument> docs = new ArrayList<>();
+        Map<UUID, String> dsNames = new HashMap<>();
+        for (Datasource d : datasources.list()) {
+            dsNames.put(d.id(), d.name());
+            docs.add(doc(ConfigDocument.DATASOURCE, d.name(), meta(d.name(), null), datasourceSpec(d)));
+        }
+        Map<UUID, String> groupNames = new HashMap<>();
+        for (ApiGroupStore.ApiGroup g : groups.list()) {
+            groupNames.put(g.id(), g.name());
+            docs.add(doc(ConfigDocument.GROUP, g.name(), meta(g.name(), null), null));
+        }
+        Map<UUID, String> accountNames = new HashMap<>();
+        List<ServiceAccountStore.ServiceAccount> accountList = accounts.list();
+        for (ServiceAccountStore.ServiceAccount sa : accountList) {
+            accountNames.put(sa.id(), sa.name());
+            ObjectNode spec = json.createObjectNode();
+            if (sa.description() != null) {
+                spec.put("description", sa.description());
             }
-            Map<UUID, String> groupNames = new HashMap<>();
-            for (ApiGroupStore.ApiGroup g : groups.list()) {
-                groupNames.put(g.id(), g.name());
-                write(out, "Group", meta(g.name(), null), null);
-            }
-            Map<UUID, String> endpointNames = new HashMap<>();
-            for (Endpoint e : endpoints.list(new EndpointStore.Filter(null, null, null, null, false))) {
-                endpointNames.put(e.id(), e.method() + " /" + e.path());
-                ObjectNode spec = json.createObjectNode();
-                spec.put("method", e.method());
-                spec.put("path", e.path());
-                spec.put("access", e.access());
-                if (e.description() != null) {
-                    spec.put("description", e.description());
-                }
-                ObjectNode definition = json.valueToTree(e.definition());
-                ObjectNode task = (ObjectNode) definition.path("task");
-                JsonNode dsId = task.remove("datasourceId");
-                if (dsId != null && !dsId.isNull()) {
-                    spec.put("datasource", dsNames.getOrDefault(UUID.fromString(dsId.asText()), dsId.asText()));
-                }
-                spec.setAll(definition);
-                List<EndpointTestCase> cases = tests.list(e.id());
-                if (!cases.isEmpty()) {
-                    var array = spec.putArray("tests");
-                    for (EndpointTestCase t : cases) {
-                        ObjectNode tc = array.addObject();
-                        tc.put("name", t.name());
-                        tc.set("params", json.valueToTree(t.params()));
-                        tc.set("expect", json.valueToTree(t.expect()));
+            spec.put("disabled", sa.disabled());
+            spec.set("attributes", json.valueToTree(sa.attributes()));
+            docs.add(doc(ConfigDocument.SERVICE_ACCOUNT, sa.name(), meta(sa.name(), null), spec));
+        }
+        Map<UUID, String> endpointNames = new HashMap<>();
+        for (Endpoint e : endpoints.list(new EndpointStore.Filter(null, null, null, null, false))) {
+            String route = e.method() + " /" + e.path();
+            endpointNames.put(e.id(), route);
+            ObjectNode spec = endpointSpec(e.method(), e.path(), e.access(), e.description(), json.valueToTree(e.definition()), dsNames);
+            List<EndpointTestCase> cases = tests.list(e.id());
+            if (!cases.isEmpty()) {
+                var array = spec.putArray("tests");
+                for (EndpointTestCase t : cases) {
+                    ObjectNode tc = array.addObject();
+                    tc.put("name", t.name());
+                    if (t.serviceAccountId() != null) {
+                        tc.put("serviceAccount", accountNames.getOrDefault(t.serviceAccountId(), t.serviceAccountId().toString()));
                     }
-                }
-                ObjectNode metadata = meta(e.name(), e.groupId() == null ? null : groupNames.get(e.groupId()));
-                metadata.put("state", e.state());
-                write(out, "Endpoint", metadata, spec);
-            }
-            Map<UUID, String> accountNames = new HashMap<>();
-            for (ServiceAccountStore.ServiceAccount sa : accounts.list()) {
-                accountNames.put(sa.id(), sa.name());
-                ObjectNode spec = json.createObjectNode();
-                if (sa.description() != null) {
-                    spec.put("description", sa.description());
-                }
-                spec.put("disabled", sa.disabled());
-                spec.set("attributes", json.valueToTree(sa.attributes()));
-                write(out, "ServiceAccount", meta(sa.name(), null), spec);
-                for (ServiceAccountStore.Grant g : accounts.grants(sa.id())) {
-                    ObjectNode grant = json.createObjectNode().put("serviceAccount", sa.name());
-                    grant.put(g.resourceType(), "endpoint".equals(g.resourceType()) && g.detail() != null ? g.detail() : g.resourceName());
-                    write(out, "Grant", null, grant);
+                    tc.set("params", json.valueToTree(t.params()));
+                    tc.set("expect", json.valueToTree(t.expect()));
                 }
             }
-            for (DataPolicyStore.Stored s : policies.all()) {
-                DataPolicy p = s.policy();
-                ObjectNode spec = json.createObjectNode().put("kind", p.kind()).put("column", p.column());
-                if (p.datasourceId() != null) {
-                    spec.put("datasource", dsNames.get(p.datasourceId()));
-                }
-                if (p.endpointId() != null) {
-                    spec.put("endpoint", endpointNames.get(p.endpointId()));
-                }
-                if (p.mask() != null) {
-                    spec.set("mask", json.valueToTree(p.mask()));
-                }
-                if (p.attribute() != null) {
-                    spec.put("attribute", p.attribute());
-                }
-                var exempt = spec.putArray("exemptServiceAccounts");
-                p.exemptServiceAccounts().forEach(id -> exempt.add(accountNames.getOrDefault(id, id.toString())));
-                write(out, "DataPolicy", null, spec);
+            ObjectNode metadata = meta(e.name(), e.groupId() == null ? null : groupNames.get(e.groupId()));
+            metadata.put("state", e.state());
+            docs.add(doc(ConfigDocument.ENDPOINT, route, metadata, spec));
+        }
+        for (DataPolicyStore.Stored s : policies.all()) {
+            DataPolicy p = s.policy();
+            ObjectNode spec = json.createObjectNode().put("kind", p.kind()).put("column", p.column());
+            String ds = p.datasourceId() == null ? null : dsNames.get(p.datasourceId());
+            String ep = p.endpointId() == null ? null : endpointNames.get(p.endpointId());
+            if (ds != null) {
+                spec.put("datasource", ds);
             }
-            return out.toString();
-        });
+            if (ep != null) {
+                spec.put("endpoint", ep);
+            }
+            if (p.mask() != null) {
+                spec.set("mask", json.valueToTree(p.mask()));
+            }
+            if (p.attribute() != null) {
+                spec.put("attribute", p.attribute());
+            }
+            var exempt = spec.putArray("exemptServiceAccounts");
+            p.exemptServiceAccounts().forEach(id -> exempt.add(accountNames.getOrDefault(id, id.toString())));
+            docs.add(doc(ConfigDocument.DATA_POLICY, ConfigDocument.policyKey(p.kind(), p.column(), ds, ep), null, spec));
+        }
+        for (ServiceAccountStore.ServiceAccount sa : accountList) {
+            for (ServiceAccountStore.Grant g : accounts.grants(sa.id())) {
+                String target = "endpoint".equals(g.resourceType()) && g.detail() != null ? g.detail() : g.resourceName();
+                ObjectNode grant = json.createObjectNode().put("serviceAccount", sa.name()).put(g.resourceType(), target);
+                docs.add(doc(ConfigDocument.GRANT, ConfigDocument.grantKey(sa.name(), g.resourceType(), target), null, grant));
+            }
+        }
+        return docs;
+    }
+
+    /** A datasource as its document shows it: settings, never a password; only env:/secret: references. */
+    ObjectNode datasourceSpec(Datasource d) {
+        ObjectNode spec = json.valueToTree(d.config());
+        spec.put("readOnly", d.readOnly());
+        if (d.description() != null) {
+            spec.put("description", d.description());
+        }
+        if (d.secretRef() != null && (d.secretRef().startsWith("env:") || d.secretRef().startsWith("secret:"))) {
+            spec.put("passwordRef", d.secretRef());
+        }
+        return spec;
+    }
+
+    /** An endpoint's draft as its document shows it: the datasource by name instead of id. */
+    ObjectNode endpointSpec(String method, String path, String access, String description, ObjectNode definition, Map<UUID, String> dsNames) {
+        ObjectNode spec = json.createObjectNode();
+        spec.put("method", method);
+        spec.put("path", path);
+        spec.put("access", access);
+        if (description != null) {
+            spec.put("description", description);
+        }
+        ObjectNode task = (ObjectNode) definition.path("task");
+        JsonNode dsId = task.remove("datasourceId");
+        if (dsId != null && !dsId.isNull()) {
+            spec.put("datasource", dsNames.getOrDefault(UUID.fromString(dsId.asText()), dsId.asText()));
+        }
+        spec.setAll(definition);
+        return spec;
+    }
+
+    private static ConfigDocument doc(String kind, String key, ObjectNode metadata, ObjectNode spec) {
+        return new ConfigDocument(kind, key, metadata, spec == null ? null : (ObjectNode) stripNulls(spec));
     }
 
     private ObjectNode meta(String name, String group) {
@@ -162,13 +193,13 @@ public class YamlExporter {
         return m;
     }
 
-    private void write(StringWriter out, String kind, ObjectNode metadata, ObjectNode spec) {
-        ObjectNode doc = json.createObjectNode().put("apiVersion", API_VERSION).put("kind", kind);
-        if (metadata != null) {
-            doc.set("metadata", metadata);
+    private void write(StringWriter out, ConfigDocument d) {
+        ObjectNode doc = json.createObjectNode().put("apiVersion", API_VERSION).put("kind", d.kind());
+        if (d.metadata() != null) {
+            doc.set("metadata", d.metadata());
         }
-        if (spec != null) {
-            doc.set("spec", stripNulls(spec));
+        if (d.spec() != null) {
+            doc.set("spec", d.spec());
         }
         try {
             out.write("---\n");
@@ -179,7 +210,7 @@ public class YamlExporter {
     }
 
     /** Leaves out nulls and empty containers so the file shows only what was set. */
-    private static JsonNode stripNulls(JsonNode node) {
+    static JsonNode stripNulls(JsonNode node) {
         if (node instanceof ObjectNode o) {
             var it = o.fields();
             while (it.hasNext()) {
