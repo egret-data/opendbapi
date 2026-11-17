@@ -35,6 +35,11 @@ spring:
     placeholders:
       app_role: ${OPENDBAPI_DB_USER:opendbapi_app}
   # Directories are configured per identity provider (spec §8.5), never as one global LDAP.
+  session:
+    # Shared by all instances; the tables come from Flyway (V12).
+    jdbc:
+      initialize-schema: never
+      cleanup-cron: "0 */5 * * * *"
   autoconfigure:
     exclude:
       - org.springframework.boot.autoconfigure.ldap.LdapAutoConfiguration
