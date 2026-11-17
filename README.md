@@ -21,7 +21,7 @@ the full design is in [`docs/SPEC.md`](docs/SPEC.md).
 > with service account attributes; parameter rules; webhook alerts (Slack, Teams, Google Chat, JSON)
 > for failing endpoints; saved test cases per endpoint, optionally required to pass before publish; result
 > mapping (naming, types, nesting, single/scalar) and keyset pagination; a per-caller or shared result cache;
-> HMAC-signed requests and encrypted responses per client.
+> HMAC-signed requests and encrypted responses per client; Groovy fragment scripts in a sandbox (script authors only).
 
 ## Layout
 

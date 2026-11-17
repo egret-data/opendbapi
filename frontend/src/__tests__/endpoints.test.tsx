@@ -46,6 +46,11 @@ const common = {
 };
 
 describe("detectParams", () => {
+  it("finds the params a Groovy script reads", () => {
+    // Assert
+    expect(detectParams("if (params.min) q += sql\" and g >= ${params.min}\"\nparams['sort']")).toEqual(["min", "sort"]);
+  });
+
   it("finds placeholders, test variables and orderBy params but not bind or loop names", () => {
     // Arrange
     const sql = `<bind name="kw" value="'%' + q + '%'"/>
@@ -292,6 +297,40 @@ describe("Endpoints", () => {
     expect(sent.definition.cache).toEqual({ enabled: true, ttlSeconds: 120, scope: "client" });
     expect(sent.definition.pagination).toMatchObject({ enabled: true, mode: "keyset", keys: [{ column: "id", descending: false }] });
     expect(sent.definition.output).toEqual({ naming: "camelCase", shape: "list", types: { amount: "decimal_string" }, nest: [] });
+  });
+
+  it("script authors switch the query to a Groovy script; authors cannot run one", async () => {
+    // Arrange
+    const scripted = { ...DETAIL, definition: { ...DETAIL.definition,
+      task: { ...DETAIL.definition.task, type: "script", language: "groovy", mode: "fragment", source: "return sql\"select 1\"" } } };
+    const server = mockServer({
+      ...common,
+      "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "script_author" }] }),
+      "GET /admin/api/ws/sales/endpoints/e1": () => json(DETAIL),
+      "PATCH /admin/api/ws/sales/endpoints/e1": () => json(DETAIL),
+    });
+    const user = userEvent.setup();
+    const view = renderApp("/w/sales/endpoints/e1");
+
+    // Act
+    await user.click(await screen.findByLabelText("Language"));
+    await user.click(screen.getByRole("option", { name: "Groovy script" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    // Assert
+    await waitFor(() => expect(server.calls.some((c) => c.key === "PATCH /admin/api/ws/sales/endpoints/e1")).toBe(true));
+    const sent = JSON.parse(String(server.calls.find((c) => c.key === "PATCH /admin/api/ws/sales/endpoints/e1")!.init?.body));
+    expect(sent.definition.task).toMatchObject({ type: "script", language: "groovy", mode: "fragment" });
+    expect(sent.definition.task.source).toContain('sql"select 1 as ok"');
+    view.unmount();
+
+    // Arrange + Act: a plain author on a script endpoint
+    mockServer({ ...common, "GET /admin/api/me": () => json(meAs("author")), "GET /admin/api/ws/sales/endpoints/e1": () => json(scripted) });
+    renderApp("/w/sales/endpoints/e1");
+
+    // Assert
+    expect(await screen.findByText("Only script authors can change or preview the script.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Run" })).not.toBeInTheDocument();
   });
 
   it("saves parameter rules and the alert switch with the draft", async () => {

@@ -4,6 +4,7 @@ import io.opendbapi.admin.security.WorkspaceAccess;
 import io.opendbapi.core.audit.AuditLog;
 import io.opendbapi.core.endpoint.Endpoint;
 import io.opendbapi.core.endpoint.EndpointDefinition;
+import io.opendbapi.core.error.ApiProblem;
 import io.opendbapi.core.endpoint.EndpointService;
 import io.opendbapi.core.endpoint.EndpointStore;
 import io.opendbapi.core.endpoint.EndpointValidator;
@@ -188,6 +189,7 @@ public class EndpointController {
     @Operation(operationId = "updateEndpoint", summary = "Save the draft; callers keep getting the live version (author)")
     public EndpointDetail update(@PathVariable String ws, @PathVariable UUID id, @Valid @RequestBody UpdateEndpoint body) {
         var granted = access.require(ws, WorkspaceRole.AUTHOR);
+        requireScriptAuthor(granted, body.definition(), endpoints.get(granted.workspace().id(), id).definition());
         Endpoint updated = endpoints.update(granted.workspace().id(), id, new EndpointService.Draft(body.groupId(), body.name().strip(),
                 body.description(), body.method(), body.path(), body.access(), body.definition()));
         return EndpointDetail.of(updated);
@@ -285,11 +287,28 @@ public class EndpointController {
     public PreviewResponse preview(@PathVariable String ws, @PathVariable UUID id, @Valid @RequestBody PreviewRequest body) {
         var granted = access.require(ws, WorkspaceRole.AUTHOR);
         endpoints.get(granted.workspace().id(), id);
+        // Preview runs the on-screen script, so it needs the same role as writing one.
+        requireScriptAuthor(granted, body.definition(), null);
         EndpointService.Preview p = endpoints.preview(granted.workspace().id(), body.method(), body.path(), body.definition(),
                 body.params(), body.page(), body.size());
         QueryExecutor.QueryResult r = p.result();
         return new PreviewResponse(r.columns(), r.rows(), r.affectedRows(), r.truncated(), r.total(), r.hasNext(), r.durationMs(),
                 r.executed().stream().map(b -> new ExecutedSql(b.sql(), b.parameters())).toList(), p.findings());
+    }
+
+    /**
+     * Spec §7.4, §8.4: only script authors, admins and owners write or run Groovy. Saving other
+     * changes to an endpoint whose script stays the same is open to authors.
+     */
+    private static void requireScriptAuthor(WorkspaceAccess.Granted granted, EndpointDefinition incoming, EndpointDefinition saved) {
+        if (incoming == null || !incoming.task().script()) {
+            return;
+        }
+        boolean unchanged = saved != null && saved.task().script() && java.util.Objects.equals(saved.task().source(), incoming.task().source());
+        if (!unchanged && !granted.role().atLeast(WorkspaceRole.SCRIPT_AUTHOR)) {
+            throw ApiProblem.forbidden("Writing or running Groovy scripts needs the script_author role; you are %s."
+                    .formatted(granted.role().dbValue()));
+        }
     }
 
     private EndpointSummary lifecycle(String ws, UUID id, String action,
