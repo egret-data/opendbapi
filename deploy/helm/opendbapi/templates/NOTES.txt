@@ -15,4 +15,4 @@ The first pod printed a generated password once:
 {{- end }}{{ end }}
 
 Keep the master key safe: secrets stored in OpenDBAPI cannot be read without it.
-Rate limits and result caches are counted per pod.
+Result caches are kept per pod; rate limits are shared ({{ if .Values.rateLimit.shared }}on{{ else }}off: counted per pod{{ end }}).

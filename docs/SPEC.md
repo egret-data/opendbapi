@@ -143,7 +143,8 @@ Serving **không** nhận session cookie. Nhờ vậy, việc người dùng đ�
 - **Nhiều bản sao (scale ngang):** chạy N pod giống hệt nhau sau load balancer, không cần sticky session hay Redis.
   - Dùng chung qua PostgreSQL: session của UI (Spring Session JDBC), nonce HMAC (`request_nonce`).
   - Báo thay đổi giữa các pod bằng `LISTEN/NOTIFY` (kênh `opendbapi_changes`): route endpoint, cache kết quả, pool datasource, data policy và quyền của caller được xoá trên mọi pod ngay khi một pod thay đổi. Pod mất kết nối nghe thì khi nối lại sẽ xoá toàn bộ các cache này.
-  - Vẫn tính riêng từng pod: rate limit (giới hạn thực tế = giới hạn × số pod), cache kết quả, cửa sổ gộp cảnh báo.
+  - Rate limit dùng chung khi bật `opendbapi.rate-limit.shared=true` (Helm chart bật sẵn): token bucket nằm trong bảng `rate_bucket` (Flyway V17), mỗi lượt là một câu upsert nguyên tử vừa hồi token, vừa quyết định, vừa trừ token. Tắt (mặc định khi chạy một instance) thì mỗi pod tự đếm, giới hạn thực tế = giới hạn × số pod. Database lỗi thì tạm đếm trong bộ nhớ và ghi cảnh báo. Bucket không dùng quá 10 phút thì bị xoá.
+  - Vẫn tính riêng từng pod: cache kết quả, cửa sổ gộp cảnh báo.
   - Chế độ cluster tách `admin`/`serving` và Redis không còn trong kế hoạch.
 
 ### 3.3 Registry

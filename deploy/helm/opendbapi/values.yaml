@@ -34,6 +34,10 @@ secrets:
   masterKey: ""
   bootstrapAdminPassword: ""   # empty: a random one is printed once in the first pod's log
 
+# Rate limits counted once across all pods (in PostgreSQL) rather than per pod.
+rateLimit:
+  shared: true
+
 # Cookies need HTTPS; turn off only for plain-HTTP trials.
 secureCookies: true
 
