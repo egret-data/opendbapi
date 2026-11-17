@@ -54,7 +54,7 @@ export function PreviewPanel({ ws, id, form }: { ws: string; id: string; form: D
         </Button>
         {result && (
           <span className="text-xs text-muted-foreground tabular-nums">
-            {result.durationMs} ms · {result.affectedRows != null ? `${result.affectedRows} rows affected (rolled back)` : `${result.rows.length} rows`}
+            {result.durationMs} ms · {result.affectedRows != null ? `${result.affectedRows} rows affected (rolled back)` : `${result.rows.length} ${result.rows.length === 1 ? "row" : "rows"}`}
             {result.truncated ? " · first 100 shown" : ""}
           </span>
         )}

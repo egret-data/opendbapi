@@ -1101,11 +1101,13 @@ management:
   - Fuzz SQLi trên tham số và tham số sort.
   - Script cố gọi `Runtime.exec`, reflection, hoặc `this.class.classLoader` phải bị chặn.
   - Cache `scope = client` không để lộ dữ liệu giữa hai service account.
-- **Frontend:** Vitest + Testing Library (render component thật); Playwright cho luồng chính: tạo datasource → tạo endpoint → preview → publish → tạo service account + client → cấp quyền → Try-it → xem Activity.
+- **Frontend:** Vitest + Testing Library (render component thật); Playwright cho luồng chính: tạo datasource → tạo endpoint → preview → publish → tạo service account + client → cấp quyền → Try-it → gọi thật bằng token → xem Activity. Test Playwright nằm ở `frontend/tests/e2e`, chạy bằng `npm run test:e2e` trên stack dev, mỗi lần tạo một workspace mới nên chạy lặp lại được trên cùng database.
 
 ---
 
-## 25. Lộ trình P1 (đề xuất)
+## 25. Lộ trình
+
+### 25.1 P1
 
 1. ✅ (2026-11-16) Khung repo: Maven multi-module, Docker Compose (PostgreSQL, OpenLDAP, Keycloak cho dev), khung frontend copy từ Egret theo §17.1, Flyway schema §4 với RLS.
 2. ✅ (2026-11-16) Workspace + user + đăng nhập nội bộ/LDAP/OIDC + role theo workspace + group mapping.
@@ -1120,6 +1122,23 @@ management:
 10. ✅ (2026-11-17) Metric, tracing, log query chậm, access log ra file, trang Activity cơ bản.
 11. ✅ (2026-11-17) UI theo §17: login, shell + workspace switcher, Endpoints (list/new/detail 5 tab), Datasources, Clients, Activity, Settings, Admin.
     Chỗ khác §17 trong bản P1: tạo service account và client dùng dialog trên trang Clients, không có route `/clients/new` hay `/new-client` riêng. Dialog hiện secret không đóng được bằng Escape hay click ra ngoài. Rotate secret giữ nguyên client id. Danh sách datasource chưa hiện trạng thái của lần test kết nối gần nhất, vì kết quả test chưa được lưu. Các tab Datasource dùng `?tab=`. Nhóm Output/Cache và data policy thuộc P2.
+
+### 25.2 P2
+
+Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và qua gate như P1.
+
+12. ✅ (2026-11-17) Lộ trình P2 và test Playwright cho luồng chính (§24).
+13. Che cột và lọc dòng (§12): bảng `data_policy`, áp dụng ở bước post-process và rewrite của pipeline, admin API, màn hình quản lý.
+14. Rule tham số (§13.1) và kênh cảnh báo lỗi qua webhook (§13.2).
+15. Bộ test case cho từng endpoint (§11.3): bảng `endpoint_test_case`, chạy bộ test trước khi publish, tab Tests.
+16. Map kết quả (§9.2): `naming`, `shape`, `nest`, `types`; phân trang keyset.
+17. Cache kết quả (§9.5), metric `opendbapi_cache_hits_total`.
+18. Ký request HMAC (§8.2) và mã hoá response (§8.3).
+19. Task Groovy `SqlFragment` (§7.4) trong sandbox.
+20. Executor Elasticsearch và HTTP (§6), driver ClickHouse.
+21. Thống kê đầy đủ trên trang Activity (`/activity/stats`, §21.2); lưu và hiện trạng thái lần test kết nối datasource gần nhất.
+22. Export YAML (§15.1) và import từ DBAPI (§15.3).
+23. Giao diện tiếng Việt (`react-i18next`, §17).
 
 ---
 

@@ -15,6 +15,9 @@ the full design is in [`docs/SPEC.md`](docs/SPEC.md).
 > through the real serving pipeline; generated OpenAPI 3.1 and Swagger UI per workspace;
 > NDJSON/CSV streaming; Prometheus metrics, OpenTelemetry tracing, slow-query log, access log table
 > and an Activity page.
+>
+> **P2** is in progress; the step list is in [`docs/SPEC.md` §25.2](docs/SPEC.md). Done so far:
+> Playwright tests for the main author flow.
 
 ## Layout
 
@@ -87,8 +90,25 @@ Development credentials (local only):
 cd backend && mvn verify
 
 # Frontend gate
-cd frontend && npm run lint && npx tsc -b && npm test && npm run build
+cd frontend && npm run lint && npm run typecheck && npm test && npm run build
 ```
+
+### End-to-end tests
+
+Playwright drives the main author flow in a browser: datasource, endpoint, preview, publish,
+service account, client, grant, Try-it, a real token call, and Activity. It runs against the
+stack from [Run locally](#run-locally) (dev services, backend on :8520, `npm run dev` on
+:5173) and creates a fresh workspace each run, so it can repeat on the same database.
+
+```bash
+cd frontend
+npx playwright install chromium   # once
+OPENDBAPI_E2E_ADMIN_PASSWORD=change-me-please npm run test:e2e
+```
+
+The test datasource defaults to the dev PostgreSQL on `localhost:55432`. Point it elsewhere
+with `OPENDBAPI_E2E_DS_HOST`, `_PORT`, `_DATABASE`, `_USER` and `_PASSWORD`, and at another
+UI with `OPENDBAPI_E2E_BASE_URL`.
 
 ### API contract
 
