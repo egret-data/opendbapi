@@ -1766,6 +1766,217 @@
         "tags" : [ "service-accounts" ]
       }
     },
+    "/admin/api/ws/{ws}/endpoints/{endpointId}/tests" : {
+      "get" : {
+        "operationId" : "listEndpointTests",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "endpointId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/EndpointTestCase"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Test cases of an endpoint, with their last results",
+        "tags" : [ "endpoint-tests" ]
+      },
+      "post" : {
+        "operationId" : "createEndpointTest",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "endpointId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveEndpointTest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EndpointTestCase"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Add a test case (author)",
+        "tags" : [ "endpoint-tests" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{endpointId}/tests/{testId}" : {
+      "delete" : {
+        "operationId" : "deleteEndpointTest",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "endpointId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "testId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Remove a test case (author)",
+        "tags" : [ "endpoint-tests" ]
+      },
+      "patch" : {
+        "operationId" : "updateEndpointTest",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "endpointId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "testId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveEndpointTest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EndpointTestCase"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Change a test case (author)",
+        "tags" : [ "endpoint-tests" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{endpointId}/tests:run" : {
+      "post" : {
+        "operationId" : "runEndpointTests",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "endpointId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "testId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TestRunSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Run all test cases, or one, against the saved draft (author)",
+        "tags" : [ "endpoint-tests" ]
+      }
+    },
     "/admin/api/ws/{ws}/endpoints/{id}" : {
       "delete" : {
         "operationId" : "deleteEndpoint",
@@ -3751,6 +3962,44 @@
           }
         }
       },
+      "EndpointTestCase" : {
+        "required" : [ "createdAt", "expect", "id", "lastResult", "name", "params", "updatedAt" ],
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "expect" : {
+            "$ref" : "#/components/schemas/TestExpectation"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "lastResult" : {
+            "$ref" : "#/components/schemas/TestCaseResult"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "params" : {
+            "type" : "object",
+            "additionalProperties" : true,
+            "description" : "Parameter values by name; page and size select a page"
+          },
+          "serviceAccountId" : {
+            "type" : "string",
+            "description" : "Call as this service account (grants, rules and data policies apply); null runs like preview",
+            "format" : "uuid",
+            "nullable" : true
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "ExecutedSql" : {
         "required" : [ "parameters", "sql" ],
         "type" : "object",
@@ -3824,6 +4073,23 @@
       },
       "JsonNode" : {
         "type" : "object",
+        "nullable" : true
+      },
+      "JsonPathCheck" : {
+        "required" : [ "path" ],
+        "type" : "object",
+        "properties" : {
+          "equals" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "exists" : {
+            "type" : "boolean",
+            "nullable" : true
+          },
+          "path" : {
+            "type" : "string"
+          }
+        },
         "nullable" : true
       },
       "Limits" : {
@@ -4397,6 +4663,22 @@
           }
         }
       },
+      "RowCountRange" : {
+        "type" : "object",
+        "properties" : {
+          "max" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "min" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          }
+        },
+        "nullable" : true
+      },
       "Rule" : {
         "required" : [ "message", "test" ],
         "type" : "object",
@@ -4526,6 +4808,28 @@
           },
           "username" : {
             "type" : "string"
+          }
+        }
+      },
+      "SaveEndpointTest" : {
+        "required" : [ "expect", "name" ],
+        "type" : "object",
+        "properties" : {
+          "expect" : {
+            "$ref" : "#/components/schemas/TestExpectation"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "params" : {
+            "type" : "object",
+            "additionalProperties" : true,
+            "nullable" : true
+          },
+          "serviceAccountId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "nullable" : true
           }
         }
       },
@@ -4848,6 +5152,50 @@
           }
         }
       },
+      "TestCaseResult" : {
+        "required" : [ "durationMs", "failures", "name", "passed", "ranAt", "status", "testId" ],
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "durationMs" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failures" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "passed" : {
+            "type" : "boolean"
+          },
+          "ranAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "rowCount" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "testId" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        },
+        "nullable" : true
+      },
       "TestDatasource" : {
         "required" : [ "settings" ],
         "type" : "object",
@@ -4863,6 +5211,37 @@
           }
         }
       },
+      "TestExpectation" : {
+        "required" : [ "rowCount" ],
+        "type" : "object",
+        "properties" : {
+          "jsonPath" : {
+            "type" : "array",
+            "nullable" : true,
+            "items" : {
+              "$ref" : "#/components/schemas/JsonPathCheck"
+            }
+          },
+          "maxDurationMs" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "rowCount" : {
+            "$ref" : "#/components/schemas/RowCountRange"
+          },
+          "schemaMatchesLive" : {
+            "type" : "boolean",
+            "nullable" : true
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          }
+        },
+        "nullable" : true
+      },
       "TestRequest" : {
         "type" : "object",
         "properties" : {
@@ -4873,6 +5252,26 @@
           "username" : {
             "type" : "string",
             "nullable" : true
+          }
+        }
+      },
+      "TestRunSummary" : {
+        "required" : [ "failed", "passed", "results" ],
+        "type" : "object",
+        "properties" : {
+          "failed" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "passed" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "results" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TestCaseResult"
+            }
           }
         }
       },

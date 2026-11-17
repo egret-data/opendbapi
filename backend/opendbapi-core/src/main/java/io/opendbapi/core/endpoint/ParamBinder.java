@@ -226,4 +226,25 @@ public final class ParamBinder {
     private static ApiProblem invalid(String detail) {
         return ApiProblem.badRequest("invalid_param", detail);
     }
+
+    /** A request made of plain values by parameter name, as preview and test cases give them. */
+    public static Request fromValues(List<EndpointDefinition.Param> params, Map<String, Object> raw) {
+        Map<String, String> path = new java.util.HashMap<>();
+        Map<String, List<String>> query = new java.util.HashMap<>();
+        Map<String, String> headers = new java.util.HashMap<>();
+        com.fasterxml.jackson.databind.node.ObjectNode body = RequestJson.MAPPER.createObjectNode();
+        for (EndpointDefinition.Param p : params) {
+            Object v = raw == null ? null : raw.get(p.name());
+            if (v == null || (v instanceof String s && s.isEmpty())) {
+                continue;
+            }
+            switch (p.in()) {
+                case path -> path.put(p.name(), v.toString());
+                case header -> headers.put(p.name().toLowerCase(), v.toString());
+                case query -> query.put(p.name(), v instanceof List<?> l ? l.stream().map(String::valueOf).toList() : List.of(v.toString()));
+                case body -> body.set(p.name(), RequestJson.MAPPER.valueToTree(v));
+            }
+        }
+        return new Request(path, query, headers, body);
+    }
 }

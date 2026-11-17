@@ -36,6 +36,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { errorMessage } from "@/lib/errors";
 import { useUnsavedChangesWarning } from "@/lib/useUnsavedChangesWarning";
 import { AccessTab } from "./AccessTab";
+import { TestsTab } from "./TestsTab";
 import { ParamsEditor } from "./ParamsEditor";
 import { FindingsList, PreviewPanel } from "./PreviewPanel";
 import { SettingsTab } from "./SettingsTab";
@@ -43,7 +44,7 @@ import { TryItTab } from "./TryItTab";
 import { VersionsTab } from "./VersionsTab";
 import { STATE_LABEL, STATE_TONE, formFrom, mainSql, toUpdate, withMainSql, type DraftForm } from "./endpointForm";
 
-const TABS = ["query", "try", "settings", "access", "versions"] as const;
+const TABS = ["query", "try", "tests", "settings", "access", "versions"] as const;
 
 export default function EndpointDetailPage() {
   const { ws = "", id = "" } = useParams();
@@ -179,6 +180,7 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
         <TabsList>
           <TabsTrigger value="query">Query</TabsTrigger>
           {canAuthor && <TabsTrigger value="try">Try it</TabsTrigger>}
+          <TabsTrigger value="tests">Tests</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="access">Access</TabsTrigger>
           <TabsTrigger value="versions">Versions</TabsTrigger>
@@ -216,6 +218,10 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
             <TryItTab ws={ws} summary={s} onOpenAccess={() => goTab("access")} />
           </TabsContent>
         )}
+        <TabsContent value="tests" className="pt-4">
+          <TestsTab ws={ws} endpointId={s.id} paramNames={saved.definition.params.map((p) => p.name)}
+            paginated={saved.definition.pagination.enabled} canAuthor={canAuthor} dirty={dirty} />
+        </TabsContent>
         <TabsContent value="access" className="pt-4">
           <AccessTab ws={ws} endpointId={s.id} datasourceId={saved.definition.task.datasourceId} isPublic={s.access === "public"} isAdmin={isAdmin} />
         </TabsContent>

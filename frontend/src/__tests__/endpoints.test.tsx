@@ -215,6 +215,49 @@ describe("Endpoints", () => {
     expect(screen.getByRole("tab", { name: "Settings" })).toHaveAttribute("aria-selected", "true");
   });
 
+  it("lists tests with their failures and saves a new one with typed expectations", async () => {
+    // Arrange
+    const failing = {
+      id: "t1", name: "gold only", serviceAccountId: null, params: { tier: "gold" },
+      expect: { status: 200, rowCount: { min: 1, max: null }, jsonPath: [], schemaMatchesLive: null, maxDurationMs: null },
+      lastResult: { testId: "t1", name: "gold only", passed: false, status: 200, code: null, durationMs: 12, rowCount: 0,
+        failures: ["Expected at least 1 rows, got 0."], ranAt: "2026-11-17T00:00:00Z" },
+      createdAt: "2026-11-17T00:00:00Z", updatedAt: "2026-11-17T00:00:00Z",
+    };
+    const server = mockServer({
+      ...common,
+      "GET /admin/api/me": () => json(meAs("author")),
+      "GET /admin/api/ws/sales/endpoints/e1": () => json(DETAIL),
+      "GET /admin/api/ws/sales/service-accounts": () => json([]),
+      "GET /admin/api/ws/sales/endpoints/e1/tests": () => json([failing]),
+      "POST /admin/api/ws/sales/endpoints/e1/tests": () => json({ ...failing, id: "t2" }, 201),
+    });
+    const user = userEvent.setup();
+    renderApp("/w/sales/endpoints/e1/tests");
+
+    // Act
+    expect(await screen.findByText("Expected at least 1 rows, got 0.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Add test" }));
+    const dialog = screen.getByRole("dialog", { name: "New test" });
+    await user.type(within(dialog).getByLabelText("Name"), "silver");
+    await user.type(within(dialog).getByLabelText("tier"), "silver");
+    await user.type(within(dialog).getByLabelText("Rows at most"), "5");
+    await user.click(within(dialog).getByRole("button", { name: "Add check" }));
+    await user.type(within(dialog).getByLabelText("Check 1 path"), "$.data[[0].id");
+    await user.type(within(dialog).getByLabelText("Check 1 value"), "7");
+    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+
+    // Assert
+    expect(screen.getByText("Failed")).toBeInTheDocument();
+    await waitFor(() => expect(server.calls.some((c) => c.key === "POST /admin/api/ws/sales/endpoints/e1/tests")).toBe(true));
+    const post = server.calls.find((c) => c.key === "POST /admin/api/ws/sales/endpoints/e1/tests")!;
+    expect(JSON.parse(String(post.init?.body))).toEqual({
+      name: "silver", serviceAccountId: null, params: { tier: "silver" },
+      expect: { status: 200, rowCount: { min: null, max: 5 }, jsonPath: [{ path: "$.data[0].id", equals: 7, exists: null }],
+        schemaMatchesLive: null, maxDurationMs: null },
+    });
+  });
+
   it("saves parameter rules and the alert switch with the draft", async () => {
     // Arrange
     const server = mockServer({
