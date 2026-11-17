@@ -1,0 +1,8 @@
+{
+  "label": "Access and data policies",
+  "position": 3,
+  "link": {
+    "type": "generated-index",
+    "description": "Who may call an endpoint and what they may see."
+  }
+}

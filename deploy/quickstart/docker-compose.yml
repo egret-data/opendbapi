@@ -1,0 +1,39 @@
+# Try OpenDBAPI locally: PostgreSQL for OpenDBAPI's own data, and OpenDBAPI on http://localhost:8520.
+#   docker compose -f deploy/quickstart/docker-compose.yml up -d
+# Sign in as admin / admin-change-me. Every credential here is for trying it out only.
+name: opendbapi-quickstart
+
+services:
+  postgres:
+    image: postgres:16.4-alpine
+    environment:
+      POSTGRES_DB: opendbapi
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ../dev/postgres/init-roles.sql:/docker-entrypoint-initdb.d/init-roles.sql:ro
+      - quickstart-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d opendbapi"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  opendbapi:
+    image: ghcr.io/egret-data/opendbapi:0.2.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8520:8520"
+    environment:
+      OPENDBAPI_DB_URL: jdbc:postgresql://postgres:5432/opendbapi
+      OPENDBAPI_DB_PASSWORD: app
+      OPENDBAPI_DB_OWNER_PASSWORD: owner
+      OPENDBAPI_BOOTSTRAP_ADMIN_PASSWORD: admin-change-me
+      # 32 bytes, base64; generate your own with: openssl rand -base64 32
+      OPENDBAPI_MASTER_KEY: cXVpY2tzdGFydC1vbmx5LW5ldmVyLXByb2R1Y3Rpb24=
+      OPENDBAPI_SECURE_COOKIES: "false"
+
+volumes:
+  quickstart-data:
