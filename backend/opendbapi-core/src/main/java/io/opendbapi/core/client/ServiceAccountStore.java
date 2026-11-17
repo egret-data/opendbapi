@@ -7,6 +7,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.dao.DuplicateKeyException;
@@ -18,7 +19,10 @@ import org.springframework.stereotype.Repository;
 public class ServiceAccountStore {
 
     public record ServiceAccount(UUID id, String name, @Schema(nullable = true) String description, boolean disabled, Instant createdAt,
-                                 int clientCount, int grantCount, @Schema(nullable = true) Instant lastUsedAt) {
+                                 int clientCount, int grantCount, @Schema(nullable = true) Instant lastUsedAt,
+                                 @Schema(description = "Facts about the caller that row filters read (spec §12.2), "
+                                         + "values are strings, numbers, booleans or lists of them")
+                                 Map<String, Object> attributes) {
     }
 
     public record Client(UUID id, String clientId, Instant createdAt, @Schema(nullable = true) Instant expiresAt, @Schema(nullable = true) Instant lastUsedAt,
@@ -41,6 +45,10 @@ public class ServiceAccountStore {
         }
     }
 
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
+    private static final com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>> MAP = new com.fasterxml.jackson.core.type.TypeReference<>() {
+    };
+
     private final JdbcClient jdbc;
 
     public ServiceAccountStore(JdbcClient jdbc) {
@@ -48,7 +56,7 @@ public class ServiceAccountStore {
     }
 
     private static final String SUMMARY = """
-            select sa.id, sa.name, sa.description, sa.disabled, sa.created_at,
+            select sa.id, sa.name, sa.description, sa.disabled, sa.created_at, sa.attributes,
                    (select count(*) from oauth_client c where c.service_account_id = sa.id and c.revoked_at is null) as clients,
                    (select count(*) from endpoint_grant g where g.service_account_id = sa.id) as grants,
                    (select max(c.last_used_at) from oauth_client c where c.service_account_id = sa.id) as last_used
@@ -62,22 +70,33 @@ public class ServiceAccountStore {
         return jdbc.sql(SUMMARY + " where sa.id = ?").param(id).query(ServiceAccountStore::account).optional();
     }
 
-    public UUID create(UUID workspaceId, String name, String description, UUID userId) {
+    public UUID create(UUID workspaceId, String name, String description, Map<String, Object> attributes, UUID userId) {
         try {
-            return jdbc.sql("insert into service_account (workspace_id, name, description, created_by) values (?, ?, ?, ?) returning id")
-                    .params(workspaceId, name, description, userId).query(UUID.class).single();
+            return jdbc.sql("""
+                    insert into service_account (workspace_id, name, description, attributes, created_by)
+                    values (?, ?, ?, ?::jsonb, ?) returning id""")
+                    .params(workspaceId, name, description, json(attributes), userId).query(UUID.class).single();
         } catch (DuplicateKeyException e) {
             throw nameTaken(name);
         }
     }
 
-    public boolean update(UUID id, String name, String description, boolean disabled) {
+    /** @param attributes null keeps the current ones */
+    public boolean update(UUID id, String name, String description, boolean disabled, Map<String, Object> attributes) {
         try {
-            return jdbc.sql("update service_account set name = ?, description = ?, disabled = ? where id = ?")
-                    .params(name, description, disabled, id).update() > 0;
+            return jdbc.sql("""
+                    update service_account set name = ?, description = ?, disabled = ?,
+                           attributes = coalesce(?::jsonb, attributes) where id = ?""")
+                    .params(name, description, disabled, attributes == null ? null : json(attributes), id).update() > 0;
         } catch (DuplicateKeyException e) {
             throw nameTaken(name);
         }
+    }
+
+    /** The attributes row filters read; null when the service account does not exist. */
+    public com.fasterxml.jackson.databind.JsonNode attributes(UUID id) {
+        return jdbc.sql("select attributes::text from service_account where id = ?").param(id).query(String.class).optional()
+                .map(ServiceAccountStore::tree).orElse(null);
     }
 
     public boolean delete(UUID id) {
@@ -231,7 +250,32 @@ public class ServiceAccountStore {
 
     private static ServiceAccount account(ResultSet rs, int i) throws SQLException {
         return new ServiceAccount(rs.getObject("id", UUID.class), rs.getString("name"), rs.getString("description"),
-                rs.getBoolean("disabled"), ts(rs, "created_at"), rs.getInt("clients"), rs.getInt("grants"), ts(rs, "last_used"));
+                rs.getBoolean("disabled"), ts(rs, "created_at"), rs.getInt("clients"), rs.getInt("grants"), ts(rs, "last_used"),
+                map(rs.getString("attributes")));
+    }
+
+    private static String json(Map<String, Object> attributes) {
+        try {
+            return JSON.writeValueAsString(attributes == null ? Map.of() : attributes);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalArgumentException(e);
+        }
+    }
+
+    private static Map<String, Object> map(String json) {
+        try {
+            return json == null ? Map.of() : JSON.readValue(json, MAP);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("Corrupt service account attributes", e);
+        }
+    }
+
+    private static com.fasterxml.jackson.databind.JsonNode tree(String json) {
+        try {
+            return JSON.readTree(json);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new IllegalStateException("Corrupt service account attributes", e);
+        }
     }
 
     private static Instant ts(ResultSet rs, String column) throws SQLException {

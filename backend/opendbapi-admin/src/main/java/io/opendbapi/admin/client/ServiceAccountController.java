@@ -53,7 +53,37 @@ public class ServiceAccountController {
 
     public record SaveServiceAccount(@NotBlank @Size(max = 120) String name,
                                      @Size(max = 1000) @Schema(nullable = true) String description,
-                                     boolean disabled) {
+                                     boolean disabled,
+                                     @Schema(nullable = true, description = "Replaces all attributes; null keeps them")
+                                     Map<String, Object> attributes) {
+    }
+
+    private static final java.util.regex.Pattern ATTRIBUTE = java.util.regex.Pattern.compile("^[A-Za-z_][A-Za-z0-9_.-]{0,63}$");
+
+    /** Attributes are flat: names like {@code tenant}, values scalar or a list of scalars (spec §12.2). */
+    static Map<String, Object> checkAttributes(Map<String, Object> attributes) {
+        if (attributes == null) {
+            return null;
+        }
+        if (attributes.size() > 50) {
+            throw ApiProblem.badRequest("invalid_attributes", "At most 50 attributes.");
+        }
+        attributes.forEach((name, value) -> {
+            if (!ATTRIBUTE.matcher(name).matches()) {
+                throw ApiProblem.badRequest("invalid_attributes", "'%s' is not a valid attribute name.".formatted(name));
+            }
+            boolean ok = scalar(value) || (value instanceof List<?> list && list.size() <= 1000
+                    && list.stream().allMatch(ServiceAccountController::scalar));
+            if (!ok) {
+                throw ApiProblem.badRequest("invalid_attributes",
+                        "Attribute '%s' must be a string, number, boolean or a list of those.".formatted(name));
+            }
+        });
+        return attributes;
+    }
+
+    private static boolean scalar(Object v) {
+        return v instanceof String s ? s.length() <= 1000 : v instanceof Number || v instanceof Boolean;
     }
 
     public record ServiceAccountDetail(ServiceAccount summary, List<Client> clients, List<Grant> grants) {
@@ -98,7 +128,8 @@ public class ServiceAccountController {
         var granted = access.require(ws, WorkspaceRole.ADMIN);
         UUID wsId = granted.workspace().id();
         return scope.call(wsId, () -> {
-            UUID id = store.create(wsId, body.name().strip(), blankToNull(body.description()), granted.user().id());
+            UUID id = store.create(wsId, body.name().strip(), blankToNull(body.description()),
+                    body.attributes() == null ? Map.of() : checkAttributes(body.attributes()), granted.user().id());
             audit.record(wsId, granted.user().id(), "service_account.create", "service_account", id.toString(),
                     Map.of("name", body.name().strip()));
             return detail(id);
@@ -118,11 +149,13 @@ public class ServiceAccountController {
         var granted = access.require(ws, WorkspaceRole.ADMIN);
         UUID wsId = granted.workspace().id();
         ServiceAccountDetail result = scope.call(wsId, () -> {
-            if (!store.update(id, body.name().strip(), blankToNull(body.description()), body.disabled())) {
+            if (!store.update(id, body.name().strip(), blankToNull(body.description()), body.disabled(),
+                    checkAttributes(body.attributes()))) {
                 throw notFound();
             }
             audit.record(wsId, granted.user().id(), "service_account.update", "service_account", id.toString(),
-                    Map.of("name", body.name().strip(), "disabled", body.disabled()));
+                    Map.of("name", body.name().strip(), "disabled", body.disabled(),
+                            "attributes", body.attributes() == null ? "unchanged" : String.join(",", new java.util.TreeSet<>(body.attributes().keySet()))));
             return detail(id);
         });
         authorizer.invalidate(wsId);

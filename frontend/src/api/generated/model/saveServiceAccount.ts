@@ -5,8 +5,14 @@
  * Authoring and administration API consumed by the OpenDBAPI web UI.
  * OpenAPI spec version: v1
  */
+import type { SaveServiceAccountAttributes } from './saveServiceAccountAttributes';
 
 export interface SaveServiceAccount {
+  /**
+     * Replaces all attributes; null keeps them
+     * @nullable
+     */
+  attributes?: SaveServiceAccountAttributes;
   /**
      * @minLength 0
      * @maxLength 1000

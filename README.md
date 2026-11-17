@@ -17,7 +17,8 @@ the full design is in [`docs/SPEC.md`](docs/SPEC.md).
 > and an Activity page.
 >
 > **P2** is in progress; the step list is in [`docs/SPEC.md` §25.2](docs/SPEC.md). Done so far:
-> Playwright tests for the main author flow.
+> Playwright tests for the main author flow; column masks and per-caller row filters (data policies)
+> with service account attributes.
 
 ## Layout
 

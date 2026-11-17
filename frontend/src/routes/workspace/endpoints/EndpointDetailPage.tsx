@@ -217,7 +217,7 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
           </TabsContent>
         )}
         <TabsContent value="access" className="pt-4">
-          <AccessTab ws={ws} endpointId={s.id} isPublic={s.access === "public"} isAdmin={isAdmin} />
+          <AccessTab ws={ws} endpointId={s.id} datasourceId={saved.definition.task.datasourceId} isPublic={s.access === "public"} isAdmin={isAdmin} />
         </TabsContent>
         <TabsContent value="versions" className="pt-4">
           <VersionsTab ws={ws} id={s.id} draftSql={mainSql(saved.definition)} canAuthor={canAuthor} onChanged={refresh} />

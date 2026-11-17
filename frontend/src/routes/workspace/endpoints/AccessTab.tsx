@@ -17,8 +17,16 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorMessage } from "@/lib/errors";
 
+import { DataPoliciesSection } from "../datapolicies/DataPoliciesSection";
+
 /** Who may call this endpoint (spec §17.4 Access tab). */
-export function AccessTab({ ws, endpointId, isPublic, isAdmin }: { ws: string; endpointId: string; isPublic: boolean; isAdmin: boolean }) {
+export function AccessTab({ ws, endpointId, datasourceId, isPublic, isAdmin }: {
+  ws: string;
+  endpointId: string;
+  datasourceId?: string | null;
+  isPublic: boolean;
+  isAdmin: boolean;
+}) {
   const query = useListEndpointAccess(ws, endpointId);
   const accounts = useListServiceAccounts(ws);
   const qc = useQueryClient();
@@ -96,6 +104,7 @@ export function AccessTab({ ws, endpointId, isPublic, isAdmin }: { ws: string; e
           );
         }}
       </QueryBoundary>
+      <DataPoliciesSection ws={ws} scope={{ kind: "endpoint", endpointId, datasourceId }} isAdmin={isAdmin} />
     </div>
   );
 }
