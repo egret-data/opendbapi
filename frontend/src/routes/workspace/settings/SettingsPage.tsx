@@ -5,6 +5,7 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { PageTitle } from "@/components/layout/PageTitle";
 import { tabsListClass, tabsTriggerClass } from "@/components/ui/tabs";
 import { Forbidden } from "@/routes/Forbidden";
+import { AlertsSection } from "./AlertsSection";
 import { AuditSection } from "./AuditSection";
 import { GeneralSection } from "./GeneralSection";
 import { MembersSection } from "./MembersSection";
@@ -31,6 +32,7 @@ export default function SettingsPage() {
         {tab(`/w/${ws}/settings`, "General")}
         {tab(`/w/${ws}/settings/members`, "Members")}
         {tab(`/w/${ws}/settings/security`, "Security")}
+        {tab(`/w/${ws}/settings/alerts`, "Alerts")}
         {isAdmin && tab(`/w/${ws}/settings/audit`, "Audit log")}
       </nav>
       <div className="pt-4">
@@ -38,6 +40,7 @@ export default function SettingsPage() {
           <Route index element={<GeneralSection ws={ws} role={role} />} />
           <Route path="members" element={<MembersSection ws={ws} role={role} />} />
           <Route path="security" element={<ServingPolicySection ws={ws} role={role} />} />
+          <Route path="alerts" element={<AlertsSection ws={ws} role={role} />} />
           <Route
             path="audit"
             element={isAdmin ? <AuditSection ws={ws} /> : <Forbidden reason="The audit log is for workspace admins." />}

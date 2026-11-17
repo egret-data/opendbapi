@@ -66,6 +66,7 @@ public class ServingDispatcher {
     private final TryItRelay relay;
     private final io.opendbapi.core.activity.AccessLogWriter accessLog;
     private final io.opendbapi.core.datapolicy.DataPolicies dataPolicies;
+    private final io.opendbapi.core.alert.Alerts alerts;
     private final io.micrometer.core.instrument.MeterRegistry meters;
     private final org.springframework.beans.factory.ObjectProvider<io.micrometer.tracing.Tracer> tracer;
 
@@ -74,8 +75,9 @@ public class ServingDispatcher {
                              CallerAuthorizer authorizer, ServingGuard guard, TryItRelay relay,
                              io.opendbapi.core.activity.AccessLogWriter accessLog, io.micrometer.core.instrument.MeterRegistry meters,
                              org.springframework.beans.factory.ObjectProvider<io.micrometer.tracing.Tracer> tracer,
-                             io.opendbapi.core.datapolicy.DataPolicies dataPolicies) {
+                             io.opendbapi.core.datapolicy.DataPolicies dataPolicies, io.opendbapi.core.alert.Alerts alerts) {
         this.dataPolicies = dataPolicies;
+        this.alerts = alerts;
         this.accessLog = accessLog;
         this.meters = meters;
         this.tracer = tracer;
@@ -166,11 +168,13 @@ public class ServingDispatcher {
         }
 
         EndpointDefinition def = route.definition();
+        outcome.alerts = def.alerts().enabled();
         RateLimiter.Decision rate = guard.checkRate(ws.id(), route.endpointId(), def.limits().ratePerMinute(), outcome.clientId,
                 outcome.ip);
         Set<String> reserved = def.pagination().enabled() ? EndpointValidator.RESERVED : Set.of("format");
         Map<String, Object> params = ParamBinder.bind(def.params(), new ParamBinder.Request(match.pathVariables(),
                 query(request), headers(request), body(request, def)), reserved);
+        io.opendbapi.core.endpoint.ParamRules.enforce(def.rules(), params);
         EndpointDefinition.StreamFormat stream = streamFormat(def, request);
         QueryExecutor.PageRequest page = stream == null ? pageRequest(def.pagination(), request) : null;
         Datasource ds = scope.call(ws.id(), () -> datasources.find(route.task().datasourceId()))
@@ -261,6 +265,12 @@ public class ServingDispatcher {
         io.micrometer.core.instrument.Timer.builder("opendbapi.request.duration").description("Time to answer a call")
                 .tags("endpoint", endpoint, "status", Integer.toString(outcome.status / 100) + "xx")
                 .register(meters).record(nanos, java.util.concurrent.TimeUnit.NANOSECONDS);
+        // Spec §13.2: server-side failures of endpoints with alerts on; Try-it calls are authors testing.
+        if (outcome.alerts && outcome.status >= 500 && outcome.actorUserId == null && outcome.endpointId != null) {
+            alerts.endpointFailed(new io.opendbapi.core.alert.Alerts.Failure(outcome.workspaceId, workspaceSlug,
+                    UUID.fromString(outcome.endpointId), outcome.version == null ? 0 : outcome.version, method, path, outcome.status,
+                    outcome.errorCode == null ? "error" : outcome.errorCode, requestId, java.time.Instant.now()));
+        }
         if (outcome.workspaceId != null) {
             accessLog.offer(new io.opendbapi.core.activity.AccessRecord(java.time.Instant.now(), outcome.workspaceId,
                     outcome.endpointId == null ? null : UUID.fromString(outcome.endpointId), outcome.version, method, path,
@@ -503,5 +513,6 @@ public class ServingDispatcher {
         boolean truncated;
         UUID workspaceId;
         String error;
+        boolean alerts;
     }
 }

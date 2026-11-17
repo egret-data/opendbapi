@@ -309,8 +309,8 @@ rollback(v K): live_version_id := v K (K < N), không đổi draft
   "streaming": { "allowed": true, "formats": ["ndjson", "csv"] },
   "cache": { "enabled": false, "ttlSeconds": 60, "scope": "client" },
   "limits": { "timeoutSeconds": 30, "maxRows": 10000 },
-  "alarm": { "enabled": false },      // §13.2
-  "rules": [ /* §13.3 */ ]
+  "alerts": { "enabled": false },     // §13.2
+  "rules": [ /* §13.1 */ ]
 }
 ```
 
@@ -745,11 +745,25 @@ Cần thêm hành vi mới thì viết thẳng vào tính năng tương ứng.
 
 ### 13.1 Rule tham số
 
-Rule viết bằng biểu thức SpEL (an toàn hơn Groovy, đủ dùng cho validate), ví dụ `#params['to'] >= #params['from']`, kèm `message`. SpEL chạy với `SimpleEvaluationContext`, không gọi được kiểu, bean hay phương thức tuỳ ý. Rule sai trả **400** `rule_failed` kèm `message`.
+```jsonc
+"rules": [ { "test": "to == null or from == null or to >= from", "message": "to must not be before from." } ]
+```
+
+- Rule viết bằng chính ngôn ngữ biểu thức của `<if test>` (§7.2), không dùng SpEL hay Groovy. Ngôn ngữ này chỉ đọc biến, so sánh và tính toán; không gọi được kiểu hay phương thức tuỳ ý. Biến là các tham số đã ép kiểu, tham số không truyền thì có giá trị `null`.
+- Rule chạy sau bước ép kiểu tham số, trước mọi câu SQL, ở lời gọi thật, Try-it và Preview. Rule sai, hoặc không tính được (ví dụ chia cho 0), trả **400** `rule_failed` với `detail` là `message` của rule.
+- Validate báo lỗi `rule_invalid` khi: biểu thức không parse được; rule đọc biến không phải tham số đã khai báo; thiếu `message`; hoặc có quá 20 rule. Giới hạn độ dài: biểu thức 500 ký tự, message 300 ký tự.
+- UI: nhóm *Parameter rules* trong tab Settings của endpoint.
 
 ### 13.2 Cảnh báo lỗi
 
-Workspace admin khai báo kênh cảnh báo dạng webhook (Slack, Microsoft Teams, Google Chat, hoặc webhook JSON chung). Endpoint bật `alarm.enabled` thì khi request lỗi 5xx hoặc timeout, hệ thống gửi cảnh báo bất đồng bộ tới các kênh của workspace. Cảnh báo chứa tên endpoint, mã lỗi, request id, thời điểm; không chứa giá trị tham số hay dữ liệu trả về. Cảnh báo trùng (cùng endpoint, cùng mã lỗi) bị gộp trong một khoảng thời gian cấu hình được, mặc định 5 phút. URL webhook được coi là bí mật và lưu niêm phong bằng master key.
+- Workspace admin khai báo kênh cảnh báo ở **Settings → Alerts** (`/alert-channels`, §21.2). Có bốn loại: `slack`, `teams`, `google_chat` (gửi `{"text": …}`) và `webhook` (gửi event JSON `endpoint_failed` gồm workspace, endpoint id/method/path/version, status, code, request id, thời điểm, số lần lặp).
+- Endpoint bật `alerts.enabled` thì mỗi lời gọi lỗi 5xx (kể cả timeout 504) sinh một cảnh báo, gửi bất đồng bộ tới mọi kênh đang bật của workspace. Lời gọi Try-it không sinh cảnh báo.
+- Cảnh báo không chứa giá trị tham số hay dữ liệu trả về.
+- Lỗi lặp lại (cùng endpoint, cùng mã lỗi) trong `opendbapi.alerts.dedup-window` (mặc định 5 phút) không gửi riêng. Số lần lặp được báo kèm cảnh báo kế tiếp.
+- Hàng đợi gửi tối đa 1.000 cảnh báo; đầy thì bỏ bớt. Webhook chậm hay hỏng không bao giờ làm chậm lời gọi.
+- URL webhook là bí mật: được niêm phong bằng master key (`enc:v1:`; chưa đặt master key thì trả 409 `master_key_required`). API chỉ trả host của URL.
+- URL phải là `https://`, không chứa user/password; không follow redirect. `opendbapi.alerts.allow-http=true` chỉ dùng cho môi trường dev và test.
+- Kết quả gửi gần nhất (thời điểm, lỗi) được lưu và hiện trên UI. Nút **Test** gửi thử một tin ngay lập tức.
 
 ---
 
@@ -1139,7 +1153,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 
 12. ✅ (2026-11-17) Lộ trình P2 và test Playwright cho luồng chính (§24).
 13. ✅ (2026-11-17) Che cột và lọc dòng (§12): bảng `data_policy`, thuộc tính service account, áp dụng ở bước rewrite và post-process của pipeline (cả stream), kiểm tra khi validate/publish, admin API, tab Masking của datasource, phần Data policies trong tab Access, phần Attributes trên trang service account.
-14. Rule tham số (§13.1) và kênh cảnh báo lỗi qua webhook (§13.2).
+14. ✅ (2026-11-17) Rule tham số (§13.1) và kênh cảnh báo lỗi qua webhook (§13.2).
 15. Bộ test case cho từng endpoint (§11.3): bảng `endpoint_test_case`, chạy bộ test trước khi publish, tab Tests.
 16. Map kết quả (§9.2): `naming`, `shape`, `nest`, `types`; phân trang keyset.
 17. Cache kết quả (§9.5), metric `opendbapi_cache_hits_total`.

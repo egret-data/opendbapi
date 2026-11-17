@@ -12,9 +12,14 @@ import java.util.UUID;
  * parameters, pagination and limits.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public record EndpointDefinition(List<Param> params, Task task, Pagination pagination, Limits limits, Streaming streaming) {
+public record EndpointDefinition(List<Param> params, Task task, Pagination pagination, Limits limits, Streaming streaming,
+                                 @Schema(description = "Checks on the bound parameters, run before the query (spec §13.1)")
+                                 List<Rule> rules,
+                                 Alerts alerts) {
 
     public EndpointDefinition {
+        rules = rules == null ? List.of() : List.copyOf(rules);
+        alerts = alerts == null ? Alerts.off() : alerts;
         params = params == null ? List.of() : List.copyOf(params);
         task = task == null ? Task.empty() : task;
         pagination = pagination == null ? Pagination.off() : pagination;
@@ -23,12 +28,27 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
     }
 
     public EndpointDefinition(List<Param> params, Task task, Pagination pagination, Limits limits) {
-        this(params, task, pagination, limits, null);
+        this(params, task, pagination, limits, null, null, null);
+    }
+
+    /**
+     * A condition on the parameters in the template expression language, e.g.
+     * {@code to == null or to >= from}; when it is false the call gets 400 with {@code message}.
+     */
+    public record Rule(String test, String message) {
+    }
+
+    /** Spec §13.2: send failures (5xx) of this endpoint to the workspace's alert channels. */
+    public record Alerts(boolean enabled) {
+        public static Alerts off() {
+            return new Alerts(false);
+        }
     }
 
     public static EndpointDefinition starter(UUID datasourceId) {
         return new EndpointDefinition(List.of(), new Task("sql", datasourceId, false,
-                List.of(new Statement("main", "select 1 as ok"))), Pagination.off(), Limits.defaults(), Streaming.off());
+                List.of(new Statement("main", "select 1 as ok"))), Pagination.off(), Limits.defaults(), Streaming.off(),
+                List.of(), Alerts.off());
     }
 
     public enum StreamFormat { ndjson, csv }

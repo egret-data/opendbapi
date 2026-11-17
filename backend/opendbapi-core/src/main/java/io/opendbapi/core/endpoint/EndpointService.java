@@ -230,6 +230,7 @@ public class EndpointService {
                 throw ApiProblem.badRequest("template", e.getMessage());
             }
             Map<String, Object> params = ParamBinder.bind(definition.params(), previewRequest(definition, rawParams), EndpointValidator.RESERVED);
+            ParamRules.enforce(definition.rules(), params);
             QueryExecutor.PageRequest pageRequest = definition.pagination().enabled()
                     ? new QueryExecutor.PageRequest(page == null ? 1 : page,
                             Math.min(size == null ? definition.pagination().defaultSize() : size, definition.pagination().maxSize()),

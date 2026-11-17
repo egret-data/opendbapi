@@ -5,16 +5,21 @@
  * Authoring and administration API consumed by the OpenDBAPI web UI.
  * OpenAPI spec version: v1
  */
+import type { Alerts } from './alerts';
 import type { Limits } from './limits';
 import type { Pagination } from './pagination';
 import type { Param } from './param';
+import type { Rule } from './rule';
 import type { Streaming } from './streaming';
 import type { Task } from './task';
 
 export interface EndpointDefinition {
+  alerts: Alerts;
   limits: Limits;
   pagination: Pagination;
   params: Param[];
+  /** Checks on the bound parameters, run before the query (spec §13.1) */
+  rules: Rule[];
   streaming: Streaming;
   task: Task;
 }
