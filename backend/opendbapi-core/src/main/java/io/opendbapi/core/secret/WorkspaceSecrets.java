@@ -56,6 +56,9 @@ public class WorkspaceSecrets {
      * {@link SecretResolver} reads ({@code env:}, {@code enc:v1:}).
      */
     public String resolve(UUID workspaceId, String ref) {
+        if (VaultSecrets.isReference(ref) && vault != null) {
+            return vault.read(ref, slug(workspaceId));
+        }
         if (!isReference(ref)) {
             return secrets.resolve(ref);
         }
@@ -71,6 +74,10 @@ public class WorkspaceSecrets {
      * {@code env:NAME}, or plain text, which gets sealed. Call inside the workspace scope.
      */
     public String toReference(String input) {
+        if (VaultSecrets.isReference(input) && vault != null) {
+            UUID current = jdbc.sql("select nullif(current_setting('opendbapi.workspace_id', true), '')::uuid").query(UUID.class).single();
+            return vault.check(input, slug(current));
+        }
         if (isReference(input)) {
             String name = nameOf(input);
             if (find(name).isEmpty()) {
@@ -79,6 +86,21 @@ public class WorkspaceSecrets {
             return PREFIX + name;
         }
         return secrets.toReference(input);
+    }
+
+    private VaultSecrets vault;
+
+    /** Lets workspaces use vault:PATH#KEY under their allowed paths. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setVault(VaultSecrets vault) {
+        this.vault = vault;
+    }
+
+    private String slug(UUID workspaceId) {
+        if (workspaceId == null) {
+            throw ApiProblem.badRequest("secret_reference_invalid", "Vault references belong to a workspace.");
+        }
+        return jdbc.sql("select slug from workspace where id = ?").param(workspaceId).query(String.class).single();
     }
 
     // --- management, inside the workspace scope ---

@@ -316,8 +316,9 @@ public class ConfigPlanner {
         if (spec.has("password")) {
             throw new IllegalArgumentException("Passwords do not belong in configuration files; use passwordRef: secret:NAME or env:NAME.");
         }
-        if (passwordRef != null && !passwordRef.startsWith("env:") && !passwordRef.startsWith(WorkspaceSecrets.PREFIX)) {
-            throw new IllegalArgumentException("passwordRef must be secret:NAME or env:NAME.");
+        if (passwordRef != null && !passwordRef.startsWith("env:") && !passwordRef.startsWith(WorkspaceSecrets.PREFIX)
+                && !passwordRef.startsWith(io.opendbapi.core.secret.VaultSecrets.PREFIX)) {
+            throw new IllegalArgumentException("passwordRef must be secret:NAME, env:NAME or vault:PATH#KEY.");
         }
         JdbcConfig config = json.treeToValue(spec, JdbcConfig.class);
         ObjectNode out = json.valueToTree(config);

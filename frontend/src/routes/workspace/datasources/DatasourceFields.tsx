@@ -48,7 +48,7 @@ export function DatasourceFields({
       : passwordEnv
         ? t("Stored as {{env}}. Leave empty to keep it.", { env: passwordEnv })
         : t("Stored encrypted. Leave empty to keep it.")
-    : t("Saved encrypted. Or type secret:NAME for a managed secret, or env:NAME to read it from the server's environment.");
+    : t("Saved encrypted. Or type secret:NAME for a managed secret, env:NAME for the server's environment, or vault:PATH#KEY for HashiCorp Vault.");
 
   return (
     <fieldset disabled={disabled} className="min-w-0">

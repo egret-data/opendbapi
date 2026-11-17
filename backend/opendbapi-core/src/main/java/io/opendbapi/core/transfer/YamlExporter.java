@@ -157,7 +157,8 @@ public class YamlExporter {
         if (d.description() != null) {
             spec.put("description", d.description());
         }
-        if (d.secretRef() != null && (d.secretRef().startsWith("env:") || d.secretRef().startsWith("secret:"))) {
+        if (d.secretRef() != null && (d.secretRef().startsWith("env:") || d.secretRef().startsWith("secret:")
+                || d.secretRef().startsWith("vault:"))) {
             spec.put("passwordRef", d.secretRef());
         }
         return spec;

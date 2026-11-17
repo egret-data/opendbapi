@@ -4654,7 +4654,7 @@
           },
           "passwordEnv" : {
             "type" : "string",
-            "description" : "The env: reference when the password comes from the environment",
+            "description" : "The env: or vault: reference when the password comes from outside",
             "nullable" : true
           },
           "passwordSecret" : {

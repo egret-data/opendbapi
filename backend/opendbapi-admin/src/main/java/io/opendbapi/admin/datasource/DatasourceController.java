@@ -66,7 +66,7 @@ public class DatasourceController {
             PoolSettings pool,
             boolean readOnly,
             boolean hasPassword,
-            @Schema(nullable = true, description = "The env: reference when the password comes from the environment") String passwordEnv,
+            @Schema(nullable = true, description = "The env: or vault: reference when the password comes from outside") String passwordEnv,
             @Schema(nullable = true, description = "The managed secret holding the password, when it is one") String passwordSecret,
             OffsetDateTime createdAt,
             OffsetDateTime updatedAt,
@@ -83,7 +83,7 @@ public class DatasourceController {
             return new DatasourceView(d.id(), d.name(), d.description(), c.dialect(), c.host(), c.effectivePort(),
                     c.database(), c.username(), c.properties(),
                     new PoolSettings(c.pool().maximumPoolSize(), c.pool().minimumIdle(), c.pool().connectionTimeoutMs()),
-                    d.readOnly(), ref != null, ref != null && ref.startsWith("env:") ? ref : null,
+                    d.readOnly(), ref != null, ref != null && (ref.startsWith("env:") || ref.startsWith("vault:")) ? ref : null,
                     WorkspaceSecrets.isReference(ref) ? WorkspaceSecrets.nameOf(ref) : null,
                     d.createdAt(), d.updatedAt(), lastTest);
         }
@@ -257,7 +257,8 @@ public class DatasourceController {
         if ((password == null || password.isEmpty()) && body.existingId() != null) {
             saved = find(granted.workspace().id(), body.existingId());
             password = workspaceSecrets.resolve(granted.workspace().id(), saved.secretRef());
-        } else if (password != null && (password.startsWith("env:") || WorkspaceSecrets.isReference(password))) {
+        } else if (password != null && (password.startsWith("env:") || WorkspaceSecrets.isReference(password)
+                || io.opendbapi.core.secret.VaultSecrets.isReference(password))) {
             password = workspaceSecrets.resolve(granted.workspace().id(), password);
         }
         DatasourceTestResult result = run(config, password);

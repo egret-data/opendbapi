@@ -72,6 +72,31 @@ spec:
               value: {{ .Values.secureCookies | quote }}
             - name: JAVA_TOOL_OPTIONS
               value: {{ .Values.javaToolOptions | quote }}
+            {{- with .Values.vault }}
+            {{- if .address }}
+            - {name: OPENDBAPI_VAULT_ADDRESS, value: {{ .address | quote }}}
+            - {name: OPENDBAPI_VAULT_AUTH, value: {{ .auth | quote }}}
+            - {name: OPENDBAPI_VAULT_ROLE, value: {{ .role | quote }}}
+            - {name: OPENDBAPI_VAULT_LOGIN_MOUNT, value: {{ .loginMount | quote }}}
+            - {name: OPENDBAPI_VAULT_NAMESPACE, value: {{ .namespace | quote }}}
+            - {name: OPENDBAPI_VAULT_KV_VERSION, value: {{ .kvVersion | quote }}}
+            - {name: OPENDBAPI_VAULT_ALLOWED_PATHS, value: {{ .allowedPaths | quote }}}
+            - {name: OPENDBAPI_VAULT_SYSTEM_PATHS, value: {{ .systemPaths | quote }}}
+            {{- if eq .auth "token" }}
+            - name: OPENDBAPI_VAULT_TOKEN
+              valueFrom:
+                secretKeyRef: {name: {{ include "opendbapi.secretName" $ }}, key: {{ .tokenKey }}}
+            {{- end }}
+            {{- if eq .auth "approle" }}
+            - name: OPENDBAPI_VAULT_ROLE_ID
+              valueFrom:
+                secretKeyRef: {name: {{ include "opendbapi.secretName" $ }}, key: {{ .roleIdKey }}}
+            - name: OPENDBAPI_VAULT_SECRET_ID
+              valueFrom:
+                secretKeyRef: {name: {{ include "opendbapi.secretName" $ }}, key: {{ .secretIdKey }}}
+            {{- end }}
+            {{- end }}
+            {{- end }}
             {{- with .Values.env }}
             {{- toYaml . | nindent 12 }}
             {{- end }}

@@ -230,7 +230,7 @@ Schema mới trong PostgreSQL, schema `opendbapi`. Dữ liệu DBAPI được nh
 
 ### 4.5 Các bảng khác
 
-- `datasource(id, name, type 'jdbc'|'elasticsearch'|'http', config jsonb, secret_ref text, read_only bool, ...)`: `secret_ref` có dạng `enc:v1:<AES-GCM>`, `env:NAME`, `secret:NAME` (secret do OpenDBAPI quản lý, xem dưới), hoặc `vault:path#key` (P3).
+- `datasource(id, name, type 'jdbc'|'elasticsearch'|'http', config jsonb, secret_ref text, read_only bool, ...)`: `secret_ref` có dạng `enc:v1:<AES-GCM>`, `env:NAME`, `secret:NAME` (secret do OpenDBAPI quản lý, xem dưới), hoặc `vault:path#key` (HashiCorp Vault, xem dưới).
 - `data_policy(id, datasource_id NULL, endpoint_id NULL, kind 'mask'|'row_filter', column_name text, rule jsonb)`: đúng một trong hai `datasource_id`, `endpoint_id`; row filter chỉ gắn với endpoint; `rule` chứa kiểu mask, thuộc tính, danh sách exempt và salt của hash.
 - `access_log(id, ts, endpoint_id, version, method, path, status, duration_ms, rows, client_id, service_account_id, ip, error_code, error, trace_id, actor_user_id NULL)`: `actor_user_id` khác NULL nghĩa là lời gọi đến từ Try-it, không tính vào thống kê [E].
 - `audit_log(id, ts, user_id, action, target_type, target_id, detail jsonb)`
@@ -240,7 +240,11 @@ Schema mới trong PostgreSQL, schema `opendbapi`. Dữ liệu DBAPI được nh
   - Khi giá trị đổi, connection pool của các datasource đang dùng secret đó được đóng; lần query sau mở kết nối với giá trị mới.
   - Không xoá được secret còn đang được dùng (409 `secret_in_use`).
   - Quản lý qua `/secrets` (workspace admin; UI ở Settings → Secrets); mọi thay đổi ghi audit nhưng không ghi giá trị. Export YAML ghi `passwordRef: secret:NAME`, không ghi giá trị.
-  - Secret chỉ thuộc phạm vi workspace. Secret của identity provider (cấp hệ thống) vẫn dùng `enc:v1:`/`env:`. Vault bên ngoài để P3.
+  - Secret chỉ thuộc phạm vi workspace. Secret của identity provider (cấp hệ thống) dùng `enc:v1:`, `env:` hoặc `vault:`.
+- **Vault** (`vault:secret/opendbapi/sales/db#password`): đọc từ HashiCorp Vault, KV v2 mặc định (`GET /v1/secret/data/opendbapi/sales/db`, lấy khoá `password`; `opendbapi.vault.kv-version=1` cho KV v1).
+  - Cấu hình: `opendbapi.vault.address` (trống thì tắt), `auth` = `token` (`opendbapi.vault.token`), `approle` (`role-id`, `secret-id`) hoặc `kubernetes` (`role`, token service account của pod); `login-mount`, `namespace` tuỳ chọn. Token từ AppRole/Kubernetes được giữ tới gần hết lease; giá trị được cache `cache-seconds` (mặc định 60).
+  - **Cô lập workspace:** một workspace chỉ được tham chiếu path bắt đầu bằng `opendbapi.vault.allowed-paths` (mặc định `secret/opendbapi/{workspace}/`, `{workspace}` là slug); secret cấp hệ thống dùng `system-paths` (mặc định `secret/opendbapi/system/`). Không có giới hạn này, admin một workspace có thể bắt server gửi secret của workspace khác tới host do họ chọn. Path có `..` bị từ chối.
+  - Dùng được cho mật khẩu datasource, URL webhook của kênh cảnh báo và secret của identity provider. Export YAML ghi nguyên tham chiếu `vault:`. Helm chart có khối `vault:`.
 
 ### 4.6 Cấu hình datasource
 

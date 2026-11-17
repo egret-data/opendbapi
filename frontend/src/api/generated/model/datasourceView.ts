@@ -22,7 +22,7 @@ export interface DatasourceView {
   lastTest: LastTest | null;
   name: string;
   /**
-     * The env: reference when the password comes from the environment
+     * The env: or vault: reference when the password comes from outside
      * @nullable
      */
   passwordEnv?: string | null;
