@@ -98,7 +98,13 @@ public class YamlExporter {
             docs.add(doc(ConfigDocument.SERVICE_ACCOUNT, sa.name(), meta(sa.name(), null), spec));
         }
         Map<UUID, String> endpointNames = new HashMap<>();
-        for (Endpoint e : endpoints.list(new EndpointStore.Filter(null, null, null, null, false))) {
+        List<Endpoint> endpointList = endpoints.list(new EndpointStore.Filter(null, null, null, null, false));
+        // Spec §16: a lineage is named by its first major's route, which is the same in every environment.
+        Map<UUID, Endpoint> lineageRoots = new HashMap<>();
+        for (Endpoint e : endpointList) {
+            lineageRoots.merge(e.lineageId(), e, (a, b) -> a.major() <= b.major() ? a : b);
+        }
+        for (Endpoint e : endpointList) {
             String route = e.method() + " /" + e.path();
             endpointNames.put(e.id(), route);
             ObjectNode spec = endpointSpec(e.method(), e.path(), e.access(), e.description(), json.valueToTree(e.definition()), dsNames);
@@ -117,6 +123,19 @@ public class YamlExporter {
             }
             ObjectNode metadata = meta(e.name(), e.groupId() == null ? null : groupNames.get(e.groupId()));
             metadata.put("state", e.state());
+            Endpoint root = lineageRoots.get(e.lineageId());
+            if (root != null && !root.id().equals(e.id())) {
+                metadata.put("majorOf", root.method() + " /" + root.path());
+            }
+            if (e.major() > 1) {
+                metadata.put("major", e.major());
+            }
+            if (e.deprecatedAt() != null) {
+                metadata.put("deprecated", true);
+            }
+            if (e.sunsetAt() != null) {
+                metadata.put("sunset", e.sunsetAt().toInstant().toString());
+            }
             docs.add(doc(ConfigDocument.ENDPOINT, route, metadata, spec));
         }
         for (DataPolicyStore.Stored s : policies.all()) {

@@ -989,7 +989,7 @@ Các `kind` khác: `Datasource` (không chứa bí mật, chỉ `passwordRef: se
   - `Link: <…/vN/orders>; rel="successor-version"` trỏ tới major cao nhất đang live của cùng lineage.
   - OpenAPI của workspace đánh dấu operation đó `deprecated: true`.
 - **Breaking change**: validate (và hộp thoại publish) so sánh cột kết quả của draft với `output_schema` của bản đang live. Bỏ cột hoặc đổi kiểu sinh cảnh báo `breaking_change` kèm gợi ý tạo major mới; publish không bị chặn.
-- Lineage và trạng thái deprecated chưa nằm trong file YAML cấu hình (§15).
+- File YAML (§15) mang lineage và trạng thái deprecated trong `metadata` của endpoint: `majorOf: "GET /v1/orders"` (bản major đầu tiên của lineage, tham chiếu bằng route nên dùng được ở mọi môi trường), `major: 2`, `deprecated: true`, `sunset: 2027-06-30T00:00:00Z`. `apply` đặt lineage và deprecation sau khi mọi endpoint trong file đã tồn tại; thời điểm deprecate được giữ nếu endpoint đã deprecated từ trước.
 
 ---
 

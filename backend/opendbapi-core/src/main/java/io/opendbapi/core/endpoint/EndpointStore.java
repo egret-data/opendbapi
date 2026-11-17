@@ -218,6 +218,11 @@ public class EndpointStore {
         return find(id).orElseThrow();
     }
 
+    /** Puts the endpoint in a lineage as the given major (configuration files, spec §16). */
+    public void setLineage(UUID id, UUID lineageId, int major) {
+        jdbc.sql("update endpoint set lineage_id = ?, major = ? where id = ?").params(lineageId, major, id).update();
+    }
+
     public void setDeprecation(UUID id, OffsetDateTime deprecatedAt, OffsetDateTime sunsetAt) {
         jdbc.sql("update endpoint set deprecated_at = ?, sunset_at = ?, updated_at = now() where id = ?")
                 .params(deprecatedAt, sunsetAt, id).update();

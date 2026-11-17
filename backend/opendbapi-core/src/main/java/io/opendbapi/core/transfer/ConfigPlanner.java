@@ -400,6 +400,36 @@ public class ConfigPlanner {
             }
             metadata.put("state", state);
         }
+        // Spec §16: lineage and deprecation, in the exporter's shape.
+        String majorOf = text(metaIn.get("majorOf"));
+        if (majorOf != null) {
+            String rootRoute = normalizeRoute(majorOf, where);
+            if (!rootRoute.equals(routeKey)) {
+                metadata.put("majorOf", rootRoute);
+            }
+        }
+        int major = metaIn.path("major").asInt(1);
+        if (major < 1) {
+            throw invalid(where, "metadata.major is 1 or more.");
+        }
+        if (major > 1) {
+            metadata.put("major", major);
+        }
+        if (metaIn.path("deprecated").asBoolean(false)) {
+            metadata.put("deprecated", true);
+        }
+        String sunset = text(metaIn.get("sunset"));
+        if (sunset != null) {
+            try {
+                metadata.put("sunset", java.time.OffsetDateTime.parse(sunset).toInstant().toString());
+            } catch (java.time.format.DateTimeParseException e) {
+                try {
+                    metadata.put("sunset", java.time.Instant.parse(sunset).toString());
+                } catch (java.time.format.DateTimeParseException e2) {
+                    throw invalid(where, "metadata.sunset is a date-time such as 2027-06-30T00:00:00Z.");
+                }
+            }
+        }
         return new ConfigDocument(ConfigDocument.ENDPOINT, routeKey, metadata, strip(out));
     }
 
@@ -628,6 +658,21 @@ public class ConfigPlanner {
                     }
                 }
                 default -> throw new IllegalStateException(c.kind());
+            }
+        }
+        // Spec §16: lineages and deprecation, once every endpoint of the file exists.
+        for (ConfigChange c : plan.changes()) {
+            if (ConfigDocument.ENDPOINT.equals(c.kind()) && (CREATE.equals(c.action()) || UPDATE.equals(c.action()))) {
+                ConfigDocument d = a.desired().get(id(c.kind(), c.name()));
+                Endpoint e = endpointStore.find(endpointId(c.name(), c)).orElseThrow();
+                String rootRoute = text(d.metadata().get("majorOf"));
+                UUID lineage = rootRoute == null ? e.id() : endpointStore.find(endpointId(rootRoute, c)).orElseThrow().lineageId();
+                endpointStore.setLineage(e.id(), lineage, d.metadata().path("major").asInt(1));
+                boolean deprecated = d.metadata().path("deprecated").asBoolean(false);
+                String sunset = text(d.metadata().get("sunset"));
+                endpointStore.setDeprecation(e.id(),
+                        deprecated ? (e.deprecatedAt() != null ? e.deprecatedAt() : java.time.OffsetDateTime.now()) : null,
+                        sunset == null ? null : java.time.OffsetDateTime.parse(sunset));
             }
         }
         for (ConfigChange c : plan.changes()) {
