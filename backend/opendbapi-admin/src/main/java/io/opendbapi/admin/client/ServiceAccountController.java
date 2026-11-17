@@ -104,6 +104,12 @@ public class ServiceAccountController {
     private final ServiceAccountStore store;
     private final CallerAuthorizer authorizer;
     private final AuditLog audit;
+    private io.opendbapi.core.datapolicy.DataPolicies dataPolicies;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setDataPolicies(io.opendbapi.core.datapolicy.DataPolicies dataPolicies) {
+        this.dataPolicies = dataPolicies;
+    }
 
     public ServiceAccountController(WorkspaceAccess access, WorkspaceScope scope, ServiceAccountStore store,
                                     CallerAuthorizer authorizer, AuditLog audit) {
@@ -159,6 +165,9 @@ public class ServiceAccountController {
             return detail(id);
         });
         authorizer.invalidate(wsId);
+        if (body.attributes() != null) {
+            dataPolicies.invalidate(wsId); // row filters read attributes; cached answers may be stale
+        }
         return result;
     }
 

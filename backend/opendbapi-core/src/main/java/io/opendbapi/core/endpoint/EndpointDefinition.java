@@ -17,9 +17,11 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
                                  @Schema(description = "Checks on the bound parameters, run before the query (spec §13.1)")
                                  List<Rule> rules,
                                  Alerts alerts,
-                                 @Schema(description = "How rows are shaped in the response (spec §9.2)") Output output) {
+                                 @Schema(description = "How rows are shaped in the response (spec §9.2)") Output output,
+                                 @Schema(description = "Result cache (spec §9.5)") Cache cache) {
 
     public EndpointDefinition {
+        cache = cache == null ? Cache.off() : cache;
         output = output == null ? Output.defaults() : output;
         rules = rules == null ? List.of() : List.copyOf(rules);
         alerts = alerts == null ? Alerts.off() : alerts;
@@ -31,7 +33,7 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
     }
 
     public EndpointDefinition(List<Param> params, Task task, Pagination pagination, Limits limits) {
-        this(params, task, pagination, limits, null, null, null, null);
+        this(params, task, pagination, limits, null, null, null, null, null);
     }
 
     /**
@@ -39,6 +41,27 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
      * {@code to == null or to >= from}; when it is false the call gets 400 with {@code message}.
      */
     public record Rule(String test, String message) {
+    }
+
+    /**
+     * Spec §9.5: keep answers for {@code ttlSeconds}. {@code client} keys entries by the calling
+     * service account; {@code shared} serves one entry to every caller.
+     */
+    public record Cache(boolean enabled, int ttlSeconds, @Schema(allowableValues = {"client", "shared"}) String scope) {
+        public static final int MAX_TTL_SECONDS = 86_400;
+
+        public Cache {
+            ttlSeconds = ttlSeconds <= 0 ? 60 : Math.min(ttlSeconds, MAX_TTL_SECONDS);
+            scope = scope == null || scope.isBlank() ? "client" : scope;
+        }
+
+        public static Cache off() {
+            return new Cache(false, 60, "client");
+        }
+
+        public boolean shared() {
+            return "shared".equals(scope);
+        }
     }
 
     /** Spec §13.2: send failures (5xx) of this endpoint to the workspace's alert channels. */
@@ -51,7 +74,7 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
     public static EndpointDefinition starter(UUID datasourceId) {
         return new EndpointDefinition(List.of(), new Task("sql", datasourceId, false,
                 List.of(new Statement("main", "select 1 as ok"))), Pagination.off(), Limits.defaults(), Streaming.off(),
-                List.of(), Alerts.off(), Output.defaults());
+                List.of(), Alerts.off(), Output.defaults(), Cache.off());
     }
 
     public enum StreamFormat { ndjson, csv }

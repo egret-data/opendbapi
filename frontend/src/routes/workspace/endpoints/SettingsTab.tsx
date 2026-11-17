@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
+import { useClearEndpointCache } from "@/api/generated/endpoints/endpoints";
 import { useListGroups } from "@/api/generated/groups/groups";
 import { ConfigTable, ConfigTableGroup, ConfigTableRow } from "@/components/config/ConfigTable";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
+import { errorMessage } from "@/lib/errors";
 import { METHODS, type DraftForm, type Method } from "./endpointForm";
 import { OutputRows, PaginationModeRows } from "./OutputSettings";
 
@@ -18,10 +21,11 @@ const NONE = "__none__";
 const int = (s: string, fallback: number) => (Number.isFinite(Number.parseInt(s, 10)) ? Number.parseInt(s, 10) : fallback);
 
 /** Everything about the endpoint as an HTTP object (spec §17.4), one settings table. */
-export function SettingsTab({ ws, form, onChange, live, disabled }: {
-  ws: string; form: DraftForm; onChange: (f: DraftForm) => void; live: boolean; disabled: boolean;
+export function SettingsTab({ ws, endpointId, form, onChange, live, disabled }: {
+  ws: string; endpointId?: string; form: DraftForm; onChange: (f: DraftForm) => void; live: boolean; disabled: boolean;
 }) {
   const groups = useListGroups(ws);
+  const clear = useClearEndpointCache({ mutation: { onError: (e) => toast.error(errorMessage(e)) } });
   const def = form.definition;
   const setDef = (patch: Partial<DraftForm["definition"]>) => onChange({ ...form, definition: { ...def, ...patch } });
   const routeLocked = live ? "Fixed while live: callers depend on it. Disable the endpoint to change it." : undefined;
@@ -82,6 +86,30 @@ export function SettingsTab({ ws, form, onChange, live, disabled }: {
         <PaginationModeRows def={def} setDef={setDef} disabled={disabled} />
 
         <OutputRows def={def} setDef={setDef} />
+
+        <ConfigTableGroup label="Cache" />
+        <ConfigTableRow label="Cache answers" htmlFor="ep-cache"
+          details="Keep GET answers in memory on each server for a while. Takes effect when published; Try-it is never cached.">
+          <div className="flex items-center gap-3">
+            <Switch id="ep-cache" checked={def.cache.enabled} onCheckedChange={(v) => setDef({ cache: { ...def.cache, enabled: v } })} />
+            {endpointId && (
+              <Button type="button" variant="outline" size="sm" disabled={clear.isPending}
+                onClick={() => clear.mutate({ ws, endpointId }, { onSuccess: () => toast.success("Cached answers cleared on this server.") })}>
+                Clear cache
+              </Button>
+            )}
+          </div>
+        </ConfigTableRow>
+        <ConfigTableRow label="Keep for" htmlFor="ep-cache-ttl" unit="seconds" details="Up to 86,400 (one day)">
+          <Input id="ep-cache-ttl" type="number" min={1} max={86400} className="w-32 tabular-nums" value={def.cache.ttlSeconds}
+            disabled={disabled || !def.cache.enabled}
+            onChange={(e) => setDef({ cache: { ...def.cache, ttlSeconds: int(e.target.value, 60) } })} />
+        </ConfigTableRow>
+        <ConfigTableRow label="Shared between callers" htmlFor="ep-cache-scope"
+          details="Off keeps one entry per service account, which data policies require. On serves one entry to every caller.">
+          <Switch id="ep-cache-scope" checked={def.cache.scope === "shared"} disabled={disabled || !def.cache.enabled}
+            onCheckedChange={(v) => setDef({ cache: { ...def.cache, scope: v ? "shared" : "client" } })} />
+        </ConfigTableRow>
 
         <ConfigTableGroup label="Streaming" />
         <ConfigTableRow label="Allow streaming" htmlFor="ep-stream"

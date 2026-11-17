@@ -67,6 +67,12 @@ public class ServingDispatcher {
     private final io.opendbapi.core.activity.AccessLogWriter accessLog;
     private final io.opendbapi.core.datapolicy.DataPolicies dataPolicies;
     private final io.opendbapi.core.alert.Alerts alerts;
+    private io.opendbapi.core.endpoint.ResultCache results;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setResults(io.opendbapi.core.endpoint.ResultCache results) {
+        this.results = results;
+    }
     private final io.micrometer.core.instrument.MeterRegistry meters;
     private final org.springframework.beans.factory.ObjectProvider<io.micrometer.tracing.Tracer> tracer;
 
@@ -189,21 +195,54 @@ public class ServingDispatcher {
             return null;
         }
 
+        // Spec §9.5: GET answers, not Try-it (authors want fresh results), and never a shared entry
+        // when data policies make answers differ per caller.
+        EndpointDefinition.Cache cacheConfig = def.cache();
+        boolean cacheable = cacheConfig.enabled() && "GET".equals(method) && outcome.actorUserId == null
+                && !(cacheConfig.shared() && policy.active());
+        String cacheKey = null;
+        if (cacheable) {
+            UUID caller = cacheConfig.shared() || outcome.serviceAccountId == null ? null : UUID.fromString(outcome.serviceAccountId);
+            cacheKey = results.key(ws.id(), route.endpointId(), route.version(), caller, params, pageKey(page));
+            io.opendbapi.core.endpoint.ResultCache.CachedAnswer hit = results.get(cacheKey, route.endpointId());
+            if (hit != null) {
+                outcome.rows = hit.rows();
+                return ResponseEntity.ok().headers(rateHeaders(rate)).contentType(MediaType.APPLICATION_JSON)
+                        .body(envelope(route, hit.data(), hit.pageMeta(), true, requestId));
+            }
+        }
+
         QueryExecutor.QueryResult result = executor.run(ds, route.task(), params, page, def.limits(), QueryExecutor.RunMode.SERVE,
                 policy::rewriteMain);
         io.opendbapi.core.endpoint.ResponseBody.Parts parts = io.opendbapi.core.endpoint.ResponseBody.build(def, result, page,
                 r -> io.opendbapi.core.datapolicy.DataPolicies.Plan.apply(policy.masksFor(r.columns()), r.columns(), r.rows()));
+        if (cacheKey != null && result.affectedRows() == null) {
+            results.put(cacheKey, parts.data(), parts.pageMeta(), parts.rows(), cacheConfig.ttlSeconds());
+        }
 
+        outcome.rows = parts.rows();
+        Map<String, Object> envelope = envelope(route, parts.data(), parts.pageMeta(), false, requestId);
+        return ResponseEntity.ok().headers(rateHeaders(rate)).contentType(MediaType.APPLICATION_JSON).body(envelope);
+    }
+
+    private static Map<String, Object> envelope(EndpointRegistry.Route route, Object data, Map<String, Object> pageMeta, boolean cached,
+                                                String requestId) {
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("version", route.version());
-        meta.put("cached", false);
-        meta.putAll(parts.pageMeta());
+        meta.put("cached", cached);
+        meta.putAll(pageMeta);
         meta.put("requestId", requestId);
-        outcome.rows = parts.rows();
         Map<String, Object> envelope = new LinkedHashMap<>();
-        envelope.put("data", parts.data());
+        envelope.put("data", data);
         envelope.put("meta", meta);
-        return ResponseEntity.ok().headers(rateHeaders(rate)).contentType(MediaType.APPLICATION_JSON).body(envelope);
+        return envelope;
+    }
+
+    private static String pageKey(QueryExecutor.PageRequest page) {
+        if (page == null) {
+            return "-";
+        }
+        return page.page() + "/" + page.size() + "/" + page.count() + "/" + page.after();
     }
 
     /** Spec §9.1 steps 4–5: a valid token for this workspace, a usable client, a grant. */

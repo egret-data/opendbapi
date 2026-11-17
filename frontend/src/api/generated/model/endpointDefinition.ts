@@ -6,6 +6,7 @@
  * OpenAPI spec version: v1
  */
 import type { Alerts } from './alerts';
+import type { Cache } from './cache';
 import type { Limits } from './limits';
 import type { Output } from './output';
 import type { Pagination } from './pagination';
@@ -16,6 +17,7 @@ import type { Task } from './task';
 
 export interface EndpointDefinition {
   alerts: Alerts;
+  cache: Cache;
   limits: Limits;
   output: Output;
   pagination: Pagination;

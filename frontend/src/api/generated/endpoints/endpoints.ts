@@ -249,6 +249,78 @@ export const useCreateEndpoint = <TError = unknown,
       > => {
       return useMutation(getCreateEndpointMutationOptions(options), queryClient);
     }
+    export const getClearEndpointCacheUrl = (ws: string,
+    endpointId: string,) => {
+
+
+
+
+  return `/admin/api/ws/${ws}/endpoints/${endpointId}/cache:clear`
+}
+
+/**
+ * @summary Forget the endpoint's cached answers on this server (author)
+ */
+export const clearEndpointCache = async (ws: string,
+    endpointId: string, options?: Parameters<typeof customInstance>[1]): Promise<void> => {
+
+  return customInstance<void>(getClearEndpointCacheUrl(ws,endpointId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getClearEndpointCacheMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearEndpointCache>>, TError,{ws: string;endpointId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof clearEndpointCache>>, TError,{ws: string;endpointId: string}, TContext> => {
+
+const mutationKey = ['clearEndpointCache'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof clearEndpointCache>>, {ws: string;endpointId: string}> = (props) => {
+          const {ws,endpointId} = props ?? {};
+
+          return  clearEndpointCache(ws,endpointId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ClearEndpointCacheMutationResult = NonNullable<Awaited<ReturnType<typeof clearEndpointCache>>>
+
+    export type ClearEndpointCacheMutationError = unknown
+
+    /**
+ * @summary Forget the endpoint's cached answers on this server (author)
+ */
+export const useClearEndpointCache = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof clearEndpointCache>>, TError,{ws: string;endpointId: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof clearEndpointCache>>,
+        TError,
+        {ws: string;endpointId: string},
+        TContext
+      > => {
+      return useMutation(getClearEndpointCacheMutationOptions(options), queryClient);
+    }
     export const getDeleteEndpointUrl = (ws: string,
     id: string,) => {
 

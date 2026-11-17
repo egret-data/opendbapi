@@ -211,7 +211,7 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
           {canAuthor && <PreviewPanel ws={ws} id={s.id} form={form} />}
         </TabsContent>
         <TabsContent value="settings" className="pt-4">
-          <SettingsTab ws={ws} form={form} onChange={setForm} live={s.state === "live"} disabled={!canAuthor} />
+          <SettingsTab ws={ws} endpointId={s.id} form={form} onChange={setForm} live={s.state === "live"} disabled={!canAuthor} />
         </TabsContent>
         {canAuthor && (
           <TabsContent value="try" className="pt-4">

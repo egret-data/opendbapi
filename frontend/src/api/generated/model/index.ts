@@ -17,6 +17,8 @@ export * from './alertTestResult';
 export * from './apiGroup';
 export * from './auditEntry';
 export * from './authProviders';
+export * from './cache';
+export * from './cacheScope';
 export * from './changePassword';
 export * from './changeRole';
 export * from './changeRoleRole';

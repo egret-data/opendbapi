@@ -20,7 +20,7 @@ the full design is in [`docs/SPEC.md`](docs/SPEC.md).
 > Playwright tests for the main author flow; column masks and per-caller row filters (data policies)
 > with service account attributes; parameter rules; webhook alerts (Slack, Teams, Google Chat, JSON)
 > for failing endpoints; saved test cases per endpoint, optionally required to pass before publish; result
-> mapping (naming, types, nesting, single/scalar) and keyset pagination.
+> mapping (naming, types, nesting, single/scalar) and keyset pagination; a per-caller or shared result cache.
 
 ## Layout
 
