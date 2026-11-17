@@ -26,7 +26,15 @@ public class ServiceAccountStore {
     }
 
     public record Client(UUID id, String clientId, Instant createdAt, @Schema(nullable = true) Instant expiresAt, @Schema(nullable = true) Instant lastUsedAt,
-                         @Schema(nullable = true) Instant revokedAt) {
+                         @Schema(nullable = true) Instant revokedAt,
+                         @Schema(description = "Requests must carry an HMAC signature (spec §8.2)") boolean hmacRequired,
+                         @Schema(description = "Responses are encrypted to the client's public key (spec §8.3)") boolean responseEncrypt,
+                         @Schema(nullable = true, description = "RSA public key (PEM) responses are encrypted to") String publicKey) {
+    }
+
+    /** What the serving path needs to check a client's signature and encrypt its answers. */
+    public record ClientSecurity(boolean hmacRequired, String hmacKeyRef, boolean responseEncrypt, String publicKey) {
+        public static final ClientSecurity NONE = new ClientSecurity(false, null, false, null);
     }
 
     public record Grant(String resourceType, UUID resourceId, String resourceName,
@@ -105,12 +113,37 @@ public class ServiceAccountStore {
 
     public List<Client> clients(UUID serviceAccountId) {
         return jdbc.sql("""
-                select id, client_id, created_at, expires_at, last_used_at, revoked_at from oauth_client
-                where service_account_id = ? order by revoked_at nulls first, created_at desc""")
+                select id, client_id, created_at, expires_at, last_used_at, revoked_at, hmac_required, response_encrypt, public_key
+                from oauth_client where service_account_id = ? order by revoked_at nulls first, created_at desc""")
                 .param(serviceAccountId)
                 .query((rs, i) -> new Client(rs.getObject("id", UUID.class), rs.getString("client_id"), ts(rs, "created_at"),
-                        ts(rs, "expires_at"), ts(rs, "last_used_at"), ts(rs, "revoked_at")))
+                        ts(rs, "expires_at"), ts(rs, "last_used_at"), ts(rs, "revoked_at"), rs.getBoolean("hmac_required"),
+                        rs.getBoolean("response_encrypt"), rs.getString("public_key")))
                 .list();
+    }
+
+    /** Signature and encryption settings of an active client; NONE when it has none or does not exist. */
+    public ClientSecurity security(String clientId) {
+        return jdbc.sql("select hmac_required, hmac_key_ref, response_encrypt, public_key from oauth_client where client_id = ?")
+                .param(clientId)
+                .query((rs, i) -> new ClientSecurity(rs.getBoolean(1), rs.getString(2), rs.getBoolean(3), rs.getString(4)))
+                .optional().orElse(ClientSecurity.NONE);
+    }
+
+    /**
+     * Changes a client's signing and encryption settings.
+     *
+     * @param hmacKeyRef sealed signing key when turning signatures on (or rotating), null to keep the current one
+     * @return the client id, if the client exists and is active
+     */
+    public Optional<String> updateSecurity(UUID serviceAccountId, UUID id, boolean hmacRequired, String hmacKeyRef,
+                                           boolean responseEncrypt, String publicKey) {
+        return jdbc.sql("""
+                update oauth_client set hmac_required = ?, hmac_key_ref = case when ? then coalesce(?, hmac_key_ref) else null end,
+                       response_encrypt = ?, public_key = ?
+                where id = ? and service_account_id = ? and revoked_at is null returning client_id""")
+                .params(hmacRequired, hmacRequired, hmacKeyRef, responseEncrypt, publicKey, id, serviceAccountId)
+                .query(String.class).optional();
     }
 
     public Client createClient(UUID workspaceId, UUID serviceAccountId, String clientId, String secretHash, Instant expiresAt) {

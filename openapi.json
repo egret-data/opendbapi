@@ -3118,6 +3118,59 @@
         "tags" : [ "service-accounts" ]
       }
     },
+    "/admin/api/ws/{ws}/service-accounts/{id}/clients/{clientRowId}/security" : {
+      "put" : {
+        "operationId" : "saveClientSecurity",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "path",
+          "name" : "clientRowId",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveClientSecurity"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ClientSecurityResult"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Require request signatures and/or encrypt responses (admin)",
+        "tags" : [ "service-accounts" ]
+      }
+    },
     "/admin/api/ws/{ws}/service-accounts/{id}/clients/{clientRowId}:revoke" : {
       "post" : {
         "operationId" : "revokeClient",
@@ -3577,7 +3630,7 @@
         }
       },
       "Client" : {
-        "required" : [ "clientId", "createdAt", "id" ],
+        "required" : [ "clientId", "createdAt", "hmacRequired", "id", "responseEncrypt" ],
         "type" : "object",
         "properties" : {
           "clientId" : {
@@ -3592,6 +3645,10 @@
             "format" : "date-time",
             "nullable" : true
           },
+          "hmacRequired" : {
+            "type" : "boolean",
+            "description" : "Requests must carry an HMAC signature (spec §8.2)"
+          },
           "id" : {
             "type" : "string",
             "format" : "uuid"
@@ -3601,9 +3658,32 @@
             "format" : "date-time",
             "nullable" : true
           },
+          "publicKey" : {
+            "type" : "string",
+            "description" : "RSA public key (PEM) responses are encrypted to",
+            "nullable" : true
+          },
+          "responseEncrypt" : {
+            "type" : "boolean",
+            "description" : "Responses are encrypted to the client's public key (spec §8.3)"
+          },
           "revokedAt" : {
             "type" : "string",
             "format" : "date-time",
+            "nullable" : true
+          }
+        }
+      },
+      "ClientSecurityResult" : {
+        "required" : [ "client" ],
+        "type" : "object",
+        "properties" : {
+          "client" : {
+            "$ref" : "#/components/schemas/Client"
+          },
+          "signingKey" : {
+            "type" : "string",
+            "description" : "Shown once when issued; store it now",
             "nullable" : true
           }
         }
@@ -4852,6 +4932,25 @@
             "type" : "string",
             "description" : "Write-only; never returned",
             "nullable" : true
+          }
+        }
+      },
+      "SaveClientSecurity" : {
+        "required" : [ "hmacRequired", "responseEncrypt", "rotateSigningKey" ],
+        "type" : "object",
+        "properties" : {
+          "hmacRequired" : {
+            "type" : "boolean"
+          },
+          "publicKey" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "responseEncrypt" : {
+            "type" : "boolean"
+          },
+          "rotateSigningKey" : {
+            "type" : "boolean"
           }
         }
       },

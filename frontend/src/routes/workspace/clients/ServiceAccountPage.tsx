@@ -38,6 +38,7 @@ import { errorMessage } from "@/lib/errors";
 import { formatDateTime } from "@/lib/format";
 
 import { AttributesSection } from "./AttributesSection";
+import { ClientSecurityDialog } from "./ClientSecurityDialog";
 
 export default function ServiceAccountPage() {
   const { ws = "", id = "" } = useParams();
@@ -166,6 +167,7 @@ function ClientsSection({ ws, saId, clients, isAdmin, onChanged }: {
   const [created, setCreated] = useState<ShownSecret | null>(null);
   const [revoking, setRevoking] = useState<Client | null>(null);
   const [rotating, setRotating] = useState<Client | null>(null);
+  const [securing, setSecuring] = useState<Client | null>(null);
   const rotate = useRotateClientSecret();
 
   return (
@@ -191,7 +193,7 @@ function ClientsSection({ ws, saId, clients, isAdmin, onChanged }: {
                 <TableHead>Created</TableHead>
                 <TableHead>Expires</TableHead>
                 <TableHead>Last token</TableHead>
-                <TableHead className="w-56"><span className="sr-only">Actions</span></TableHead>
+                <TableHead className="w-72"><span className="sr-only">Actions</span></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -200,13 +202,20 @@ function ClientsSection({ ws, saId, clients, isAdmin, onChanged }: {
                 return (
                   <TableRow key={c.id}>
                     <TableCell className="font-mono text-xs">{c.clientId}</TableCell>
-                    <TableCell><StatusBadge tone={state.tone}>{state.label}</StatusBadge></TableCell>
+                    <TableCell>
+                      <span className="inline-flex flex-wrap gap-1">
+                        <StatusBadge tone={state.tone}>{state.label}</StatusBadge>
+                        {c.hmacRequired && <StatusBadge tone="neutral">Signed</StatusBadge>}
+                        {c.responseEncrypt && <StatusBadge tone="neutral">Encrypted</StatusBadge>}
+                      </span>
+                    </TableCell>
                     <TableCell className="tabular-nums">{formatDateTime(c.createdAt)}</TableCell>
                     <TableCell className="tabular-nums">{c.expiresAt ? formatDateTime(c.expiresAt) : "Never"}</TableCell>
                     <TableCell className="tabular-nums">{c.lastUsedAt ? formatDateTime(c.lastUsedAt) : "Never"}</TableCell>
                     <TableCell className="text-right">
                       {isAdmin && !c.revokedAt && (
                         <span className="inline-flex gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => setSecuring(c)}>Security</Button>
                           <Button variant="ghost" size="sm" onClick={() => setRotating(c)}>Rotate secret</Button>
                           <Button variant="ghost" size="sm" onClick={() => setRevoking(c)}>Revoke</Button>
                         </span>
@@ -220,6 +229,9 @@ function ClientsSection({ ws, saId, clients, isAdmin, onChanged }: {
         </div>
       )}
 
+      {securing && (
+        <ClientSecurityDialog ws={ws} saId={saId} client={securing} onClose={() => setSecuring(null)} onSaved={onChanged} />
+      )}
       <Dialog open={creating} onOpenChange={(o) => { setCreating(o); if (!o) setExpiresInDays(""); }}>
         <DialogContent>
           <DialogHeader>

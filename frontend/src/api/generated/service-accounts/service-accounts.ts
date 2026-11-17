@@ -25,9 +25,11 @@ import type {
 } from '@tanstack/react-query';
 
 import type {
+  ClientSecurityResult,
   CreateClient,
   EndpointAccess,
   NewClient,
+  SaveClientSecurity,
   SaveGrant,
   SaveServiceAccount,
   ServiceAccount,
@@ -660,6 +662,81 @@ export const useCreateClient = <TError = unknown,
         TContext
       > => {
       return useMutation(getCreateClientMutationOptions(options), queryClient);
+    }
+    export const getSaveClientSecurityUrl = (ws: string,
+    id: string,
+    clientRowId: string,) => {
+
+
+
+
+  return `/admin/api/ws/${ws}/service-accounts/${id}/clients/${clientRowId}/security`
+}
+
+/**
+ * @summary Require request signatures and/or encrypt responses (admin)
+ */
+export const saveClientSecurity = async (ws: string,
+    id: string,
+    clientRowId: string,
+    saveClientSecurityBody: SaveClientSecurity, options?: Parameters<typeof customInstance>[1]): Promise<ClientSecurityResult> => {
+
+  return customInstance<ClientSecurityResult>(getSaveClientSecurityUrl(ws,id,clientRowId),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(saveClientSecurityBody)
+  }
+);}
+
+
+
+
+
+export const getSaveClientSecurityMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveClientSecurity>>, TError,{ws: string;id: string;clientRowId: string;data: SaveClientSecurity}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveClientSecurity>>, TError,{ws: string;id: string;clientRowId: string;data: SaveClientSecurity}, TContext> => {
+
+const mutationKey = ['saveClientSecurity'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveClientSecurity>>, {ws: string;id: string;clientRowId: string;data: SaveClientSecurity}> = (props) => {
+          const {ws,id,clientRowId,data} = props ?? {};
+
+          return  saveClientSecurity(ws,id,clientRowId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveClientSecurityMutationResult = NonNullable<Awaited<ReturnType<typeof saveClientSecurity>>>
+    export type SaveClientSecurityMutationBody = SaveClientSecurity
+    export type SaveClientSecurityMutationError = unknown
+
+    /**
+ * @summary Require request signatures and/or encrypt responses (admin)
+ */
+export const useSaveClientSecurity = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveClientSecurity>>, TError,{ws: string;id: string;clientRowId: string;data: SaveClientSecurity}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof saveClientSecurity>>,
+        TError,
+        {ws: string;id: string;clientRowId: string;data: SaveClientSecurity},
+        TContext
+      > => {
+      return useMutation(getSaveClientSecurityMutationOptions(options), queryClient);
     }
     export const getRevokeClientUrl = (ws: string,
     id: string,

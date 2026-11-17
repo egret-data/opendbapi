@@ -11,9 +11,18 @@ export interface Client {
   createdAt: string;
   /** @nullable */
   expiresAt?: string | null;
+  /** Requests must carry an HMAC signature (spec §8.2) */
+  hmacRequired: boolean;
   id: string;
   /** @nullable */
   lastUsedAt?: string | null;
+  /**
+     * RSA public key (PEM) responses are encrypted to
+     * @nullable
+     */
+  publicKey?: string | null;
+  /** Responses are encrypted to the client's public key (spec §8.3) */
+  responseEncrypt: boolean;
   /** @nullable */
   revokedAt?: string | null;
 }

@@ -68,6 +68,12 @@ public class ServingDispatcher {
     private final io.opendbapi.core.datapolicy.DataPolicies dataPolicies;
     private final io.opendbapi.core.alert.Alerts alerts;
     private io.opendbapi.core.endpoint.ResultCache results;
+    private io.opendbapi.core.client.RequestSecurity security;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setSecurity(io.opendbapi.core.client.RequestSecurity security) {
+        this.security = security;
+    }
 
     @org.springframework.beans.factory.annotation.Autowired
     void setResults(io.opendbapi.core.endpoint.ResultCache results) {
@@ -169,8 +175,19 @@ public class ServingDispatcher {
         outcome.endpointId = route.endpointId().toString();
         outcome.version = route.version();
 
+        byte[] rawBody = readBody(request, method);
+        io.opendbapi.core.client.ServiceAccountStore.ClientSecurity clientSecurity =
+                io.opendbapi.core.client.ServiceAccountStore.ClientSecurity.NONE;
         if (!"public".equals(route.access())) {
             authenticate(ws, route, request, outcome);
+            if (outcome.actorUserId == null && outcome.clientId != null) {
+                // Spec §8.2: clients that must sign; Try-it is relayed in-process and has no client.
+                clientSecurity = security.settings(ws.id(), outcome.clientId);
+                if (clientSecurity.hmacRequired()) {
+                    security.verify(outcome.clientId, clientSecurity, method, request.getRequestURI(), query(request), rawBody,
+                            headers(request), System.currentTimeMillis());
+                }
+            }
         }
 
         EndpointDefinition def = route.definition();
@@ -179,7 +196,7 @@ public class ServingDispatcher {
                 outcome.ip);
         Set<String> reserved = def.pagination().enabled() ? EndpointValidator.RESERVED : Set.of("format");
         Map<String, Object> params = ParamBinder.bind(def.params(), new ParamBinder.Request(match.pathVariables(),
-                query(request), headers(request), body(request, def)), reserved);
+                query(request), headers(request), body(request, rawBody, def)), reserved);
         io.opendbapi.core.endpoint.ParamRules.enforce(def.rules(), params);
         EndpointDefinition.StreamFormat stream = streamFormat(def, request);
         QueryExecutor.PageRequest page = stream == null ? pageRequest(def.pagination(), request) : null;
@@ -190,6 +207,9 @@ public class ServingDispatcher {
         io.opendbapi.core.datapolicy.DataPolicies.Plan policy = dataPolicies.plan(ws.id(), route.endpointId(), ds.id(),
                 outcome.serviceAccountId == null ? null : UUID.fromString(outcome.serviceAccountId));
 
+        if (stream != null && clientSecurity.responseEncrypt()) {
+            throw new ApiProblem(406, "not_acceptable", "This client's responses are encrypted, which streams cannot be; ask for JSON.");
+        }
         if (stream != null) {
             streamTo(servletResponse, stream, ds, route, params, def, rate, requestId, outcome, policy);
             return null;
@@ -207,8 +227,7 @@ public class ServingDispatcher {
             io.opendbapi.core.endpoint.ResultCache.CachedAnswer hit = results.get(cacheKey, route.endpointId());
             if (hit != null) {
                 outcome.rows = hit.rows();
-                return ResponseEntity.ok().headers(rateHeaders(rate)).contentType(MediaType.APPLICATION_JSON)
-                        .body(envelope(route, hit.data(), hit.pageMeta(), true, requestId));
+                return answer(rate, envelope(route, hit.data(), hit.pageMeta(), true, requestId), clientSecurity);
             }
         }
 
@@ -222,7 +241,7 @@ public class ServingDispatcher {
 
         outcome.rows = parts.rows();
         Map<String, Object> envelope = envelope(route, parts.data(), parts.pageMeta(), false, requestId);
-        return ResponseEntity.ok().headers(rateHeaders(rate)).contentType(MediaType.APPLICATION_JSON).body(envelope);
+        return answer(rate, envelope, clientSecurity);
     }
 
     private static Map<String, Object> envelope(EndpointRegistry.Route route, Object data, Map<String, Object> pageMeta, boolean cached,
@@ -236,6 +255,22 @@ public class ServingDispatcher {
         envelope.put("data", data);
         envelope.put("meta", meta);
         return envelope;
+    }
+
+    /** Spec §8.3: clients with a public key get {encryptedKey, iv, data} instead of the envelope. */
+    private ResponseEntity<?> answer(RateLimiter.Decision rate, Map<String, Object> envelope,
+                                     io.opendbapi.core.client.ServiceAccountStore.ClientSecurity clientSecurity) {
+        ResponseEntity.BodyBuilder ok = ResponseEntity.ok().headers(rateHeaders(rate)).contentType(MediaType.APPLICATION_JSON);
+        if (!clientSecurity.responseEncrypt()) {
+            return ok.body(envelope);
+        }
+        try {
+            byte[] plain = RequestJson.MAPPER.writeValueAsBytes(envelope);
+            return ok.header("X-OpenDBAPI-Encrypted", "aes-256-gcm; key=rsa-oaep-sha256")
+                    .body(security.encrypt(clientSecurity.publicKey(), plain));
+        } catch (IOException e) {
+            throw new IllegalStateException(e);
+        }
     }
 
     private static String pageKey(QueryExecutor.PageRequest page) {
@@ -491,7 +526,23 @@ public class ServingDispatcher {
         return out;
     }
 
-    private static JsonNode body(HttpServletRequest request, EndpointDefinition def) {
+    /** The request body, read once (up to 1 MB) so it can be both signed and parsed; empty for GET and HEAD. */
+    private static byte[] readBody(HttpServletRequest request, String method) {
+        if ("GET".equals(method) || "HEAD".equals(method)) {
+            return new byte[0];
+        }
+        try (InputStream in = request.getInputStream()) {
+            byte[] bytes = in.readNBytes(MAX_BODY_BYTES + 1);
+            if (bytes.length > MAX_BODY_BYTES) {
+                throw new ApiProblem(413, "body_too_large", "The body may be at most 1 MB.");
+            }
+            return bytes;
+        } catch (IOException e) {
+            throw ApiProblem.badRequest("invalid_body", "The body could not be read.");
+        }
+    }
+
+    private static JsonNode body(HttpServletRequest request, byte[] bytes, EndpointDefinition def) {
         boolean wantsBody = def.params().stream().anyMatch(p -> p.in() == EndpointDefinition.ParamIn.body);
         if (!wantsBody) {
             return null;
@@ -500,14 +551,10 @@ public class ServingDispatcher {
         if (type == null || !type.toLowerCase(Locale.ROOT).startsWith("application/json")) {
             throw new ApiProblem(415, "unsupported_media_type", "Send the body as application/json.");
         }
-        try (InputStream in = request.getInputStream()) {
-            byte[] bytes = in.readNBytes(MAX_BODY_BYTES + 1);
-            if (bytes.length > MAX_BODY_BYTES) {
-                throw new ApiProblem(413, "body_too_large", "The body may be at most 1 MB.");
-            }
-            if (bytes.length == 0) {
-                return RequestJson.MAPPER.createObjectNode();
-            }
+        if (bytes.length == 0) {
+            return RequestJson.MAPPER.createObjectNode();
+        }
+        try {
             JsonNode node = RequestJson.MAPPER.readTree(bytes);
             if (!node.isObject()) {
                 throw ApiProblem.badRequest("invalid_body", "The body must be a JSON object.");

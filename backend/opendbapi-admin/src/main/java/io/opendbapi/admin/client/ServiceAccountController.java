@@ -105,6 +105,14 @@ public class ServiceAccountController {
     private final CallerAuthorizer authorizer;
     private final AuditLog audit;
     private io.opendbapi.core.datapolicy.DataPolicies dataPolicies;
+    private io.opendbapi.core.client.RequestSecurity requestSecurity;
+    private io.opendbapi.core.secret.SecretResolver secrets;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setRequestSecurity(io.opendbapi.core.client.RequestSecurity requestSecurity, io.opendbapi.core.secret.SecretResolver secrets) {
+        this.requestSecurity = requestSecurity;
+        this.secrets = secrets;
+    }
 
     @org.springframework.beans.factory.annotation.Autowired
     void setDataPolicies(io.opendbapi.core.datapolicy.DataPolicies dataPolicies) {
@@ -219,6 +227,53 @@ public class ServiceAccountController {
         });
         authorizer.invalidate(wsId);
         return ResponseEntity.noContent().build();
+    }
+
+    /**
+     * @param rotateSigningKey with signatures on: issue a new signing key even if one exists
+     * @param publicKey        RSA public key (PEM) for encrypted responses; null removes it
+     */
+    public record SaveClientSecurity(boolean hmacRequired, boolean rotateSigningKey, boolean responseEncrypt,
+                                     @Schema(nullable = true) String publicKey) {
+    }
+
+    public record ClientSecurityResult(Client client,
+                                       @Schema(nullable = true, description = "Shown once when issued; store it now") String signingKey) {
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/service-accounts/{id}/clients/{clientRowId}/security")
+    @Operation(operationId = "saveClientSecurity", summary = "Require request signatures and/or encrypt responses (admin)")
+    public ClientSecurityResult saveSecurity(@PathVariable String ws, @PathVariable UUID id, @PathVariable UUID clientRowId,
+                                             @RequestBody SaveClientSecurity body) {
+        var granted = access.require(ws, WorkspaceRole.ADMIN);
+        UUID wsId = granted.workspace().id();
+        String pem = body.publicKey() == null || body.publicKey().isBlank() ? null : body.publicKey().strip();
+        if (pem != null) {
+            io.opendbapi.core.client.RequestSecurity.publicKey(pem);
+        }
+        if (body.responseEncrypt() && pem == null) {
+            throw ApiProblem.badRequest("invalid_public_key", "Encrypted responses need the client's RSA public key.");
+        }
+        return scope.call(wsId, () -> {
+            Client current = store.clients(id).stream().filter(c -> c.id().equals(clientRowId) && c.revokedAt() == null).findFirst()
+                    .orElseThrow(() -> ApiProblem.notFound("client_not_found", "No active client with that id."));
+            boolean issue = body.hmacRequired() && (!current.hmacRequired() || body.rotateSigningKey());
+            String signingKey = issue ? io.opendbapi.core.client.RequestSecurity.newSigningKey() : null;
+            String sealed = null;
+            if (signingKey != null) {
+                if (!secrets.canSeal()) {
+                    throw ApiProblem.conflict("master_key_required", "Signing keys are stored encrypted; set OPENDBAPI_MASTER_KEY first.");
+                }
+                sealed = secrets.seal(signingKey);
+            }
+            String clientId = store.updateSecurity(id, clientRowId, body.hmacRequired(), sealed, body.responseEncrypt(), pem).orElseThrow();
+            requestSecurity.forget(clientId);
+            audit.record(wsId, granted.user().id(), "client.security", "service_account", id.toString(),
+                    Map.of("clientId", clientId, "hmacRequired", body.hmacRequired(), "signingKeyIssued", signingKey != null,
+                            "responseEncrypt", body.responseEncrypt()));
+            Client client = store.clients(id).stream().filter(c -> c.id().equals(clientRowId)).findFirst().orElseThrow();
+            return new ClientSecurityResult(client, signingKey);
+        });
     }
 
     @PostMapping("/service-accounts/{id}/clients/{clientRowId}:rotate")
