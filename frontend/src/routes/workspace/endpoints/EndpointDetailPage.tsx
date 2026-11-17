@@ -42,7 +42,7 @@ import { FindingsList, PreviewPanel } from "./PreviewPanel";
 import { SettingsTab } from "./SettingsTab";
 import { TryItTab } from "./TryItTab";
 import { VersionsTab } from "./VersionsTab";
-import { STATE_LABEL, STATE_TONE, formFrom, mainSql, toUpdate, withMainSql, type DraftForm } from "./endpointForm";
+import { STATE_LABEL, STATE_TONE, formFrom, isScript, mainSql, toUpdate, withLanguage, withMainSql, type DraftForm } from "./endpointForm";
 
 const TABS = ["query", "try", "tests", "settings", "access", "versions"] as const;
 
@@ -61,6 +61,7 @@ export default function EndpointDetailPage() {
 function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
   const { me } = useAuth();
   const canAuthor = hasRole(effectiveRole(me, ws) ?? "viewer", "author");
+  const canScript = hasRole(effectiveRole(me, ws) ?? "viewer", "script_author");
   const isAdmin = hasRole(effectiveRole(me, ws) ?? "viewer", "admin");
   const s = detail.summary;
   const saved = useMemo(() => formFrom(detail), [detail]);
@@ -72,6 +73,7 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
     setForm(saved);
   }
   const dirty = JSON.stringify(form) !== JSON.stringify(saved);
+  const script = isScript(form.definition);
   useUnsavedChangesWarning(dirty);
 
   // Each tab is a child route (spec §17.3): /w/:ws/endpoints/:id/settings survives a reload.
@@ -195,20 +197,32 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
                 {(datasources.data ?? []).map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
               </SelectContent>
             </Select>
+            <Label htmlFor="ep-language">Language</Label>
+            <Select value={script ? "groovy" : "sql"} disabled={!canAuthor || !canScript}
+              onValueChange={(v) => setForm({ ...form, definition: withLanguage(form.definition, v === "groovy") })}>
+              <SelectTrigger id="ep-language" className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sql">SQL template</SelectItem>
+                <SelectItem value="groovy">Groovy script</SelectItem>
+              </SelectContent>
+            </Select>
+            {script && !canScript && (
+              <span className="text-sm text-muted-foreground">Only script authors can change or preview the script.</span>
+            )}
           </div>
           <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)]">
-            <div className="h-[22rem] overflow-hidden rounded-md border" aria-label="SQL template">
+            <div className="h-[22rem] overflow-hidden rounded-md border" aria-label={script ? "Groovy script" : "SQL template"}>
               <MonacoEditor
-                language="sql"
+                language={script ? "java" : "sql"}
                 value={mainSql(form.definition)}
                 onChange={(v) => setForm({ ...form, definition: withMainSql(form.definition, v ?? "") })}
-                options={{ minimap: { enabled: false }, fontSize: 13, readOnly: !canAuthor, wordWrap: "on", scrollBeyondLastLine: false }}
+                options={{ minimap: { enabled: false }, fontSize: 13, readOnly: !canAuthor || (script && !canScript), wordWrap: "on", scrollBeyondLastLine: false }}
               />
             </div>
             <ParamsEditor params={form.definition.params} disabled={!canAuthor} sql={mainSql(form.definition)} path={form.path}
               onChange={(p) => setForm({ ...form, definition: { ...form.definition, params: p } })} />
           </div>
-          {canAuthor && <PreviewPanel ws={ws} id={s.id} form={form} />}
+          {canAuthor && (!script || canScript) && <PreviewPanel ws={ws} id={s.id} form={form} />}
         </TabsContent>
         <TabsContent value="settings" className="pt-4">
           <SettingsTab ws={ws} endpointId={s.id} form={form} onChange={setForm} live={s.state === "live"} disabled={!canAuthor} />

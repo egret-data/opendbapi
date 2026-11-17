@@ -48,7 +48,8 @@ export function ParamsEditor({
       </div>
       {params.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No parameters. Write <span className="font-mono">#{"{name}"}</span> in the SQL, then use Detect from SQL.
+          No parameters. Write <span className="font-mono">#{"{name}"}</span> in the SQL (or <span className="font-mono">params.name</span> in
+          a script), then use Detect from SQL.
         </p>
       ) : (
         <div className="overflow-x-auto rounded-md border">

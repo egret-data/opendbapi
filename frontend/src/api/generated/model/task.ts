@@ -6,11 +6,23 @@
  * OpenAPI spec version: v1
  */
 import type { Statement } from './statement';
+import type { TaskLanguage } from './taskLanguage';
+import type { TaskMode } from './taskMode';
+import type { TaskType } from './taskType';
 
 export interface Task {
   /** @nullable */
   datasourceId?: string | null;
+  /** @nullable */
+  language?: TaskLanguage;
+  /** @nullable */
+  mode?: TaskMode;
+  /**
+     * Script tasks: the Groovy source
+     * @nullable
+     */
+  source?: string | null;
   statements: Statement[];
   transaction: boolean;
-  type: string;
+  type: TaskType;
 }

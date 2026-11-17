@@ -48,13 +48,32 @@ export function toUpdate(f: DraftForm): UpdateEndpoint {
   };
 }
 
-/** The SQL of the statement the UI edits (P1: one statement, "main"). */
+export const SCRIPT_STARTER = `// Values in \${…} are bound as parameters, never pasted into the SQL.
+def q = sql"select 1 as ok"
+return q
+`;
+
+export function isScript(def: EndpointDefinition): boolean {
+  return def.task.type === "script";
+}
+
+/** Switches the task between an SQL template and a Groovy fragment script; both texts are kept. */
+export function withLanguage(def: EndpointDefinition, script: boolean): EndpointDefinition {
+  const task = def.task;
+  return script
+    ? { ...def, task: { ...task, type: "script", language: "groovy", mode: "fragment", source: task.source || SCRIPT_STARTER } }
+    : { ...def, task: { ...task, type: "sql" } };
+}
+
+/** The text the UI edits: the main SQL statement, or the script. */
 export function mainSql(def: EndpointDefinition): string {
+  if (isScript(def)) return def.task.source ?? "";
   const statements = def.task.statements;
   return (statements.find((s) => s.id === "main") ?? statements[statements.length - 1])?.template ?? "";
 }
 
 export function withMainSql(def: EndpointDefinition, sql: string): EndpointDefinition {
+  if (isScript(def)) return { ...def, task: { ...def.task, source: sql } };
   const others = def.task.statements.filter((s) => s.id !== "main");
   return { ...def, task: { ...def.task, statements: [...others, { id: "main", template: sql }] } };
 }
@@ -81,6 +100,9 @@ export function detectParams(sql: string): string[] {
     }
   }
   for (const m of sql.matchAll(/<orderBy[^>]*\bparam="([A-Za-z_]\w*)"/g)) found.add(m[1]);
+  // Groovy scripts read params.name or params['name'].
+  for (const m of sql.matchAll(/\bparams\.([A-Za-z_]\w*)/g)) found.add(m[1]);
+  for (const m of sql.matchAll(/\bparams\[\s*['"]([A-Za-z_]\w*)['"]\s*\]/g)) found.add(m[1]);
   return [...found].filter((n) => !bound.has(n) && !RESERVED.has(n));
 }
 

@@ -5375,6 +5375,21 @@
             "format" : "uuid",
             "nullable" : true
           },
+          "language" : {
+            "type" : "string",
+            "nullable" : true,
+            "enum" : [ "groovy" ]
+          },
+          "mode" : {
+            "type" : "string",
+            "nullable" : true,
+            "enum" : [ "fragment" ]
+          },
+          "source" : {
+            "type" : "string",
+            "description" : "Script tasks: the Groovy source",
+            "nullable" : true
+          },
           "statements" : {
             "type" : "array",
             "items" : {
@@ -5385,7 +5400,8 @@
             "type" : "boolean"
           },
           "type" : {
-            "type" : "string"
+            "type" : "string",
+            "enum" : [ "sql", "script" ]
           }
         }
       },

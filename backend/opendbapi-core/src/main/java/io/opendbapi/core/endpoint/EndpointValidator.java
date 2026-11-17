@@ -118,6 +118,9 @@ public class EndpointValidator {
             } catch (TemplateException e) {
                 findings.add(Finding.error("template", e.getMessage()));
                 continue;
+            } catch (io.opendbapi.core.script.ScriptRejected e) {
+                findings.add(Finding.error("script", "With sample values the script failed: " + e.getMessage()));
+                continue;
             }
             for (SqlInspector.SqlFinding f : SqlInspector.inspect(bound.sql(), new SqlInspector.Context(readOnlyEndpoint, readOnlyDatasource))) {
                 findings.add(new Finding(f.severity().name().toLowerCase(), f.code(), f.message()));
@@ -208,6 +211,8 @@ public class EndpointValidator {
         try {
             BoundSql main = task.statements().get(task.mainIndex()).template().render(sample);
             io.opendbapi.sql.page.Paginator.keyset(main, io.opendbapi.sql.page.Dialect.POSTGRESQL, keys, null, 1);
+        } catch (io.opendbapi.core.script.ScriptRejected e) {
+            return; // reported by the main check
         } catch (IllegalArgumentException | TemplateException e) {
             findings.add(Finding.error("pagination", "Keyset pagination cannot page this query: " + e.getMessage()));
         }

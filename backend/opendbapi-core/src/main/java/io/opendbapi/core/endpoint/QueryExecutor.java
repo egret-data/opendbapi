@@ -316,6 +316,17 @@ public class QueryExecutor {
             return s.template().render(params);
         } catch (TemplateException e) {
             throw ApiProblem.badRequest("invalid_param", e.getMessage());
+        } catch (io.opendbapi.core.script.ScriptRejected e) {
+            // The author's problem, not the caller's: details go to the log (and to preview).
+            org.slf4j.LoggerFactory.getLogger(QueryExecutor.class).warn("Endpoint script failed: {}", e.getMessage());
+            throw new ScriptFailed(e.getMessage());
+        }
+    }
+
+    /** A script failed while rendering; {@link #getMessage()} is for the endpoint's authors. */
+    public static final class ScriptFailed extends ApiProblem {
+        public ScriptFailed(String detail) {
+            super(500, "script_failed", detail);
         }
     }
 

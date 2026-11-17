@@ -56,7 +56,7 @@ Cho phép người dùng viết SQL / script / Elasticsearch DSL / HTTP proxy tr
 |---|---|
 | **P1 – MVP** | **Workspace (đa tenant)**; đăng nhập **nội bộ + LDAP + OIDC**; datasource JDBC; task SQL template; draft/publish/rollback; nhóm API; service account + OAuth2; Try-it; **OpenAPI**; **phân trang**; **kiểm tra SQL tĩnh**; **quan sát hệ thống**; **virtual threads + stream**; access log ra file + bảng Activity cơ bản; UI React |
 | **P2 – Đầy đủ** | **Task Groovy `SqlFragment`**; **map kết quả**; **ký HMAC**; **bộ test cho từng API**; **che/lọc dữ liệu**; rule tham số; cảnh báo lỗi qua webhook; cache kết quả; QPS; firewall; ES & HTTP executor; mã hoá response; thống kê đầy đủ; import từ DBAPI |
-| **P3 – Mở rộng** | **Cấu hình dưới dạng code và đa môi trường**; **phiên bản major song song**; **MCP**; Vault; workflow DAG; chế độ cluster (gateway, Redis) |
+| **P3 – Mở rộng** | **Cấu hình dưới dạng code và đa môi trường**; **phiên bản major song song**; **MCP**; Vault; workflow DAG; chế độ cluster (gateway, Redis); script Groovy chế độ `full` |
 
 ### 1.4 Ngoài phạm vi
 
@@ -417,7 +417,16 @@ Quy tắc bắt buộc:
 2. `SqlFragment + String` sẽ ném lỗi. SQL thô chỉ chèn được qua `raw("…")`, và phần kiểm tra lúc lưu từ chối `raw()` có đối số không phải hằng chuỗi.
 3. Phân trang, lọc dòng và che dữ liệu vẫn áp dụng lên kết quả của script, vì chúng nằm sau bước render (§7.3).
 
-**Chế độ `full`** (chỉ role `script_author`):
+Ghi chú triển khai (P2, bước 19):
+
+- `sql"…"` viết liền như trên không phải cú pháp Groovy chuẩn. Trước khi biên dịch, script được viết lại: mỗi `sql"…"` (kể cả chuỗi ba dấu nháy và `${…}` lồng nhau) thành `sql("…")`. Phần viết lại bỏ qua comment và các chuỗi khác.
+- `sql"…"` chuyển mỗi `${…}` thành `?`; một collection thành `?, ?, ?`, collection rỗng thì báo lỗi. Ghép fragment vào fragment bằng `+`. Nội suy một fragment vào trong `sql"…"` cũng báo lỗi.
+- `orderBy(map, key, fallback)` chỉ chọn trong các giá trị của map do người viết soạn; key lạ hoặc thiếu thì dùng `fallback`.
+- `params` là map chỉ đọc chứa các tham số đã ép kiểu. Validate phát hiện các tham số mà script đọc qua `params.name` hoặc `params['name']`.
+- Kết quả của script đi tiếp qua đúng pipeline của câu SQL chính: kiểm tra tĩnh, rule tham số, lọc dòng, phân trang/keyset, masking, map kết quả và cache.
+- Script lỗi lúc chạy: người gọi nhận 500 `script_failed` kèm request id; chi tiết lỗi ghi vào log và access log. Preview hiện chi tiết cho người viết.
+
+**Chế độ `full`** (script dùng `db.*` và trả object tuỳ ý) **chưa làm, chuyển sang P3.** Lý do: chế độ này cho script tự chạy query và tự dựng response, nên không còn đi qua pipeline (lọc dòng, masking, cache) một cách tự nhiên, và mở rộng bề mặt tấn công của sandbox. Ví dụ dự kiến:
 
 ```groovy
 def user = db.one(sql"select * from users where id = ${params.id}")
@@ -426,14 +435,21 @@ def orders = db.list(sql"select * from orders where user_id = ${user.id} order b
 return [user: user, recentOrders: orders]
 ```
 
-`db` chỉ nhận `SqlFragment` và luôn dùng đúng datasource của endpoint.
+**Bảo mật script.** Sandbox của Groovy **không phải ranh giới bảo mật tin cậy được**. Ngay cả khi đã chặn ở mức AST, metaprogramming vẫn có thể tìm đường vượt qua. Vì vậy:
 
-**Bảo mật script.** Sandbox của Groovy **không phải ranh giới bảo mật tin cậy được**. `SecureASTCustomizer` có thể bị vượt qua bằng metaprogramming. Vì vậy:
-
-- Chỉ người có role `script_author`, `admin` hoặc `owner` trong workspace (§8.4) được tạo hoặc sửa task `script`. Kiểm tra quyền ở API.
-- Vẫn bật các lớp phòng thủ: `SecureASTCustomizer` (chặn `System`, `Runtime`, `ProcessBuilder`, reflection, `java.io/nio/net`, `Thread`), whitelist import, `TimedInterrupt` (mặc định 2 giây), giới hạn số dòng `db.list`.
-- Khuyến nghị dùng tài khoản DB có quyền tối thiểu cho datasource. Datasource có `read_only = true` thì từ chối DML ở tầng kiểm tra tĩnh.
-- Biên dịch một lần khi validate/publish và cache theo phiên bản. Mỗi phiên bản dùng một `GroovyClassLoader` riêng và giải phóng khi phiên bản bị thay, để tránh rò rỉ Metaspace.
+- Chỉ người có role `script_author`, `admin` hoặc `owner` trong workspace (§8.4) được tạo hoặc sửa nội dung script, và được **preview** script. Preview chạy đoạn code đang hiện trên màn hình, nên cần cùng quyền với việc viết code. Kiểm tra quyền ở API (403). Author thường vẫn sửa được các phần khác của endpoint, miễn không đổi script.
+- Các lớp phòng thủ (`ScriptSandbox`), áp dụng ở bước biên dịch, trước khi class được nạp:
+  - Cấm import, annotation (cả `@Grab`; transform Grape bị tắt hẳn để không tải gì từ mạng), khai báo class/method/field, `new`, method pointer, truy cập field trực tiếp (`.@`), `this`/`super`, static call.
+  - Tên method và property phải viết rõ, không được tính ra từ chuỗi.
+  - Method gọi trên một giá trị phải nằm trong **danh sách trắng**: các thao tác chuỗi, số, collection và ngày tháng thông dụng. Lý do: Groovy gắn hàng trăm method vào mọi object, trong đó có các hàm đọc file và URL; một lần review đã đọc được file bằng `'file:///…'.toURL().text`.
+  - Property bị chặn theo danh sách tên nguy hiểm: reflection, class loader, metaclass, `TYPE`, `text`, `bytes`, `url`…
+  - Subscript chỉ nhận số hoặc chuỗi viết sẵn (`list[0]`, `map['key']`), không nhận giá trị tính ra.
+  - Kiểu dùng trong khai báo, ép kiểu hay tham chiếu class phải thuộc whitelist: String, các kiểu số, Boolean, List/Map/Set, Math, LocalDate/LocalDateTime/OffsetDateTime, SqlFragment.
+  - Lời gọi không có receiver chỉ gồm `sql`, `raw` (chỉ nhận hằng chuỗi) và `orderBy`. `orderBy` chỉ nhận map literal có giá trị là hằng chuỗi và mặc định là hằng chuỗi; chỉ khoá chọn mới lấy từ người gọi.
+  - Mỗi lần chạy bị `TimedInterrupt` giới hạn, theo `opendbapi.script.timeout` (mặc định 2 giây). `opendbapi.script.groovy-enabled=false` tắt hẳn script trên server.
+- Chưa giới hạn bộ nhớ một script dùng (ví dụ nhân chuỗi rất lớn); đây là một lý do nữa để chỉ giao quyền viết script cho người tin cậy.
+- Khuyến nghị dùng tài khoản DB có quyền tối thiểu cho datasource. Datasource có `read_only = true` thì từ chối DML ở tầng kiểm tra tĩnh, áp dụng cho câu SQL mà script sinh ra.
+- Script được biên dịch một lần cho mỗi lần nạp route (theo phiên bản) và mỗi lần validate. Mỗi lần biên dịch dùng một `GroovyClassLoader` riêng, được giải phóng cùng route khi phiên bản bị thay.
 - P3: cân nhắc GraalJS với quyền truy cập host bị tắt, nếu cần mở cho người dùng không tin cậy.
 
 ### 7.5 Kiểm tra SQL tĩnh khi validate (P1)
@@ -1201,7 +1217,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 16. ✅ (2026-11-17) Map kết quả (§9.2): `naming`, `shape`, `nest`, `types`; phân trang keyset (§9.3); OpenAPI phản ánh cả hai.
 17. ✅ (2026-11-17) Cache kết quả (§9.5) theo client hoặc dùng chung, xoá khi đổi policy/thuộc tính, nút Clear cache, metric hit/miss.
 18. ✅ (2026-11-17) Ký request HMAC với khoá ký riêng cho từng client (§8.2) và mã hoá response AES-GCM/RSA-OAEP (§8.3), cấu hình ở nút Security của client.
-19. Task Groovy `SqlFragment` (§7.4) trong sandbox.
+19. ✅ (2026-11-17) Task Groovy `SqlFragment`, chế độ fragment (§7.4), trong sandbox nhiều lớp; chỉ `script_author` trở lên được viết hoặc preview. Chế độ `full` chuyển sang P3.
 20. Executor Elasticsearch và HTTP (§6), driver ClickHouse.
 21. Thống kê đầy đủ trên trang Activity (`/activity/stats`, §21.2); lưu và hiện trạng thái lần test kết nối datasource gần nhất.
 22. Export YAML (§15.1) và import từ DBAPI (§15.3).

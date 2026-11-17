@@ -136,6 +136,13 @@ public class ServingDispatcher {
             HttpHeaders headers = rateHeaders(e.decision());
             headers.set(HttpHeaders.RETRY_AFTER, Long.toString(e.decision().retryAfterSeconds()));
             return ResponseEntity.status(429).headers(headers).contentType(MediaType.APPLICATION_PROBLEM_JSON).body(answer.getBody());
+        } catch (QueryExecutor.ScriptFailed e) {
+            // Like a failed query: the caller gets a request id, the owner finds the reason in the log.
+            outcome.status = 500;
+            outcome.errorCode = e.code();
+            outcome.error = e.getMessage();
+            return problem(HttpStatus.INTERNAL_SERVER_ERROR, e.code(),
+                    "The endpoint's script failed. Give the endpoint's owner this request id: " + requestId + ".", requestId);
         } catch (ApiProblem e) {
             outcome.status = e.status();
             outcome.errorCode = e.code();
