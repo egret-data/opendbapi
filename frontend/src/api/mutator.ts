@@ -16,7 +16,13 @@ export const customInstance = async <T>(url: string, options: RequestInit = {}):
     headers.set("Content-Type", "application/json");
   }
 
-  const res = await apiFetch(path, { ...options, headers });
+  // Orval JSON-encodes every body; a YAML document (configuration files) must go out as is.
+  let body = options.body;
+  if (headers.get("Content-Type")?.startsWith("application/yaml") && typeof body === "string" && body.startsWith('"')) {
+    body = JSON.parse(body) as string;
+  }
+
+  const res = await apiFetch(path, { ...options, headers, body });
 
   if (res.status === 204 || res.headers.get("content-length") === "0") return undefined as T;
   const contentType = res.headers.get("content-type") ?? "";

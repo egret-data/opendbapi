@@ -33,7 +33,7 @@ describe("Import & export", () => {
     expect(await screen.findByRole("link", { name: "Download YAML" })).toHaveAttribute("href", "/admin/api/ws/sales/export?format=yaml");
     expect(screen.getByRole("button", { name: "Import" })).toBeDisabled();
     await user.upload(screen.getByLabelText("APIs"), apis);
-    await user.click(screen.getByRole("button", { name: "Check" }));
+    await user.click(within(screen.getByRole("region", { name: "Import from DBAPI" })).getByRole("button", { name: "Check" }));
     const report = await screen.findByRole("table", { name: "Import report" });
     await user.click(screen.getByRole("button", { name: "Import" }));
 

@@ -15,6 +15,8 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { errorMessage } from "@/lib/errors";
 
+import { ConfigSection } from "./ConfigSection";
+
 type FileKey = "apis" | "groups" | "datasources";
 const FILES: { key: FileKey; label: string; hint: string }[] = [
   { key: "apis", label: "APIs", hint: "api_config.json (API list → Export API)" },
@@ -87,6 +89,8 @@ export function TransferSection({ ws, role }: { ws: string; role: WorkspaceRole 
           </a>
         </Button>
       </section>
+
+      <ConfigSection ws={ws} />
 
       <section aria-labelledby="import-heading" className="space-y-3">
         <h2 id="import-heading" className="text-lg font-semibold">{t("Import from DBAPI")}</h2>
