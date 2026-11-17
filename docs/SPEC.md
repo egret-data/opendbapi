@@ -55,8 +55,8 @@ Cho phép người dùng viết SQL / script / Elasticsearch DSL / HTTP proxy tr
 | Giai đoạn | Nội dung |
 |---|---|
 | **P1 – MVP** | **Workspace (đa tenant)**; đăng nhập **nội bộ + LDAP + OIDC**; datasource JDBC; task SQL template; draft/publish/rollback; nhóm API; service account + OAuth2; Try-it; **OpenAPI**; **phân trang**; **kiểm tra SQL tĩnh**; **quan sát hệ thống**; **virtual threads + stream**; access log ra file + bảng Activity cơ bản; UI React |
-| **P2 – Đầy đủ** | **Task Groovy `SqlFragment`**; **map kết quả**; **ký HMAC**; **bộ test cho từng API**; **che/lọc dữ liệu**; rule tham số; cảnh báo lỗi qua webhook; cache kết quả; QPS; firewall; ES & HTTP executor; mã hoá response; thống kê đầy đủ; import từ DBAPI |
-| **P3 – Mở rộng** | **Cấu hình dưới dạng code và đa môi trường**; **phiên bản major song song**; **MCP**; Vault; workflow DAG; chế độ cluster (gateway, Redis); script Groovy chế độ `full` |
+| **P2 – Đầy đủ** | **Task Groovy `SqlFragment`**; **map kết quả**; **ký HMAC**; **bộ test cho từng API**; **che/lọc dữ liệu**; rule tham số; cảnh báo lỗi qua webhook; cache kết quả; QPS; firewall; mã hoá response; thống kê đầy đủ; import từ DBAPI |
+| **P3 – Mở rộng** | **Cấu hình dưới dạng code và đa môi trường**; **phiên bản major song song**; **MCP**; Vault; workflow DAG; chế độ cluster (gateway, Redis); script Groovy chế độ `full`; executor Elasticsearch và HTTP, driver ClickHouse (hoãn, chỉ làm khi có nhu cầu) |
 
 ### 1.4 Ngoài phạm vi
 
@@ -244,7 +244,7 @@ Schema mới trong PostgreSQL, schema `opendbapi`. Dữ liệu DBAPI được nh
   "properties": { "sslmode": "require" },   // chỉ các thuộc tính trong danh sách trắng của dialect
   "pool": { "maximumPoolSize": 10, "minimumIdle": 0, "connectionTimeoutMs": 10000 }
 }
-// type = elasticsearch (P2)
+// type = elasticsearch (hoãn, xem §25.2)
 { "hosts": ["http://es1:9200"], "username": "elastic" }
 // type = http (P2)
 { "baseUrl": "https://upstream.example.com", "headers": { "X-Source": "opendbapi" } }
@@ -256,7 +256,7 @@ Mật khẩu không nằm trong `config` mà ở `secret_ref`. API không bao gi
 
 - **Không cho nhập URL JDBC thô.** Server tự dựng URL từ các trường có cấu trúc; host, database và giá trị thuộc tính bị kiểm tra để không chèn được `?`, `;`, `&` hay `/`.
 - **Danh sách trắng thuộc tính driver theo dialect.** Những thuộc tính khiến driver nạp class, đọc file hoặc deserialize đều bị từ chối, ví dụ PostgreSQL `socketFactory`/`sslfactory` (lớp lỗ hổng CVE-2022-21724), MySQL `autoDeserialize`/`allowLoadLocalInfile`. Mỗi kết nối còn luôn kèm thuộc tính an toàn: MySQL `allowLoadLocalInfile=false`, `autoDeserialize=false`; MariaDB `allowLocalInfile=false`.
-- **Chỉ có driver PostgreSQL, MySQL, MariaDB, SQL Server, Oracle.** Không có H2, SQLite hay các DB dạng file/chạy trong tiến trình, vì URL của chúng đọc được file hoặc chạy được script trên server. ClickHouse để P2.
+- **Chỉ có driver PostgreSQL, MySQL, MariaDB, SQL Server, Oracle.** Không có H2, SQLite hay các DB dạng file/chạy trong tiến trình, vì URL của chúng đọc được file hoặc chạy được script trên server. ClickHouse hoãn lại (§25.2).
 - **Chặn host.** Mặc định chặn endpoint metadata của cloud (`169.254.0.0/16`, `fd00:ec2::254`, `100.100.100.200`, `metadata.google.internal`). Operator thêm được bằng `opendbapi.datasources.extra-denied-hosts`, hoặc giới hạn bằng `allowed-hosts` (tên host, `*.suffix`, CIDR). Tên host được resolve trước khi so khớp. DNS vẫn có thể đổi giữa lúc kiểm tra và lúc kết nối, nên network policy là lớp bảo vệ chính; đây là lớp bổ sung.
 - **Nên đặt database khách hàng ở server khác với metadata DB của OpenDBAPI.** Nếu dùng chung một server PostgreSQL, tài khoản của datasource vẫn *nhìn thấy tên* các bảng metadata (driver liệt kê mọi bảng bất kể quyền), dù không đọc được dữ liệu nhờ phân quyền và RLS. Khi buộc phải dùng chung, thêm host đó vào `extra-denied-hosts`.
 - **`read_only`:** chặn publish SQL có ghi dữ liệu (§7.5) và mở session ở chế độ chỉ đọc. Với PostgreSQL điều này thật sự được ép (`readOnlyMode=always`), vì `setReadOnly` của JDBC không có tác dụng khi autocommit bật. MySQL/MariaDB được ép bằng `SET SESSION TRANSACTION READ ONLY` mỗi khi mở kết nối (driver MariaDB không đẩy `setReadOnly` xuống server). Cả ba đã được kiểm chứng trên DB thật (`ReadOnlyEnforcementTest`). SQL Server và Oracle không ép được ở mức session, nên bảo đảm thật sự vẫn là một tài khoản DB chỉ có quyền đọc.
@@ -332,8 +332,8 @@ Request tạo/sửa endpoint gửi trường lạ (kể cả trong object lồng
 |---|---|---|
 | `sql` | Một hoặc nhiều câu SQL template (XML) | P1 |
 | `script` | Groovy trả `SqlFragment`, hoặc script đầy đủ dùng `db.*` | P2 |
-| `elasticsearch` | DSL template | P2 |
-| `http` | Proxy sang upstream | P2 |
+| `elasticsearch` | DSL template | Hoãn |
+| `http` | Proxy sang upstream | Hoãn |
 | `workflow` | DAG nhiều nút | P3 |
 
 ```jsonc
@@ -1218,7 +1218,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 17. ✅ (2026-11-17) Cache kết quả (§9.5) theo client hoặc dùng chung, xoá khi đổi policy/thuộc tính, nút Clear cache, metric hit/miss.
 18. ✅ (2026-11-17) Ký request HMAC với khoá ký riêng cho từng client (§8.2) và mã hoá response AES-GCM/RSA-OAEP (§8.3), cấu hình ở nút Security của client.
 19. ✅ (2026-11-17) Task Groovy `SqlFragment`, chế độ fragment (§7.4), trong sandbox nhiều lớp; chỉ `script_author` trở lên được viết hoặc preview. Chế độ `full` chuyển sang P3.
-20. Executor Elasticsearch và HTTP (§6), driver ClickHouse.
+20. ~~Executor Elasticsearch và HTTP (§6), driver ClickHouse.~~ Bỏ khỏi P2 (quyết định 2026-11-17): chưa cần. Chỉ làm khi có nhu cầu thật.
 21. Thống kê đầy đủ trên trang Activity (`/activity/stats`, §21.2); lưu và hiện trạng thái lần test kết nối datasource gần nhất.
 22. Export YAML (§15.1) và import từ DBAPI (§15.3).
 23. Giao diện tiếng Việt (`react-i18next`, §17).
@@ -1238,6 +1238,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 | 5 | Đa tenant | Có, theo workspace, từ P1 |
 | 6 | Mức dùng lại Egret | Chỉ lấy khung (§17.1); UI thiết kế lại gọn cho tính năng DBAPI |
 | 7 | Plugin SPI (2026-11-17) | Bỏ hẳn. Cần gì thì viết thẳng thành tính năng (§13) |
+| 8 | Executor Elasticsearch/HTTP, driver ClickHouse (2026-11-17) | Hoãn, không làm ở P2; chỉ làm khi có nhu cầu |
 
 ### Còn mở
 
