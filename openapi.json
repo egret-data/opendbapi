@@ -2620,6 +2620,41 @@
         "tags" : [ "endpoints" ]
       }
     },
+    "/admin/api/ws/{ws}/export" : {
+      "get" : {
+        "operationId" : "exportWorkspace",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "format",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "default" : "yaml"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/yaml" : {
+                "schema" : {
+                  "type" : "string"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "The workspace as YAML documents, without secrets (admin)",
+        "tags" : [ "transfer" ]
+      }
+    },
     "/admin/api/ws/{ws}/groups" : {
       "get" : {
         "operationId" : "listGroups",
@@ -2747,6 +2782,51 @@
         },
         "summary" : "Rename a group (author)",
         "tags" : [ "groups" ]
+      }
+    },
+    "/admin/api/ws/{ws}/import/dbapi" : {
+      "post" : {
+        "operationId" : "importDbapi",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "dryRun",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : true
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DbapiExport"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ImportReport"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Import DBAPI's api_config.json, group.json and datasource.json; dryRun reports without writing (admin)",
+        "tags" : [ "transfer" ]
       }
     },
     "/admin/api/ws/{ws}/members" : {
@@ -3953,6 +4033,20 @@
           }
         }
       },
+      "DbapiExport" : {
+        "type" : "object",
+        "properties" : {
+          "apis" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "datasources" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "groups" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          }
+        }
+      },
       "DialectInfo" : {
         "required" : [ "allowedProperties", "defaultPort", "dialect" ],
         "type" : "object",
@@ -4211,6 +4305,56 @@
           },
           "resourceType" : {
             "type" : "string"
+          }
+        }
+      },
+      "ImportReport" : {
+        "required" : [ "created", "dryRun", "items", "skipped" ],
+        "type" : "object",
+        "properties" : {
+          "created" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "dryRun" : {
+            "type" : "boolean"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ImportedItem"
+            }
+          },
+          "skipped" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "ImportedItem" : {
+        "required" : [ "kind", "name", "notes", "result" ],
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid",
+            "nullable" : true
+          },
+          "kind" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "notes" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "result" : {
+            "type" : "string",
+            "enum" : [ "created", "existing", "skipped" ]
           }
         }
       },

@@ -23,6 +23,7 @@ the full design is in [`docs/SPEC.md`](docs/SPEC.md).
 > mapping (naming, types, nesting, single/scalar) and keyset pagination; a per-caller or shared result cache;
 > HMAC-signed requests and encrypted responses per client; Groovy fragment scripts in a sandbox (script authors only).
 > Activity also ranks slowest endpoints, clients and addresses; datasources show their last connection test.
+> Workspaces export as YAML (no secrets) and import DBAPI exports as drafts, with a dry run and a report.
 
 ## Layout
 

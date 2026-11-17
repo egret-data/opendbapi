@@ -40,6 +40,11 @@
             <groupId>org.apache.groovy</groupId>
             <artifactId>groovy</artifactId>
         </dependency>
+        <!-- YAML export (spec §15.1); version managed by Spring Boot. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.dataformat</groupId>
+            <artifactId>jackson-dataformat-yaml</artifactId>
+        </dependency>
         <!-- Result cache (spec §9.5); version managed by Spring Boot. -->
         <dependency>
             <groupId>com.github.ben-manes.caffeine</groupId>

@@ -863,6 +863,13 @@ spec:
 
 Các `kind` khác: `Datasource` (không chứa bí mật, chỉ `secretRef`), `Group`, `ServiceAccount`, `Grant`, `DataPolicy`.
 
+**Export (P2, bước 22):** `GET /export?format=yaml` (workspace admin; nút **Download YAML** ở Settings → Import & export) trả nhiều tài liệu YAML nối nhau. Thứ tự: Datasource, Group, Endpoint, ServiceAccount, Grant, DataPolicy.
+
+- Các tài liệu tham chiếu nhau bằng tên, không bằng id. Ví dụ endpoint ghi `datasource: crm` và `metadata.group`; grant và data policy ghi tên service account và tên endpoint (`GET /path`).
+- Với endpoint, export lấy **bản draft đã lưu** (`metadata.state` cho biết đang live hay không), kèm toàn bộ definition và các test case.
+- Không bao giờ có bí mật trong file: mật khẩu datasource chỉ xuất hiện dưới dạng `passwordRef: env:…` nếu được cấu hình như vậy; service account không kèm client; URL webhook không xuất.
+- Import YAML (`plan`/`apply`) và môi trường thuộc P3.
+
 ### 15.2 Môi trường
 
 - Bảng `environment(name, datasource_bindings jsonb)` ánh xạ tên logic (`main-db`) sang datasource thật của từng môi trường.
@@ -875,10 +882,24 @@ Các `kind` khác: `Datasource` (không chứa bí mật, chỉ `secretRef`), `G
 
 ### 15.3 Import từ DBAPI (P2)
 
-Nhận file export JSON của DBAPI (API, nhóm, datasource), ánh xạ theo §4. Các điểm cần xử lý:
+`POST /import/dbapi?dryRun=true|false` (workspace admin; Settings → Import & export) nhận nội dung ba file mà DBAPI export: `api_config.json` (API), `group.json` (nhóm) và `datasource.json` (datasource). Thiếu file nào cũng được. Chạy thử (`dryRun`) trả cùng một báo cáo nhưng không ghi gì; UI bắt buộc chạy thử trước khi cho import thật. Toàn bộ một lần import nằm trong một transaction.
 
-- `${}` trong template bị đánh dấu là cần sửa tay.
-- Endpoint được nhập ở trạng thái `draft`.
+- **Nhóm:** khớp theo tên; chưa có thì tạo mới.
+- **Datasource:** khớp theo tên; chưa có thì tạo lại từ JDBC URL. Hỗ trợ MySQL, MariaDB, PostgreSQL, SQL Server và Oracle (`host:port:SID` hoặc `/service`).
+  - Thuộc tính trên URL không được nhập; chỉ được thêm lại các thuộc tính an toàn (§4.6).
+  - **Không nhập mật khẩu.** Datasource được tạo ở chế độ **read-only**.
+  - Datasource không phải JDBC (Elasticsearch, HTTP…) bị bỏ qua.
+- **API:**
+  - Nhập thành endpoint ở trạng thái **draft**. `application/json` thành POST với tham số trong body; còn lại thành GET với tham số query.
+  - `access`: 1 thành public, còn lại private.
+  - Kiểu tham số được ánh xạ (`date` thành `datetime`, `Array<x>` thành `array<x>`).
+  - Mỗi `sqlList[].sqlText` thành một statement, câu cuối là `main`. DBAPI trả kết quả của mọi câu, OpenDBAPI chỉ trả câu cuối; báo cáo có ghi chú điều này.
+  - Bỏ qua: executor Elasticsearch/HTTP, path không hợp lệ, route đã có.
+- **Báo cáo nêu rõ** những gì không mang sang và cách làm lại trên OpenDBAPI:
+  - `${…}` cần viết lại bằng `#{…}` hoặc `<orderBy>`.
+  - Rule tham số viết lại theo §13.1.
+  - Plugin cache chuyển sang cache kết quả (§9.5); plugin alarm chuyển sang kênh cảnh báo (§13.2).
+  - Transform script và plugin chuyển sang map kết quả hoặc Groovy.
 - Client của DBAPI không được nhập; phải tạo lại service account.
 
 ---
@@ -1097,7 +1118,7 @@ Quyền tối thiểu theo bảng §8.4.
 | Firewall | `GET/PUT /firewall` |
 | Activity | `GET /activity/log` (lọc theo endpoint, client, status, request id; phân trang bằng `before`), `GET /activity/summary?from&to&includeTryIt&endpointId` (tổng số, tỷ lệ lỗi, p95, theo ngày, top endpoint, endpoint chậm nhất theo p95 với ít nhất 5 lời gọi, top client kèm tên service account, top địa chỉ IP, top mã lỗi; khoảng tối đa 93 ngày) |
 | Audit workspace | `GET /audit` |
-| Import/Export | `POST /import/dbapi`, `GET /export?format=yaml`, `POST /import?format=yaml&mode=plan|apply` |
+| Import/Export | `POST /import/dbapi?dryRun=` (P2), `GET /export?format=yaml` (P2), `POST /import?format=yaml&mode=plan|apply` (P3) |
 | Môi trường | `GET/POST /environments`, `PATCH /environments/{name}` |
 | Hệ thống | `GET /system/info` (phiên bản, chế độ chạy, base URL) |
 
@@ -1220,7 +1241,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 19. ✅ (2026-11-17) Task Groovy `SqlFragment`, chế độ fragment (§7.4), trong sandbox nhiều lớp; chỉ `script_author` trở lên được viết hoặc preview. Chế độ `full` chuyển sang P3.
 20. ~~Executor Elasticsearch và HTTP (§6), driver ClickHouse.~~ Bỏ khỏi P2 (quyết định 2026-11-17): chưa cần. Chỉ làm khi có nhu cầu thật.
 21. ✅ (2026-11-17) Thống kê đầy đủ trên trang Activity (`/activity/summary` thêm endpoint chậm nhất, top client, top IP, lọc theo endpoint; §21.2); lưu và hiện kết quả lần test kết nối datasource gần nhất (xoá khi đổi cấu hình kết nối).
-22. Export YAML (§15.1) và import từ DBAPI (§15.3).
+22. ✅ (2026-11-17) Export YAML (§15.1) và import từ DBAPI có chạy thử và báo cáo (§15.3), ở Settings → Import & export.
 23. Giao diện tiếng Việt (`react-i18next`, §17).
 
 ---
