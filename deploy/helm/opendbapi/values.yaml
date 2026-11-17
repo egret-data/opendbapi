@@ -37,6 +37,23 @@ secrets:
 # Cookies need HTTPS; turn off only for plain-HTTP trials.
 secureCookies: true
 
+# HashiCorp Vault for vault:PATH#KEY references (spec §4.5). Each workspace may only read
+# paths under allowedPaths, where {workspace} is its slug. With auth kubernetes, Vault's
+# Kubernetes auth role must trust this release's service account (serviceAccount.create).
+vault:
+  address: ""                # e.g. https://vault.example.com:8200; empty disables vault: references
+  auth: kubernetes           # kubernetes | approle | token
+  role: ""                   # kubernetes auth role
+  loginMount: ""             # defaults to kubernetes / approle
+  namespace: ""              # Vault Enterprise namespace
+  kvVersion: 2
+  allowedPaths: "secret/opendbapi/{workspace}/"
+  systemPaths: "secret/opendbapi/system/"
+  # token or approle: keys of existingSecret (or the chart's Secret) holding the credentials
+  tokenKey: vault-token
+  roleIdKey: vault-role-id
+  secretIdKey: vault-secret-id
+
 # Extra environment, e.g. LDAP/OIDC settings or Spring properties.
 env: []
 envFrom: []

@@ -194,7 +194,6 @@
   "trace {{id}}": "trace {{id}}",
   "Show more": "Xem thêm",
   "Read from the managed secret {{name}}. Leave empty to keep it.": "Đọc từ secret được quản lý {{name}}. Để trống để giữ nguyên.",
-  "Saved encrypted. Or type secret:NAME for a managed secret, or env:NAME to read it from the server's environment.": "Được lưu ở dạng mã hoá. Hoặc nhập secret:NAME để dùng secret được quản lý, hoặc env:NAME để đọc từ biến môi trường của máy chủ.",
   "Configuration applied.": "Đã áp dụng cấu hình.",
   "Applied, but some endpoints were not published.": "Đã áp dụng, nhưng một số endpoint chưa được publish.",
   "Apply YAML": "Áp dụng YAML",
@@ -231,5 +230,6 @@
   "Name in the file": "Tên trong file",
   "Datasource here": "Nguồn dữ liệu ở đây",
   "Choose": "Chọn",
-  "Remove mapping": "Bỏ ánh xạ"
+  "Remove mapping": "Bỏ ánh xạ",
+  "Saved encrypted. Or type secret:NAME for a managed secret, env:NAME for the server's environment, or vault:PATH#KEY for HashiCorp Vault.": "Được lưu ở dạng mã hoá. Hoặc nhập secret:NAME để dùng secret được quản lý, env:NAME để đọc từ biến môi trường của máy chủ, hoặc vault:PATH#KEY để đọc từ HashiCorp Vault."
 }

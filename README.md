@@ -26,7 +26,7 @@ the full design is in [`docs/SPEC.md`](docs/SPEC.md).
 > Activity also ranks slowest endpoints, clients and addresses; datasources show their last connection test.
 > Workspaces export as YAML (no secrets) and import DBAPI exports as drafts, with a dry run and a report.
 > The UI is available in English and Vietnamese (user menu → Language).
-> Workspace secrets managed by OpenDBAPI (`secret:NAME`) hold datasource passwords and webhook URLs in one place.
+> Workspace secrets managed by OpenDBAPI (`secret:NAME`) hold datasource passwords and webhook URLs in one place; `vault:PATH#KEY` reads them from HashiCorp Vault instead.
 
 ## Layout
 

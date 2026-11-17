@@ -19,7 +19,8 @@ import org.springframework.stereotype.Component;
  * plain text; a reference is one of:
  * <ul>
  *   <li>{@code env:NAME} — read from the environment (or any Spring property source) at use time;
- *   <li>{@code enc:v1:<base64>} — AES-256-GCM sealed with {@code opendbapi.master-key}.
+ *   <li>{@code enc:v1:<base64>} — AES-256-GCM sealed with {@code opendbapi.master-key};
+ *   <li>{@code vault:PATH#KEY} — read from HashiCorp Vault ({@link VaultSecrets}), server-level paths only.
  * </ul>
  */
 @Component
@@ -33,6 +34,13 @@ public class SecretResolver {
     private final Environment environment;
     private final SecretKey masterKey;
     private final SecureRandom random = new SecureRandom();
+
+    private VaultSecrets vault;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setVault(VaultSecrets vault) {
+        this.vault = vault;
+    }
 
     public SecretResolver(Environment environment, OpenDbApiProperties properties) {
         this.environment = environment;
@@ -56,8 +64,11 @@ public class SecretResolver {
         if (ref.startsWith(ENC_V1)) {
             return decrypt(ref.substring(ENC_V1.length()));
         }
+        if (VaultSecrets.isReference(ref) && vault != null) {
+            return vault.read(ref, null);
+        }
         throw ApiProblem.badRequest("secret_reference_invalid",
-                "A secret reference must start with env: or enc:v1:.");
+                "A secret reference must start with env:, enc:v1: or vault:.");
     }
 
     /** Whether a master key is configured, so {@link #seal} works. */
@@ -88,6 +99,9 @@ public class SecretResolver {
         }
         if (referenceOrPlaintext.startsWith(ENV) || referenceOrPlaintext.startsWith(ENC_V1)) {
             return referenceOrPlaintext;
+        }
+        if (VaultSecrets.isReference(referenceOrPlaintext) && vault != null) {
+            return vault.check(referenceOrPlaintext, null);
         }
         return seal(referenceOrPlaintext);
     }
