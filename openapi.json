@@ -392,6 +392,76 @@
         "tags" : [ "me" ]
       }
     },
+    "/admin/api/me/tokens" : {
+      "get" : {
+        "operationId" : "listApiTokens",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ApiToken"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Your API tokens (never their secret)",
+        "tags" : [ "tokens" ]
+      },
+      "post" : {
+        "operationId" : "createApiToken",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/CreateApiToken"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CreatedApiToken"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Create an API token for automation; the secret is shown once",
+        "tags" : [ "tokens" ]
+      }
+    },
+    "/admin/api/me/tokens/{id}" : {
+      "delete" : {
+        "operationId" : "revokeApiToken",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "summary" : "Revoke one of your API tokens",
+        "tags" : [ "tokens" ]
+      }
+    },
     "/admin/api/system/info" : {
       "get" : {
         "operationId" : "systemInfo",
@@ -4170,6 +4240,42 @@
           }
         }
       },
+      "ApiToken" : {
+        "required" : [ "createdAt", "id", "name", "prefix" ],
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "nullable" : true
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "lastUsedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "nullable" : true
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "prefix" : {
+            "type" : "string",
+            "description" : "First characters, to recognise the token"
+          },
+          "workspace" : {
+            "type" : "string",
+            "description" : "Only this workspace; null means every workspace of the user",
+            "nullable" : true
+          }
+        }
+      },
       "AuditEntry" : {
         "required" : [ "action", "id", "ts" ],
         "type" : "object",
@@ -4422,6 +4528,26 @@
           }
         }
       },
+      "CreateApiToken" : {
+        "required" : [ "name" ],
+        "type" : "object",
+        "properties" : {
+          "expiresInDays" : {
+            "type" : "integer",
+            "description" : "Days until it expires, 1–365; null never expires",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "workspace" : {
+            "type" : "string",
+            "description" : "Limit the token to this workspace (slug)",
+            "nullable" : true
+          }
+        }
+      },
       "CreateClient" : {
         "type" : "object",
         "properties" : {
@@ -4537,6 +4663,19 @@
           "slug" : {
             "pattern" : "^[a-z0-9][a-z0-9-]{1,62}$",
             "type" : "string"
+          }
+        }
+      },
+      "CreatedApiToken" : {
+        "required" : [ "secret", "token" ],
+        "type" : "object",
+        "properties" : {
+          "secret" : {
+            "type" : "string",
+            "description" : "Shown once; store it now"
+          },
+          "token" : {
+            "$ref" : "#/components/schemas/ApiToken"
           }
         }
       },

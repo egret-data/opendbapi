@@ -67,6 +67,22 @@ class CliIntegrationTest extends AppTestSupport {
     }
 
     @Test
+    void anApiTokenReplacesThePassword() {
+        // Arrange
+        String secret = signedInAdmin().post("/admin/api/me/tokens", Map.of("name", "cli", "workspace", ws)).expect(201).json()
+                .path("secret").asText();
+        Map<String, String> tokenEnv = Map.of("OPENDBAPI_URL", env.get("OPENDBAPI_URL"), "OPENDBAPI_WORKSPACE", ws,
+                "OPENDBAPI_TOKEN", secret);
+
+        // Act
+        Run applied = cli(tokenEnv, "apply", "--dir", dir.toString(), "--publish");
+
+        // Assert
+        assertThat(applied.exit()).as(applied.err()).isZero();
+        assertThat(applied.out()).contains("GET /numbers: published");
+    }
+
+    @Test
     void errorsExitWithOneAndExplainWhy() {
         // Act
         Run wrongPassword = cli(Map.of("OPENDBAPI_URL", env.get("OPENDBAPI_URL"), "OPENDBAPI_WORKSPACE", ws,

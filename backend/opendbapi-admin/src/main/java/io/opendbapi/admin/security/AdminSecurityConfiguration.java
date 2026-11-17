@@ -56,7 +56,8 @@ public class AdminSecurityConfiguration {
     @Order(1)
     SecurityFilterChain adminApi(HttpSecurity http, SecurityContextRepository contexts, OidcRegistrations registrations,
                                  OidcSignIn oidcSignIn, SessionSignIn sessions, UserStore users,
-                                 OpenDbApiProperties properties, MappingJackson2HttpMessageConverter json)
+                                 OpenDbApiProperties properties, MappingJackson2HttpMessageConverter json,
+                                 io.opendbapi.core.identity.ApiTokenStore tokens)
             throws Exception {
         var authorizationRequests = new DefaultOAuth2AuthorizationRequestResolver(registrations, OIDC_START_BASE);
         authorizationRequests.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
@@ -66,7 +67,10 @@ public class AdminSecurityConfiguration {
                 .csrf(c -> c
                         .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                         // Plain (non-masked) tokens: the SPA echoes the cookie value as is.
-                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
+                        .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler())
+                        // A bearer API token is not sent by browsers on their own, so it needs no CSRF token.
+                        .ignoringRequestMatchers(ApiTokenFilter::hasToken))
+                .addFilterBefore(new ApiTokenFilter(tokens, users), org.springframework.security.web.csrf.CsrfFilter.class)
                 .addFilterAfter(new CsrfCookieFilter(), org.springframework.security.web.csrf.CsrfFilter.class)
                 .authorizeHttpRequests(a -> a
                         .requestMatchers("/admin/api/auth/**", "/admin/api/system/info", "/admin/api/openapi.json",

@@ -29,6 +29,10 @@ public class CurrentUser {
 
     public UserAccount requireSystemAdmin() {
         UserAccount user = require();
+        TokenScope token = TokenScope.current();
+        if (token != null && token.workspaceId() != null) {
+            throw ApiProblem.forbidden("This API token is limited to one workspace.");
+        }
         if (!user.systemAdmin()) {
             throw ApiProblem.forbidden("This action is for system administrators.");
         }
