@@ -129,7 +129,7 @@ public class EndpointTests {
             }
             CompiledTask task;
             try {
-                task = CompiledTask.compile(def.task());
+                task = CompiledTask.compile(def.task()).forMethod(e.method());
             } catch (TemplateException ex) {
                 throw ApiProblem.badRequest("template", ex.getMessage());
             }

@@ -95,7 +95,7 @@ public class EndpointRegistry {
             EndpointVersion.Snapshot s = row.snapshot();
             try {
                 out.add(new Route(row.endpointId(), row.versionId(), row.version(), s.method(),
-                        parser.parse("/" + s.path()), s.access(), s.definition(), CompiledTask.compile(s.definition().task()),
+                        parser.parse("/" + s.path()), s.access(), s.definition(), CompiledTask.compile(s.definition().task()).forMethod(s.method()),
                         row.deprecatedAt() == null ? null : new Deprecation(row.deprecatedAt(), row.sunsetAt(), row.successorPath())));
             } catch (RuntimeException e) {
                 log.error("Live endpoint {} v{} cannot be compiled and is not served: {}", row.endpointId(), row.version(), e.getMessage());
