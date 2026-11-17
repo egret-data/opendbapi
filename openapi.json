@@ -3857,7 +3857,7 @@
         }
       },
       "EndpointDefinition" : {
-        "required" : [ "alerts", "limits", "pagination", "params", "rules", "streaming", "task" ],
+        "required" : [ "alerts", "limits", "output", "pagination", "params", "rules", "streaming", "task" ],
         "type" : "object",
         "properties" : {
           "alerts" : {
@@ -3865,6 +3865,9 @@
           },
           "limits" : {
             "$ref" : "#/components/schemas/Limits"
+          },
+          "output" : {
+            "$ref" : "#/components/schemas/Output"
           },
           "pagination" : {
             "$ref" : "#/components/schemas/Pagination"
@@ -4088,6 +4091,19 @@
           },
           "path" : {
             "type" : "string"
+          }
+        },
+        "nullable" : true
+      },
+      "KeysetKey" : {
+        "required" : [ "column", "descending" ],
+        "type" : "object",
+        "properties" : {
+          "column" : {
+            "type" : "string"
+          },
+          "descending" : {
+            "type" : "boolean"
           }
         },
         "nullable" : true
@@ -4350,6 +4366,37 @@
           }
         }
       },
+      "Nest" : {
+        "required" : [ "collections", "key" ],
+        "type" : "object",
+        "properties" : {
+          "collections" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NestCollection"
+            }
+          },
+          "key" : {
+            "type" : "string"
+          }
+        },
+        "nullable" : true
+      },
+      "NestCollection" : {
+        "required" : [ "as", "key", "prefix" ],
+        "type" : "object",
+        "properties" : {
+          "as" : {
+            "type" : "string"
+          },
+          "key" : {
+            "type" : "string"
+          },
+          "prefix" : {
+            "type" : "string"
+          }
+        }
+      },
       "NewClient" : {
         "required" : [ "client", "clientSecret" ],
         "type" : "object",
@@ -4362,6 +4409,36 @@
             "description" : "Shown once; store it now"
           }
         }
+      },
+      "Output" : {
+        "required" : [ "naming", "shape" ],
+        "type" : "object",
+        "properties" : {
+          "naming" : {
+            "type" : "string",
+            "enum" : [ "as_is", "camelCase" ]
+          },
+          "nest" : {
+            "type" : "array",
+            "nullable" : true,
+            "items" : {
+              "$ref" : "#/components/schemas/Nest"
+            }
+          },
+          "shape" : {
+            "type" : "string",
+            "enum" : [ "list", "single", "scalar" ]
+          },
+          "types" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string",
+              "nullable" : true
+            },
+            "nullable" : true
+          }
+        },
+        "description" : "How rows are shaped in the response (spec §9.2)"
       },
       "Pagination" : {
         "required" : [ "count", "defaultSize", "enabled", "maxSize" ],
@@ -4377,9 +4454,21 @@
           "enabled" : {
             "type" : "boolean"
           },
+          "keys" : {
+            "type" : "array",
+            "nullable" : true,
+            "items" : {
+              "$ref" : "#/components/schemas/KeysetKey"
+            }
+          },
           "maxSize" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "mode" : {
+            "type" : "string",
+            "nullable" : true,
+            "enum" : [ "offset", "keyset" ]
           }
         }
       },

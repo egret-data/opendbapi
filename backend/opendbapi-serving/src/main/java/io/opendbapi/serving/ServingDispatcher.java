@@ -191,29 +191,17 @@ public class ServingDispatcher {
 
         QueryExecutor.QueryResult result = executor.run(ds, route.task(), params, page, def.limits(), QueryExecutor.RunMode.SERVE,
                 policy::rewriteMain);
-        if (result.affectedRows() == null) {
-            io.opendbapi.core.datapolicy.DataPolicies.Plan.apply(policy.masksFor(result.columns()), result.columns(), result.rows());
-        }
+        io.opendbapi.core.endpoint.ResponseBody.Parts parts = io.opendbapi.core.endpoint.ResponseBody.build(def, result, page,
+                r -> io.opendbapi.core.datapolicy.DataPolicies.Plan.apply(policy.masksFor(r.columns()), r.columns(), r.rows()));
 
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("version", route.version());
         meta.put("cached", false);
-        if (page != null) {
-            meta.put("page", page.page());
-            meta.put("size", page.size());
-            if (result.total() != null) {
-                meta.put("total", result.total());
-            }
-            meta.put("hasNext", result.hasNext());
-        }
-        if (result.truncated()) {
-            meta.put("truncated", true);
-        }
+        meta.putAll(parts.pageMeta());
         meta.put("requestId", requestId);
-        Object data = result.affectedRows() != null ? Map.of("affectedRows", result.affectedRows()) : result.rows();
-        outcome.rows = result.affectedRows() != null ? result.affectedRows() : result.rows().size();
+        outcome.rows = parts.rows();
         Map<String, Object> envelope = new LinkedHashMap<>();
-        envelope.put("data", data);
+        envelope.put("data", parts.data());
         envelope.put("meta", meta);
         return ResponseEntity.ok().headers(rateHeaders(rate)).contentType(MediaType.APPLICATION_JSON).body(envelope);
     }
@@ -350,17 +338,25 @@ public class ServingDispatcher {
                 ? StreamWriters.csv(out, RequestJson.MAPPER) : StreamWriters.ndjson(out, RequestJson.MAPPER, requestId);
         QueryExecutor.RowSink committing = new QueryExecutor.RowSink() {
             private io.opendbapi.sql.policy.Masks.Masker[] masks;
+            private List<String> names;
 
             @Override
             public void start(List<QueryExecutor.ResultColumn> columns) throws IOException {
                 masks = policy.masksFor(columns);
-                sink.start(columns);
+                names = columns.stream().map(QueryExecutor.ResultColumn::name).toList();
+                List<String> renamed = io.opendbapi.core.endpoint.ResultMapper.streamNames(def.output(), names);
+                List<QueryExecutor.ResultColumn> shown = new java.util.ArrayList<>();
+                for (int i = 0; i < columns.size(); i++) {
+                    shown.add(new QueryExecutor.ResultColumn(renamed.get(i), columns.get(i).type()));
+                }
+                sink.start(shown);
                 out.flush(); // commits status and headers once the query has run
             }
 
             @Override
             public void row(Object[] values) throws IOException {
                 io.opendbapi.core.datapolicy.DataPolicies.Plan.apply(masks, values);
+                io.opendbapi.core.endpoint.ResultMapper.streamValues(def.output(), names, values);
                 sink.row(values);
             }
 
@@ -392,6 +388,15 @@ public class ServingDispatcher {
     private static QueryExecutor.PageRequest pageRequest(EndpointDefinition.Pagination p, HttpServletRequest request) {
         if (!p.enabled()) {
             return null;
+        }
+        if (p.keyset()) {
+            int size = intParam(request, "size", p.defaultSize());
+            if (size < 1 || size > p.maxSize()) {
+                throw ApiProblem.badRequest("invalid_param", "size must be between 1 and %d.".formatted(p.maxSize()));
+            }
+            String after = request.getParameter("after");
+            return new QueryExecutor.PageRequest(1, size, false, p.keys(),
+                    after == null || after.isBlank() ? null : io.opendbapi.core.endpoint.KeysetCursor.decode(after, p.keys().size()));
         }
         int page = intParam(request, "page", 1);
         int size = intParam(request, "size", p.defaultSize());

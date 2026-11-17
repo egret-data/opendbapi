@@ -3,6 +3,7 @@ package io.opendbapi.core.endpoint;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.JsonNode;
 import java.util.List;
+import java.util.Map;
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.util.UUID;
 
@@ -15,9 +16,11 @@ import java.util.UUID;
 public record EndpointDefinition(List<Param> params, Task task, Pagination pagination, Limits limits, Streaming streaming,
                                  @Schema(description = "Checks on the bound parameters, run before the query (spec §13.1)")
                                  List<Rule> rules,
-                                 Alerts alerts) {
+                                 Alerts alerts,
+                                 @Schema(description = "How rows are shaped in the response (spec §9.2)") Output output) {
 
     public EndpointDefinition {
+        output = output == null ? Output.defaults() : output;
         rules = rules == null ? List.of() : List.copyOf(rules);
         alerts = alerts == null ? Alerts.off() : alerts;
         params = params == null ? List.of() : List.copyOf(params);
@@ -28,7 +31,7 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
     }
 
     public EndpointDefinition(List<Param> params, Task task, Pagination pagination, Limits limits) {
-        this(params, task, pagination, limits, null, null, null);
+        this(params, task, pagination, limits, null, null, null, null);
     }
 
     /**
@@ -48,7 +51,7 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
     public static EndpointDefinition starter(UUID datasourceId) {
         return new EndpointDefinition(List.of(), new Task("sql", datasourceId, false,
                 List.of(new Statement("main", "select 1 as ok"))), Pagination.off(), Limits.defaults(), Streaming.off(),
-                List.of(), Alerts.off());
+                List.of(), Alerts.off(), Output.defaults());
     }
 
     public enum StreamFormat { ndjson, csv }
@@ -137,15 +140,73 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
     public record Statement(String id, String template) {
     }
 
-    public record Pagination(boolean enabled, int defaultSize, int maxSize, boolean count) {
+    /**
+     * @param mode {@code offset} (page and size) or {@code keyset} (after a cursor, spec §9.3)
+     * @param keys keyset only: result columns the pages are ordered by, never null and together unique
+     */
+    public record Pagination(boolean enabled, int defaultSize, int maxSize, boolean count,
+                             @Schema(allowableValues = {"offset", "keyset"}, nullable = true) String mode,
+                             @Schema(nullable = true) List<KeysetKey> keys) {
         public Pagination {
             defaultSize = defaultSize <= 0 ? 20 : defaultSize;
             maxSize = maxSize <= 0 ? 500 : maxSize;
+            mode = mode == null || mode.isBlank() ? "offset" : mode;
+            keys = keys == null ? List.of() : List.copyOf(keys);
+        }
+
+        public Pagination(boolean enabled, int defaultSize, int maxSize, boolean count) {
+            this(enabled, defaultSize, maxSize, count, null, null);
         }
 
         public static Pagination off() {
             return new Pagination(false, 20, 500, true);
         }
+
+        public boolean keyset() {
+            return enabled && "keyset".equals(mode);
+        }
+    }
+
+    public record KeysetKey(String column, boolean descending) {
+    }
+
+    /**
+     * Result mapping (spec §9.2), applied after masking: {@code types}, then {@code nest}, then
+     * {@code naming}, then {@code shape}.
+     *
+     * @param naming {@code as_is} or {@code camelCase}
+     * @param shape  {@code list}, {@code single} (first row; none is 404) or {@code scalar} (first column of the first row)
+     * @param types  result column → {@code decimal_string}, {@code iso8601}, {@code epoch_ms} or {@code boolean}
+     */
+    public record Output(@Schema(allowableValues = {"as_is", "camelCase"}) String naming,
+                         @Schema(allowableValues = {"list", "single", "scalar"}) String shape,
+                         @Schema(nullable = true) Map<String, String> types,
+                         @Schema(nullable = true) List<Nest> nest) {
+        public Output {
+            naming = naming == null || naming.isBlank() ? "as_is" : naming;
+            shape = shape == null || shape.isBlank() ? "list" : shape;
+            types = types == null ? Map.of() : Map.copyOf(types);
+            nest = nest == null ? List.of() : List.copyOf(nest);
+        }
+
+        public static Output defaults() {
+            return new Output(null, null, null, null);
+        }
+
+        public boolean identity() {
+            return "as_is".equals(naming) && "list".equals(shape) && types.isEmpty() && nest.isEmpty();
+        }
+    }
+
+    /** Groups flat rows by {@code key}; columns starting with a collection's prefix go into its array. */
+    public record Nest(String key, List<NestCollection> collections) {
+        public Nest {
+            collections = collections == null ? List.of() : List.copyOf(collections);
+        }
+    }
+
+    /** @param key the (prefixed) column identifying one child; rows where it is null add no child */
+    public record NestCollection(String as, String prefix, String key) {
     }
 
     /**

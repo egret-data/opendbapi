@@ -39,13 +39,13 @@ public final class ColumnLineage {
     }
 
     /** @param label the result column's name as written, or null for an unnamed expression */
-    public record Output(String label, Set<Source> sources, boolean opaque) {
+    public record TracedColumn(String label, Set<Source> sources, boolean opaque) {
     }
 
     /** @param star the query selects {@code *} somewhere at its top level */
-    public record Lineage(List<Output> columns, boolean star) {
+    public record Lineage(List<TracedColumn> columns, boolean star) {
 
-        public Optional<Output> column(String label) {
+        public Optional<TracedColumn> column(String label) {
             return columns.stream().filter(c -> c.label() != null && c.label().equalsIgnoreCase(label)).findFirst();
         }
     }
@@ -94,7 +94,7 @@ public final class ColumnLineage {
     private static Lineage union(SetOperationList union, Set<String> ctes) {
         List<Lineage> branches = union.getSelects().stream().map(s -> of(s, ctes(s, ctes))).toList();
         Lineage first = branches.get(0);
-        List<Output> merged = new ArrayList<>();
+        List<TracedColumn> merged = new ArrayList<>();
         for (int i = 0; i < first.columns().size(); i++) {
             Set<Source> sources = new LinkedHashSet<>();
             boolean opaque = false;
@@ -106,7 +106,7 @@ public final class ColumnLineage {
                     opaque = true;
                 }
             }
-            merged.add(new Output(first.columns().get(i).label(), sources, opaque));
+            merged.add(new TracedColumn(first.columns().get(i).label(), sources, opaque));
         }
         return new Lineage(merged, branches.stream().anyMatch(Lineage::star));
     }
@@ -128,7 +128,7 @@ public final class ColumnLineage {
         }
         Scope only = from.size() == 1 && !scopes.isEmpty() ? scopes.values().iterator().next() : null;
 
-        List<Output> outputs = new ArrayList<>();
+        List<TracedColumn> outputs = new ArrayList<>();
         boolean star = false;
         for (SelectItem<?> item : select.getSelectItems()) {
             Expression e = item.getExpression();
@@ -160,7 +160,7 @@ public final class ColumnLineage {
             Alias alias = item.getAlias();
             String label = alias != null ? RowFilters.unquote(alias.getName())
                     : e instanceof Column c ? RowFilters.unquote(c.getColumnName()) : null;
-            outputs.add(new Output(label, sources, opaque[0]));
+            outputs.add(new TracedColumn(label, sources, opaque[0]));
         }
         return new Lineage(outputs, star);
     }
@@ -199,7 +199,7 @@ public final class ColumnLineage {
             return Set.of(new Source(null, name));
         }
         if (scope.derived != null) {
-            return scope.derived.column(name).map(Output::sources).filter(s -> !s.isEmpty())
+            return scope.derived.column(name).map(TracedColumn::sources).filter(s -> !s.isEmpty())
                     .orElse(Set.of(new Source(null, name)));
         }
         return Set.of(new Source(scope.table, name));

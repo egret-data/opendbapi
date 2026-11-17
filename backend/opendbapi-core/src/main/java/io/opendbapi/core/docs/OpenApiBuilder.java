@@ -113,7 +113,15 @@ public final class OpenApiBuilder {
             }
             param.set("schema", schema);
         }
-        if (def.pagination().enabled()) {
+        if (def.pagination().keyset()) {
+            ObjectNode after = parameters.addObject();
+            after.put("name", "after");
+            after.put("in", "query");
+            after.put("required", false);
+            after.put("description", "meta.nextCursor of the previous page; omit for the first page");
+            after.putObject("schema").put("type", "string");
+            parameters.add(intParam("size", "Rows per page", 1, def.pagination().maxSize(), def.pagination().defaultSize()));
+        } else if (def.pagination().enabled()) {
             parameters.add(intParam("page", "Page number, from 1", 1, null, 1));
             parameters.add(intParam("size", "Rows per page", 1, def.pagination().maxSize(), def.pagination().defaultSize()));
         }
@@ -173,15 +181,7 @@ public final class OpenApiBuilder {
         JsonNode columns = e.outputSchema();
         boolean rows = columns != null && columns.isArray() && !columns.isEmpty();
         if (rows || "GET".equals(e.snapshot().method())) {
-            ObjectNode row = F.objectNode().put("type", "object");
-            ObjectNode rowProps = row.putObject("properties");
-            if (columns != null && columns.isArray()) {
-                for (JsonNode c : columns) {
-                    rowProps.set(c.path("name").asText(), columnSchema(c.path("type").asText()));
-                }
-            }
-            ObjectNode data = props.putObject("data").put("type", "array");
-            data.set("items", row);
+            props.set("data", dataSchema(def.output(), columns));
         } else {
             ObjectNode data = props.putObject("data").put("type", "object");
             data.putObject("properties").putObject("affectedRows").put("type", "integer");
@@ -189,6 +189,59 @@ public final class OpenApiBuilder {
         props.putObject("meta").put("$ref", "#/components/schemas/Meta");
         schema.putArray("required").add("data").add("meta");
         return schema;
+    }
+
+    /** {@code data} after result mapping (spec §9.2): types, nesting, naming and shape. */
+    static ObjectNode dataSchema(EndpointDefinition.Output out, JsonNode columns) {
+        java.util.List<String[]> cols = new java.util.ArrayList<>();
+        if (columns != null && columns.isArray()) {
+            columns.forEach(c -> cols.add(new String[]{c.path("name").asText(), c.path("type").asText()}));
+        }
+        java.util.function.UnaryOperator<String> name = n -> "camelCase".equals(out.naming())
+                ? io.opendbapi.core.endpoint.ResultMapper.camelCase(n) : n;
+        java.util.function.Function<String[], ObjectNode> schemaOf = c -> {
+            String type = out.types().get(c[0]);
+            if (type == null) {
+                return columnSchema(c[1]);
+            }
+            ObjectNode s = F.objectNode();
+            switch (type) {
+                case "decimal_string" -> s.putArray("type").add("string").add("null");
+                case "epoch_ms" -> s.putArray("type").add("integer").add("null");
+                case "boolean" -> s.putArray("type").add("boolean").add("null");
+                default -> s.put("format", "date-time").putArray("type").add("string").add("null");
+            }
+            return s;
+        };
+        ObjectNode row = F.objectNode().put("type", "object");
+        ObjectNode rowProps = row.putObject("properties");
+        EndpointDefinition.Nest nest = out.nest().isEmpty() ? null : out.nest().get(0);
+        for (String[] c : cols) {
+            if (nest == null || nest.collections().stream().noneMatch(n -> c[0].startsWith(n.prefix()))) {
+                rowProps.set(name.apply(c[0]), schemaOf.apply(c));
+            }
+        }
+        if (nest != null) {
+            for (EndpointDefinition.NestCollection n : nest.collections()) {
+                ObjectNode child = F.objectNode().put("type", "object");
+                ObjectNode childProps = child.putObject("properties");
+                for (String[] c : cols) {
+                    if (c[0].startsWith(n.prefix())) {
+                        childProps.set(name.apply(c[0].substring(n.prefix().length())), schemaOf.apply(c));
+                    }
+                }
+                rowProps.putObject(n.as()).put("type", "array").set("items", child);
+            }
+        }
+        return switch (out.shape()) {
+            case "single" -> row;
+            case "scalar" -> cols.isEmpty() ? F.objectNode() : schemaOf.apply(cols.get(0));
+            default -> {
+                ObjectNode list = F.objectNode().put("type", "array");
+                list.set("items", row);
+                yield list;
+            }
+        };
     }
 
     /** JSON Schema of a result column from its database type name; every column may be null. */
@@ -315,6 +368,9 @@ public final class OpenApiBuilder {
         p.putObject("size").put("type", "integer");
         p.putObject("total").put("type", "integer");
         p.putObject("hasNext").put("type", "boolean");
+        ObjectNode next = p.putObject("nextCursor");
+        next.put("description", "Keyset pages: pass as after= to get the next page; null on the last page");
+        next.putArray("type").add("string").add("null");
         p.putObject("truncated").put("type", "boolean").put("description", "More rows existed than the endpoint returns");
         p.putObject("requestId").put("type", "string");
         s.putArray("required").add("version").add("requestId");

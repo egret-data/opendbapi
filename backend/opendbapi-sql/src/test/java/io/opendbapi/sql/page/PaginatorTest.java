@@ -115,4 +115,40 @@ class PaginatorTest {
         assertThat(Dialect.fromJdbcUrl("jdbc:clickhouse://h")).isEqualTo(Dialect.CLICKHOUSE);
         assertThat(Dialect.fromJdbcUrl("jdbc:something://h")).isEqualTo(Dialect.OTHER);
     }
+
+    @Test
+    void keysetFirstPageOrdersByTheKeysInsteadOfTheQuery() {
+        // Act
+        BoundSql b = Paginator.keyset(q("select id, created_at from orders where status = ? order by name", "open"), Dialect.POSTGRESQL,
+                List.of(new Paginator.Key("created_at", true), new Paginator.Key("id", false)), null, 21);
+
+        // Assert
+        assertThat(b.sql()).isEqualTo("SELECT * FROM (SELECT id, created_at FROM orders WHERE status = ?) keyset_q "
+                + "ORDER BY keyset_q.created_at DESC, keyset_q.id ASC LIMIT ?");
+        assertThat(b.parameters()).containsExactly("open", 21);
+    }
+
+    @Test
+    void keysetLaterPagesStartAfterTheCursorPortably() {
+        // Act
+        BoundSql b = Paginator.keyset(q("select id, created_at from orders"), Dialect.SQLSERVER,
+                List.of(new Paginator.Key("created_at", true), new Paginator.Key("id", false)), List.of("2026-01-01", 7L), 11);
+
+        // Assert
+        assertThat(b.sql()).isEqualTo("SELECT * FROM (select id, created_at from orders) keyset_q WHERE (keyset_q.created_at < ?) "
+                + "OR (keyset_q.created_at = ? AND keyset_q.id > ?) ORDER BY keyset_q.created_at DESC, keyset_q.id ASC "
+                + "OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY");
+        assertThat(b.parameters()).containsExactly("2026-01-01", "2026-01-01", 7L, 11);
+    }
+
+    @Test
+    void keysetRefusesQueriesItCannotPage() {
+        // Assert
+        List<Paginator.Key> id = List.of(new Paginator.Key("id", false));
+        assertThatThrownBy(() -> Paginator.keyset(q("select id from t limit 5"), Dialect.POSTGRESQL, id, null, 10))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("limits itself");
+        assertThatThrownBy(() -> Paginator.keyset(q("select id from t order by ?", "id"), Dialect.POSTGRESQL, id, null, 10))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("parameter");
+        assertThatThrownBy(() -> new Paginator.Key("id; drop", false)).isInstanceOf(IllegalArgumentException.class);
+    }
 }

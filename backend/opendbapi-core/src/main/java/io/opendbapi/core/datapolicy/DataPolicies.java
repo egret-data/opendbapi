@@ -249,7 +249,7 @@ public class DataPolicies {
             boolean any = false;
             for (int i = 0; i < columns.size(); i++) {
                 String label = columns.get(i).name();
-                Optional<ColumnLineage.Output> traced = lineage.flatMap(l -> l.column(label));
+                Optional<ColumnLineage.TracedColumn> traced = lineage.flatMap(l -> l.column(label));
                 for (DataPolicyStore.Stored s : masks) {
                     if (matches(s.policy(), label, traced)) {
                         DataPolicy.Mask m = s.policy().mask();
@@ -296,7 +296,7 @@ public class DataPolicies {
      * any result column computed from it, and, as a fallback that errs towards masking, any
      * result column with the same name.
      */
-    static boolean matches(DataPolicy p, String label, Optional<ColumnLineage.Output> traced) {
+    static boolean matches(DataPolicy p, String label, Optional<ColumnLineage.TracedColumn> traced) {
         if (p.endpointId() != null) {
             return p.column().equalsIgnoreCase(label);
         }

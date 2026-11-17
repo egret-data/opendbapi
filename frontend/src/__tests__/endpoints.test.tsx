@@ -34,6 +34,7 @@ const DETAIL: EndpointDetail = {
     streaming: { allowed: false, formats: ["ndjson", "csv"] },
     rules: [],
     alerts: { enabled: false },
+    output: { naming: "as_is", shape: "list", types: {}, nest: [] },
   },
 };
 
@@ -256,6 +257,36 @@ describe("Endpoints", () => {
       expect: { status: 200, rowCount: { min: null, max: 5 }, jsonPath: [{ path: "$.data[0].id", equals: 7, exists: null }],
         schemaMatchesLive: null, maxDurationMs: null },
     });
+  });
+
+  it("saves output mapping and keyset pagination with the draft", async () => {
+    // Arrange
+    const server = mockServer({
+      ...common,
+      "GET /admin/api/me": () => json(meAs("author")),
+      "GET /admin/api/ws/sales/endpoints/e1": () => json(DETAIL),
+      "PATCH /admin/api/ws/sales/endpoints/e1": () => json(DETAIL),
+    });
+    const user = userEvent.setup();
+    renderApp("/w/sales/endpoints/e1/settings");
+
+    // Act
+    await user.click(await screen.findByLabelText("Paginate"));
+    await user.click(screen.getByLabelText("Mode"));
+    await user.click(screen.getByRole("option", { name: "Keyset" }));
+    await user.click(screen.getByRole("button", { name: "Add key" }));
+    await user.type(screen.getByLabelText("Key 1 column"), "id");
+    await user.click(screen.getByLabelText("Key names"));
+    await user.click(screen.getByRole("option", { name: "camelCase" }));
+    await user.click(screen.getByRole("button", { name: "Add type" }));
+    await user.type(screen.getByLabelText("Typed column 1"), "amount");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    // Assert
+    await waitFor(() => expect(server.calls.some((c) => c.key === "PATCH /admin/api/ws/sales/endpoints/e1")).toBe(true));
+    const sent = JSON.parse(String(server.calls.find((c) => c.key === "PATCH /admin/api/ws/sales/endpoints/e1")!.init?.body));
+    expect(sent.definition.pagination).toMatchObject({ enabled: true, mode: "keyset", keys: [{ column: "id", descending: false }] });
+    expect(sent.definition.output).toEqual({ naming: "camelCase", shape: "list", types: { amount: "decimal_string" }, nest: [] });
   });
 
   it("saves parameter rules and the alert switch with the draft", async () => {
