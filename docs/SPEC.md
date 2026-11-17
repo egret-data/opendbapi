@@ -226,10 +226,17 @@ Schema mới trong PostgreSQL, schema `opendbapi`. Dữ liệu DBAPI được nh
 
 ### 4.5 Các bảng khác
 
-- `datasource(id, name, type 'jdbc'|'elasticsearch'|'http', config jsonb, secret_ref text, read_only bool, ...)`: `secret_ref` có dạng `enc:<AES-GCM>`, `env:NAME`, hoặc `vault:path#key`.
+- `datasource(id, name, type 'jdbc'|'elasticsearch'|'http', config jsonb, secret_ref text, read_only bool, ...)`: `secret_ref` có dạng `enc:v1:<AES-GCM>`, `env:NAME`, `secret:NAME` (secret do OpenDBAPI quản lý, xem dưới), hoặc `vault:path#key` (P3).
 - `data_policy(id, datasource_id NULL, endpoint_id NULL, kind 'mask'|'row_filter', column_name text, rule jsonb)`: đúng một trong hai `datasource_id`, `endpoint_id`; row filter chỉ gắn với endpoint; `rule` chứa kiểu mask, thuộc tính, danh sách exempt và salt của hash.
 - `access_log(id, ts, endpoint_id, version, method, path, status, duration_ms, rows, client_id, service_account_id, ip, error_code, error, trace_id, actor_user_id NULL)`: `actor_user_id` khác NULL nghĩa là lời gọi đến từ Try-it, không tính vào thống kê [E].
 - `audit_log(id, ts, user_id, action, target_type, target_id, detail jsonb)`
+- `workspace_secret(id, workspace_id, name, description, value_ref, ...)`: secret do OpenDBAPI quản lý.
+  - Mỗi secret có tên (chữ thường, chữ số, `.`, `_`, `-`; không đổi tên được). Giá trị được niêm phong bằng master key (`enc:v1:`) và **không bao giờ trả ra API**.
+  - Mật khẩu datasource và URL webhook của kênh cảnh báo tham chiếu secret bằng `secret:NAME`, nên chỉ cần đổi giá trị ở một chỗ.
+  - Khi giá trị đổi, connection pool của các datasource đang dùng secret đó được đóng; lần query sau mở kết nối với giá trị mới.
+  - Không xoá được secret còn đang được dùng (409 `secret_in_use`).
+  - Quản lý qua `/secrets` (workspace admin; UI ở Settings → Secrets); mọi thay đổi ghi audit nhưng không ghi giá trị. Export YAML ghi `passwordRef: secret:NAME`, không ghi giá trị.
+  - Secret chỉ thuộc phạm vi workspace. Secret của identity provider (cấp hệ thống) vẫn dùng `enc:v1:`/`env:`. Vault bên ngoài để P3.
 
 ### 4.6 Cấu hình datasource
 
@@ -1117,6 +1124,7 @@ Quyền tối thiểu theo bảng §8.4.
 | Rate limit | `GET/PUT /rate-limits` |
 | Firewall | `GET/PUT /firewall` |
 | Activity | `GET /activity/log` (lọc theo endpoint, client, status, request id; phân trang bằng `before`), `GET /activity/summary?from&to&includeTryIt&endpointId` (tổng số, tỷ lệ lỗi, p95, theo ngày, top endpoint, endpoint chậm nhất theo p95 với ít nhất 5 lời gọi, top client kèm tên service account, top địa chỉ IP, top mã lỗi; khoảng tối đa 93 ngày) |
+| Secret | `GET/POST /secrets`, `PATCH/DELETE /secrets/{name}` (workspace admin; giá trị chỉ ghi) |
 | Audit workspace | `GET /audit` |
 | Import/Export | `POST /import/dbapi?dryRun=` (P2), `GET /export?format=yaml` (P2), `POST /import?format=yaml&mode=plan|apply` (P3) |
 | Môi trường | `GET/POST /environments`, `PATCH /environments/{name}` |

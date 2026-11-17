@@ -9,6 +9,7 @@ import io.opendbapi.core.datasource.JdbcConfig;
 import io.opendbapi.core.datasource.JdbcDialect;
 import io.opendbapi.core.error.ApiProblem;
 import io.opendbapi.core.secret.SecretResolver;
+import io.opendbapi.core.secret.WorkspaceSecrets;
 import io.opendbapi.core.workspace.WorkspaceRole;
 import io.opendbapi.core.workspace.WorkspaceScope;
 import io.swagger.v3.oas.annotations.Operation;
@@ -66,6 +67,7 @@ public class DatasourceController {
             boolean readOnly,
             boolean hasPassword,
             @Schema(nullable = true, description = "The env: reference when the password comes from the environment") String passwordEnv,
+            @Schema(nullable = true, description = "The managed secret holding the password, when it is one") String passwordSecret,
             OffsetDateTime createdAt,
             OffsetDateTime updatedAt,
             @Schema(nullable = true, description = "Last connection test; null when never tested since the settings changed")
@@ -82,6 +84,7 @@ public class DatasourceController {
                     c.database(), c.username(), c.properties(),
                     new PoolSettings(c.pool().maximumPoolSize(), c.pool().minimumIdle(), c.pool().connectionTimeoutMs()),
                     d.readOnly(), ref != null, ref != null && ref.startsWith("env:") ? ref : null,
+                    WorkspaceSecrets.isReference(ref) ? WorkspaceSecrets.nameOf(ref) : null,
                     d.createdAt(), d.updatedAt(), lastTest);
         }
     }
@@ -130,6 +133,12 @@ public class DatasourceController {
     private final DataSourceRegistry registry;
     private final SecretResolver secrets;
     private final AuditLog audit;
+    private WorkspaceSecrets workspaceSecrets;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setWorkspaceSecrets(WorkspaceSecrets workspaceSecrets) {
+        this.workspaceSecrets = workspaceSecrets;
+    }
 
     public DatasourceController(WorkspaceAccess access, WorkspaceScope scope, DatasourceStore store,
                                 DataSourceRegistry registry, SecretResolver secrets, AuditLog audit) {
@@ -181,8 +190,8 @@ public class DatasourceController {
         if (body.password() == null || body.password().isEmpty()) {
             throw ApiProblem.badRequest("invalid_datasource", "password is required for a new datasource.");
         }
-        String secretRef = secrets.toReference(body.password());
         UUID wsId = granted.workspace().id();
+        String secretRef = scope.call(wsId, () -> workspaceSecrets.toReference(body.password()));
         Datasource created = scope.call(wsId, () -> {
             Object quota = granted.workspace().quotas().get("datasources");
             if (quota instanceof Number max && store.count() >= max.intValue()) {
@@ -202,8 +211,9 @@ public class DatasourceController {
     public DatasourceView update(@PathVariable String ws, @PathVariable UUID id, @Valid @RequestBody SaveDatasource body) {
         var granted = access.require(ws, WorkspaceRole.ADMIN);
         JdbcConfig config = body.config();
-        String secretRef = body.password() == null || body.password().isEmpty() ? null : secrets.toReference(body.password());
         UUID wsId = granted.workspace().id();
+        String secretRef = body.password() == null || body.password().isEmpty() ? null
+                : scope.call(wsId, () -> workspaceSecrets.toReference(body.password()));
         Datasource updated = scope.call(wsId, () -> {
             find(wsId, id);
             return store.update(id, body.name().strip(), body.description(), config, secretRef, body.readOnly());
@@ -246,9 +256,9 @@ public class DatasourceController {
         Datasource saved = null;
         if ((password == null || password.isEmpty()) && body.existingId() != null) {
             saved = find(granted.workspace().id(), body.existingId());
-            password = secrets.resolve(saved.secretRef());
-        } else if (password != null && password.startsWith("env:")) {
-            password = secrets.resolve(password);
+            password = workspaceSecrets.resolve(granted.workspace().id(), saved.secretRef());
+        } else if (password != null && (password.startsWith("env:") || WorkspaceSecrets.isReference(password))) {
+            password = workspaceSecrets.resolve(granted.workspace().id(), password);
         }
         DatasourceTestResult result = run(config, password);
         if (saved != null && saved.config().equals(config)) {
@@ -264,7 +274,7 @@ public class DatasourceController {
     public DatasourceTestResult test(@PathVariable String ws, @PathVariable UUID id) {
         var granted = access.require(ws, WorkspaceRole.AUTHOR);
         Datasource ds = find(granted.workspace().id(), id);
-        DatasourceTestResult result = run(ds.config(), secrets.resolve(ds.secretRef()));
+        DatasourceTestResult result = run(ds.config(), workspaceSecrets.resolve(granted.workspace().id(), ds.secretRef()));
         scope.run(granted.workspace().id(), () -> store.recordTest(id, result.ok(), result.message()));
         return result;
     }

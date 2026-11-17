@@ -60,6 +60,24 @@ public class Alerts {
     private final ThreadPoolExecutor sender = new ThreadPoolExecutor(1, 2, 30, TimeUnit.SECONDS, new ArrayBlockingQueue<>(1000),
             Thread.ofVirtual().name("alert-", 0).factory(), new ThreadPoolExecutor.DiscardPolicy());
     private final Map<String, Window> windows = new ConcurrentHashMap<>();
+    private io.opendbapi.core.secret.WorkspaceSecrets workspaceSecrets;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setWorkspaceSecrets(io.opendbapi.core.secret.WorkspaceSecrets workspaceSecrets) {
+        this.workspaceSecrets = workspaceSecrets;
+    }
+
+    /**
+     * The stored reference and host for a webhook URL typed by an admin: secret:NAME (the URL is
+     * read from the managed secret) or the URL itself, which gets sealed.
+     */
+    public String[] urlReference(UUID workspaceId, String input) {
+        if (io.opendbapi.core.secret.WorkspaceSecrets.isReference(input)) {
+            String ref = scope.call(workspaceId, () -> workspaceSecrets.toReference(input.strip()));
+            return new String[] {ref, checkUrl(workspaceSecrets.resolve(workspaceId, ref))};
+        }
+        return new String[] {seal(input), checkUrl(input)};
+    }
 
     public Alerts(WorkspaceScope scope, AlertChannelStore store, SecretResolver secrets, ObjectMapper json,
                   @Value("${opendbapi.alerts.allow-http:false}") boolean allowHttp,
@@ -128,7 +146,7 @@ public class Alerts {
         try {
             List<AlertChannelStore.ChannelTarget> targets = scope.call(f.workspaceId(), store::enabledTargets);
             for (AlertChannelStore.ChannelTarget t : targets) {
-                Delivery d = send(t, text(f, repeats), event(f, repeats));
+                Delivery d = send(f.workspaceId(), t, text(f, repeats), event(f, repeats));
                 scope.run(f.workspaceId(), () -> store.delivered(t.id(), d.ok() ? null : d.error()));
             }
         } catch (RuntimeException e) {
@@ -138,16 +156,16 @@ public class Alerts {
 
     /** Sends a test message to one channel, synchronously. */
     public Delivery test(UUID workspaceId, AlertChannelStore.ChannelTarget t, String workspace) {
-        Delivery d = send(t, "OpenDBAPI test alert for workspace " + workspace + ": this channel works.",
+        Delivery d = send(workspaceId, t, "OpenDBAPI test alert for workspace " + workspace + ": this channel works.",
                 json.createObjectNode().put("event", "test").put("workspace", workspace).put("at", Instant.now().toString()));
         scope.run(workspaceId, () -> store.delivered(t.id(), d.ok() ? null : d.error()));
         return d;
     }
 
-    private Delivery send(AlertChannelStore.ChannelTarget t, String text, ObjectNode event) {
+    private Delivery send(UUID workspaceId, AlertChannelStore.ChannelTarget t, String text, ObjectNode event) {
         String url;
         try {
-            url = secrets.resolve(t.urlRef());
+            url = workspaceSecrets.resolve(workspaceId, t.urlRef());
         } catch (RuntimeException e) {
             return new Delivery(false, null, "The webhook URL cannot be read: " + e.getMessage());
         }

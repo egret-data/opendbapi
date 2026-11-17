@@ -129,7 +129,7 @@ function SettingsTab({ ws, ds, canManage }: { ws: string; ds: DatasourceView; ca
         <p className="text-sm text-muted-foreground">{t("Only workspace admins can change datasources.")}</p>
       )}
       <DatasourceFields ws={ws} form={form} onChange={setForm} disabled={!canManage} hasPassword={ds.hasPassword}
-        passwordEnv={ds.passwordEnv} />
+        passwordEnv={ds.passwordEnv} passwordSecret={ds.passwordSecret} />
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}

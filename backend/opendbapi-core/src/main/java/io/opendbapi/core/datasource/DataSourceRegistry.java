@@ -66,6 +66,14 @@ public class DataSourceRegistry implements DisposableBean {
         this.hosts = hosts;
     }
 
+    private io.opendbapi.core.secret.WorkspaceSecrets workspaceSecrets;
+
+    /** Lets passwords be secret:NAME references (spec §4.5). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setWorkspaceSecrets(io.opendbapi.core.secret.WorkspaceSecrets workspaceSecrets) {
+        this.workspaceSecrets = workspaceSecrets;
+    }
+
     /** A pooled connection; the caller closes it. */
     public Connection connection(Datasource ds) throws SQLException {
         return pool(ds).getConnection();
@@ -181,7 +189,8 @@ public class DataSourceRegistry implements DisposableBean {
             JdbcConfig cfg = ds.config().validate();
             hosts.check(cfg.host());
             HikariDataSource created = new HikariDataSource(
-                    hikari(cfg, secrets.resolve(ds.secretRef()), ds.readOnly(), "opendbapi-" + ds.id()));
+                    hikari(cfg, workspaceSecrets != null ? workspaceSecrets.resolve(ds.workspaceId(), ds.secretRef())
+                            : secrets.resolve(ds.secretRef()), ds.readOnly(), "opendbapi-" + ds.id()));
             Entry previous = pools.put(ds.id(), new Entry(ds.updatedAt(), created));
             if (previous != null) {
                 previous.pool().close();
