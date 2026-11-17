@@ -55,12 +55,12 @@ Cho phép người dùng viết SQL / script / Elasticsearch DSL / HTTP proxy tr
 | Giai đoạn | Nội dung |
 |---|---|
 | **P1 – MVP** | **Workspace (đa tenant)**; đăng nhập **nội bộ + LDAP + OIDC**; datasource JDBC; task SQL template; draft/publish/rollback; nhóm API; service account + OAuth2; Try-it; **OpenAPI**; **phân trang**; **kiểm tra SQL tĩnh**; **quan sát hệ thống**; **virtual threads + stream**; access log ra file + bảng Activity cơ bản; UI React |
-| **P2 – Đầy đủ** | **Task Groovy `SqlFragment`**; **map kết quả**; **ký HMAC**; **bộ test cho từng API**; **che/lọc dữ liệu**; plugin SPI; rule tham số; QPS; firewall; ES & HTTP executor; mã hoá response; thống kê đầy đủ; import từ DBAPI |
+| **P2 – Đầy đủ** | **Task Groovy `SqlFragment`**; **map kết quả**; **ký HMAC**; **bộ test cho từng API**; **che/lọc dữ liệu**; rule tham số; cảnh báo lỗi qua webhook; cache kết quả; QPS; firewall; ES & HTTP executor; mã hoá response; thống kê đầy đủ; import từ DBAPI |
 | **P3 – Mở rộng** | **Cấu hình dưới dạng code và đa môi trường**; **phiên bản major song song**; **MCP**; Vault; workflow DAG; chế độ cluster (gateway, Redis) |
 
 ### 1.4 Ngoài phạm vi
 
-- Tương thích nhị phân với plugin của DBAPI.
+- Cơ chế plugin (SPI, nạp jar ngoài). Cần thêm hành vi gì thì viết thẳng thành tính năng của hệ thống (quyết định 2026-11-17, §13).
 - Cổng tài liệu riêng cho người gọi API bên ngoài. Người gọi nhận URL và file OpenAPI tải về [E].
 
 ---
@@ -111,7 +111,6 @@ Theo đúng stack của Egret để dùng lại quy ước và component:
 ```text
 opendbapi/
 ├── backend/
-│   ├── opendbapi-plugin-api/   # (P2) SPI plugin (phát hành riêng)
 │   ├── opendbapi-sql/          # SQL template, ngôn ngữ biểu thức, kiểm tra tĩnh, phân trang (Java thuần)
 │   ├── opendbapi-core/         # domain, store, executor, pipeline
 │   ├── opendbapi-admin/        # REST quản trị /admin/api/**
@@ -146,7 +145,7 @@ Serving **không** nhận session cookie. Nhờ vậy, việc người dùng đ�
 ### 3.3 Registry
 
 - `EndpointRegistry` giữ `Map<(workspaceId, method, path), CompiledEndpoint>`, chỉ gồm endpoint ở trạng thái `live`, chưa vào thùng rác, và trỏ tới **phiên bản đang live** (không phải bản draft).
-- `CompiledEndpoint` chứa: snapshot phiên bản, template/script đã biên dịch, tham số đã chuẩn hoá, cấu hình phân trang/map/che dữ liệu, plugin đã resolve.
+- `CompiledEndpoint` chứa: snapshot phiên bản, template/script đã biên dịch, tham số đã chuẩn hoá, cấu hình phân trang/map/che dữ liệu/rule tham số.
 - Nạp lại khi publish, rollback, disable, đổi datasource, hoặc nhận pub/sub (cluster).
 
 ---
@@ -184,7 +183,6 @@ Schema mới trong PostgreSQL, schema `opendbapi`. Dữ liệu DBAPI được nh
 | `oauth_client` | Credential của service account | P1 |
 | `endpoint_grant` | Service account → endpoint/nhóm | P1 |
 | `data_policy` | Quy tắc che cột / lọc dòng | P2 |
-| `plugin_binding` | Plugin gắn với endpoint | P2 |
 | `rate_limit` | QPS theo endpoint / service account | P2 |
 | `ip_rule` | Firewall | P2 |
 | `access_log` | Log truy cập, partition theo tháng (có thể dùng DB riêng) | P1 |
@@ -311,7 +309,7 @@ rollback(v K): live_version_id := v K (K < N), không đổi draft
   "streaming": { "allowed": true, "formats": ["ndjson", "csv"] },
   "cache": { "enabled": false, "ttlSeconds": 60, "scope": "client" },
   "limits": { "timeoutSeconds": 30, "maxRows": 10000 },
-  "plugins": [ /* §13 */ ],
+  "alarm": { "enabled": false },      // §13.2
   "rules": [ /* §13.3 */ ]
 }
 ```
@@ -489,7 +487,7 @@ Khi `oauth_client.response_encrypt = true`: body được mã hoá AES-256-GCM, 
 
 Hai cấp quyền:
 
-- **Hệ thống:** cờ `users.system_admin`. Được quản lý workspace, user, nhà cung cấp danh tính, cài plugin. Admin hệ thống đầu tiên được tạo với mật khẩu ngẫu nhiên in ra log lần chạy đầu.
+- **Hệ thống:** cờ `users.system_admin`. Được quản lý workspace, user, nhà cung cấp danh tính. Admin hệ thống đầu tiên được tạo với mật khẩu ngẫu nhiên in ra log lần chạy đầu.
 - **Workspace:** mỗi thành viên có một role trong workspace đó.
 
 | Quyền | `owner` | `admin` | `script_author` | `author` | `viewer` |
@@ -556,15 +554,15 @@ Ba nguồn đăng nhập, bật/tắt độc lập. Màn hình login hiển th�
  5. Authorize                  endpoint_grant                                  → 403 not_granted
  6. Rate limit                 theo endpoint và theo service account           → 429
  7. Bind params                ép kiểu, validate                               → 400 invalid_param
- 8. Param plugins + rules                                                       → 400 rule_failed
+ 8. Rule tham số                                                                → 400 rule_failed
  9. Cache lookup               khoá có tính tới phạm vi client (§9.5)
 10. Render                     template | script → BoundSql
 11. Rewrite                    row filter → phân trang
 12. Execute                    timeout, maxRows, stream hoặc nạp vào bộ nhớ
-13. Post-process               masking → map kết quả → transform plugin
+13. Post-process               masking → map kết quả
 14. Envelope                   { data, meta }
 15. Cache put, mã hoá response
-16. Ghi access log (bất đồng bộ), metric; nếu lỗi thì gọi alarm plugin
+16. Ghi access log (bất đồng bộ), metric; nếu lỗi thì gửi cảnh báo webhook (§13.2)
 ```
 
 ### 9.2 Map kết quả (P2)
@@ -627,7 +625,7 @@ Cache dùng khoá `(endpointId, version, paramsHash, scope)`. `scope = client` s
 
 - Bên gọi chọn định dạng bằng `Accept: application/x-ndjson` hoặc `text/csv`, hoặc tham số `?format=ndjson|csv`. Endpoint phải khai báo `streaming.allowed`.
 - Engine dùng `ResultSet` forward-only với `fetchSize` (ví dụ 1.000), ghi thẳng ra output stream. Chạy trên virtual thread nên không giữ platform thread.
-- Ở chế độ stream, các tính năng sau bị tắt: `nest`, cache, transform plugin. Validate sẽ báo nếu cấu hình mâu thuẫn.
+- Ở chế độ stream, các tính năng sau bị tắt: `nest`, cache. Validate sẽ báo nếu cấu hình mâu thuẫn.
 - `maxRows` vẫn áp dụng. Riêng với stream có thể đặt giới hạn cao hơn qua `limits.streamMaxRows` (tối đa 10.000.000).
 - Stream bỏ qua phân trang. Status và header chỉ được gửi sau khi câu SQL đã chạy, nên lỗi xảy ra trước dòng đầu tiên vẫn trả problem response như bình thường. Lỗi xảy ra giữa chừng: NDJSON ghi thêm một dòng cuối `{"_meta":{"error":"query_failed","requestId":...}}`; CSV dừng lại, nguyên nhân nằm trong log. Khi bị cắt ở giới hạn số dòng, NDJSON ghi dòng cuối `{"_meta":{"truncated":true,...}}`.
 - Định dạng không được phép trả 406 `not_acceptable`; giá trị `format` không hợp lệ trả 400 `invalid_param`.
@@ -722,39 +720,26 @@ Gắn theo datasource + cột (áp dụng cho mọi endpoint) hoặc theo từng
 
 ---
 
-## 13. Plugin, rule tham số, transform (P2)
+## 13. Rule tham số và cảnh báo lỗi (P2)
 
-### 13.1 SPI
+OpenDBAPI không có cơ chế plugin: không có SPI, không nạp jar từ thư mục `plugins/`. Code chạy trong cùng JVM sẽ có toàn quyền, kể cả đọc master key và mật khẩu datasource, và một SPI công khai buộc phải giữ ổn định chữ ký trong khi pipeline vẫn đang thay đổi. Các nhu cầu mà plugin của DBAPI phục vụ được làm thành tính năng có sẵn:
 
-Package `io.opendbapi.plugin`. Khái niệm giữ như DBAPI, chữ ký được làm rõ:
+| Nhu cầu | Tính năng |
+|---|---|
+| Cache kết quả | Cache Caffeine có sẵn, cấu hình ở `cache` của endpoint (§9.5) |
+| Biến đổi kết quả | Map kết quả (§9.2), task Groovy (§7.4) |
+| Xử lý, kiểm tra tham số | Kiểu và giá trị mặc định của tham số (§5.2), rule tham số (§13.1) |
+| Cảnh báo khi API lỗi | Kênh cảnh báo webhook (§13.2) |
 
-```java
-public interface Plugin {
-    String name();
-    String description();
-    String paramDescription();
-    default void init() {}
-}
-public interface CachePlugin extends Plugin {
-    Object get(ApiContext ctx, String param);
-    void put(ApiContext ctx, Object data, String param);
-    void clean(EndpointRef endpoint, String param);
-}
-public interface TransformPlugin extends Plugin { Object transform(Object data, String param); }
-public interface GlobalTransformPlugin extends Plugin { Object transform(ResponseEnvelope r, String param); }
-public interface ParamProcessPlugin extends Plugin { void process(Map<String, Object> params, ApiContext ctx, String param); }
-public interface AlarmPlugin extends Plugin { void alarm(Throwable e, ApiContext ctx, String param); }
-```
+Cần thêm hành vi mới thì viết thẳng vào tính năng tương ứng.
 
-Plugin được nạp bằng `ServiceLoader` từ classpath và thư mục `plugins/`. Đi kèm sẵn: alarm qua webhook (Slack, Teams, Google Chat, DingTalk, Feishu) và cache Caffeine.
+### 13.1 Rule tham số
 
-### 13.2 Ràng buộc plugin
+Rule viết bằng biểu thức SpEL (an toàn hơn Groovy, đủ dùng cho validate), ví dụ `#params['to'] >= #params['from']`, kèm `message`. SpEL chạy với `SimpleEvaluationContext`, không gọi được kiểu, bean hay phương thức tuỳ ý. Rule sai trả **400** `rule_failed` kèm `message`.
 
-Plugin chạy trong cùng JVM, tức là có toàn quyền như code của hệ thống. Chỉ system admin (người vận hành server) được cài plugin, bằng cách đặt file vào thư mục `plugins/`; không có chức năng upload jar qua UI.
+### 13.2 Cảnh báo lỗi
 
-### 13.3 Rule tham số
-
-Rule viết bằng biểu thức SpEL (an toàn hơn Groovy, đủ dùng cho validate), ví dụ `#params['to'] >= #params['from']`, kèm `message`. Rule phức tạp hơn thì viết bằng Groovy, chịu cùng ràng buộc quyền như §7.4.
+Workspace admin khai báo kênh cảnh báo dạng webhook (Slack, Microsoft Teams, Google Chat, hoặc webhook JSON chung). Endpoint bật `alarm.enabled` thì khi request lỗi 5xx hoặc timeout, hệ thống gửi cảnh báo bất đồng bộ tới các kênh của workspace. Cảnh báo chứa tên endpoint, mã lỗi, request id, thời điểm; không chứa giá trị tham số hay dữ liệu trả về. Cảnh báo trùng (cùng endpoint, cùng mã lỗi) bị gộp trong một khoảng thời gian cấu hình được, mặc định 5 phút. URL webhook được coi là bí mật và lưu niêm phong bằng master key.
 
 ---
 
@@ -1024,7 +1009,7 @@ Quyền tối thiểu theo bảng §8.4.
 | Service account | `GET/POST /service-accounts`, `PATCH/DELETE /service-accounts/{id}`, `PUT /service-accounts/{id}/grants` |
 | Client | `GET/POST /service-accounts/{id}/clients`, `POST /clients/{cid}:revoke`, `POST /clients/{cid}:rotate-secret` |
 | Data policy | `GET/POST /data-policies`, `PATCH/DELETE /data-policies/{id}` |
-| Plugin | `GET /plugins` |
+| Cảnh báo | `GET/POST /alert-channels`, `PATCH/DELETE /alert-channels/{id}`, `POST /alert-channels/{id}:test` |
 | Rate limit | `GET/PUT /rate-limits` |
 | Firewall | `GET/PUT /firewall` |
 | Activity | `GET /activity/logs`, `GET /activity/stats?metric=daily|success-ratio|top-endpoints|top-clients|top-latency|top-ips&from&to` |
@@ -1150,6 +1135,7 @@ management:
 | 4 | Ngôn ngữ UI | Tiếng Anh, i18n tiếng Việt ở P2 |
 | 5 | Đa tenant | Có, theo workspace, từ P1 |
 | 6 | Mức dùng lại Egret | Chỉ lấy khung (§17.1); UI thiết kế lại gọn cho tính năng DBAPI |
+| 7 | Plugin SPI (2026-11-17) | Bỏ hẳn. Cần gì thì viết thẳng thành tính năng (§13) |
 
 ### Còn mở
 
