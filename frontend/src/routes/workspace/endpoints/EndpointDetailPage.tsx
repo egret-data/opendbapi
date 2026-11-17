@@ -46,7 +46,7 @@ import { FindingsList, PreviewPanel } from "./PreviewPanel";
 import { SettingsTab } from "./SettingsTab";
 import { TryItTab } from "./TryItTab";
 import { VersionsTab } from "./VersionsTab";
-import { STATE_LABEL, STATE_TONE, formFrom, isScript, mainSql, toUpdate, withLanguage, withMainSql, type DraftForm } from "./endpointForm";
+import { STATE_LABEL, STATE_TONE, formFrom, isScript, mainSql, taskKind, toUpdate, withLanguage, withMainSql, type DraftForm, type TaskKind } from "./endpointForm";
 
 const TABS = ["query", "try", "tests", "settings", "access", "versions"] as const;
 
@@ -217,12 +217,13 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
               </SelectContent>
             </Select>
             <Label htmlFor="ep-language">{t("Language")}</Label>
-            <Select value={script ? "groovy" : "sql"} disabled={!canAuthor || !canScript}
-              onValueChange={(v) => setForm({ ...form, definition: withLanguage(form.definition, v === "groovy") })}>
-              <SelectTrigger id="ep-language" className="w-44"><SelectValue /></SelectTrigger>
+            <Select value={taskKind(form.definition)} disabled={!canAuthor || !canScript}
+              onValueChange={(v) => setForm({ ...form, definition: withLanguage(form.definition, v as TaskKind) })}>
+              <SelectTrigger id="ep-language" className="w-56"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="sql">{t("SQL template")}</SelectItem>
-                <SelectItem value="groovy">{t("Groovy script")}</SelectItem>
+                <SelectItem value="fragment">{t("Groovy script")}</SelectItem>
+                <SelectItem value="full">{t("Groovy script (full: db, any answer)")}</SelectItem>
               </SelectContent>
             </Select>
             {script && !canScript && (

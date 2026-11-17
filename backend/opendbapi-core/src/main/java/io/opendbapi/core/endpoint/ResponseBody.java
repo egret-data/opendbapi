@@ -24,6 +24,13 @@ public final class ResponseBody {
     public static Parts build(EndpointDefinition def, QueryExecutor.QueryResult result, QueryExecutor.PageRequest page,
                               Consumer<QueryExecutor.QueryResult> masking) {
         Map<String, Object> meta = new LinkedHashMap<>();
+        if (result.value() instanceof QueryExecutor.ScriptValue v) {
+            // Spec §7.4 full mode: the script's own answer, its queries already masked.
+            if (result.truncated()) {
+                meta.put("truncated", true);
+            }
+            return new Parts(v.data(), meta, v.rows());
+        }
         if (page != null) {
             if (page.keyset()) {
                 meta.put("size", page.size());

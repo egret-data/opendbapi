@@ -9,7 +9,8 @@ import org.springframework.stereotype.Component;
 class ScriptSettings {
 
     ScriptSettings(@Value("${opendbapi.script.groovy-enabled:true}") boolean enabled,
-                   @Value("${opendbapi.script.timeout:2s}") Duration timeout) {
-        CompiledTask.configureScripts(enabled, timeout.toMillis());
+                   @Value("${opendbapi.script.timeout:2s}") Duration timeout,
+                   @Value("${opendbapi.script.full-timeout:30s}") Duration fullTimeout) {
+        CompiledTask.configureScripts(enabled, timeout.toMillis(), fullTimeout.toMillis());
     }
 }

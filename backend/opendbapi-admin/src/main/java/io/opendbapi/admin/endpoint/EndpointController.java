@@ -148,7 +148,8 @@ public class EndpointController {
             @Schema(nullable = true) Boolean hasNext,
             long durationMs,
             List<ExecutedSql> executed,
-            List<EndpointValidator.Finding> findings) {
+            List<EndpointValidator.Finding> findings,
+            @Schema(nullable = true, description = "Full-mode scripts: what the script returned") Object value) {
     }
 
     private final WorkspaceAccess access;
@@ -337,7 +338,8 @@ public class EndpointController {
                 body.params(), body.page(), body.size());
         QueryExecutor.QueryResult r = p.result();
         return new PreviewResponse(r.columns(), r.rows(), r.affectedRows(), r.truncated(), r.total(), r.hasNext(), r.durationMs(),
-                r.executed().stream().map(b -> new ExecutedSql(b.sql(), b.parameters())).toList(), p.findings());
+                r.executed().stream().map(b -> new ExecutedSql(b.sql(), b.parameters())).toList(), p.findings(),
+                r.value() instanceof QueryExecutor.ScriptValue v ? v.data() : null);
     }
 
     /**

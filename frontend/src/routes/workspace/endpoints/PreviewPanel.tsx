@@ -24,6 +24,7 @@ export function PreviewPanel({ ws, id, form }: { ws: string; id: string; form: D
   const [result, setResult] = useState<PreviewResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const params = form.definition.params;
+  const full = form.definition.task.type === "script" && form.definition.task.mode === "full";
 
   const run = () => {
     setError(null);
@@ -56,7 +57,7 @@ export function PreviewPanel({ ws, id, form }: { ws: string; id: string; form: D
         </Button>
         {result && (
           <span className="text-xs text-muted-foreground tabular-nums">
-            {result.durationMs} ms · {result.affectedRows != null
+            {result.durationMs} ms · {full ? t("{{n}} queries (rolled back)", { n: result.executed.length }) : result.affectedRows != null
               ? t("{{n}} rows affected (rolled back)", { n: result.affectedRows })
               : result.rows.length === 1 ? t("1 row") : t("{{n}} rows", { n: result.rows.length })}
             {result.truncated ? ` · ${t("first 100 shown")}` : ""}
@@ -73,7 +74,11 @@ export function PreviewPanel({ ws, id, form }: { ws: string; id: string; form: D
             <TabsTrigger value="schema">{t("Output schema")}</TabsTrigger>
           </TabsList>
           <TabsContent value="result" className="pt-3">
-            {result.affectedRows != null ? (
+            {full ? (
+              <pre aria-label={t("Script answer")} className="max-h-80 overflow-auto rounded-md border bg-muted/40 p-3 font-mono text-xs">
+                {JSON.stringify(result.value ?? null, null, 2)}
+              </pre>
+            ) : result.affectedRows != null ? (
               <p className="text-sm">{t("{{n}} rows would be affected. Nothing was saved.", { n: result.affectedRows })}</p>
             ) : result.rows.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t("No rows.")}</p>
@@ -141,8 +146,8 @@ export function FindingsList({ findings }: { findings: Finding[] }) {
   return (
     <ul className="space-y-1 text-sm">
       {findings.map((f, i) => (
-        <li key={i} className={f.severity === "error" ? "text-destructive" : "text-foreground"}>
-          <span className="font-medium">{f.severity === "error" ? t("Error") : t("Warning")}:</span> {f.message}
+        <li key={i} className={f.severity === "error" ? "text-destructive" : f.severity === "info" ? "text-muted-foreground" : "text-foreground"}>
+          <span className="font-medium">{f.severity === "error" ? t("Error") : f.severity === "info" ? t("Note") : t("Warning")}:</span> {f.message}
         </li>
       ))}
     </ul>

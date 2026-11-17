@@ -334,6 +334,55 @@ describe("Endpoints", () => {
     expect(screen.queryByRole("button", { name: "Run" })).not.toBeInTheDocument();
   });
 
+  it("full-mode scripts are chosen from the language menu and preview shows what they return", async () => {
+    // Arrange
+    const full = { ...DETAIL, definition: { ...DETAIL.definition, params: [],
+      task: { ...DETAIL.definition.task, type: "script", language: "groovy", mode: "full", source: "return [n: db.value(sql\"select 1\")]" } } };
+    const server = mockServer({
+      ...common,
+      "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "script_author" }] }),
+      "GET /admin/api/ws/sales/endpoints/e1": () => json(full),
+      "PATCH /admin/api/ws/sales/endpoints/e1": () => json(full),
+      "POST /admin/api/ws/sales/endpoints/e1/preview": () =>
+        json({ columns: [], rows: [], truncated: false, durationMs: 3, executed: [{ sql: "select 1", parameters: [] }],
+          findings: [{ severity: "info", code: "script_full", message: "Checked while it runs." }], value: { n: 1 } }),
+    });
+    const user = userEvent.setup();
+    renderApp("/w/sales/endpoints/e1");
+
+    // Act
+    await user.click(await screen.findByRole("button", { name: "Run" }));
+    const answer = await screen.findByLabelText("Script answer");
+
+    // Assert
+    expect(JSON.parse(answer.textContent ?? "")).toEqual({ n: 1 });
+    expect(screen.getByText("1 queries (rolled back)", { exact: false })).toBeInTheDocument();
+    expect(server.calls.some((c) => c.key === "POST /admin/api/ws/sales/endpoints/e1/preview")).toBe(true);
+  });
+
+  it("choosing full mode starts from a db example", async () => {
+    // Arrange
+    const server = mockServer({
+      ...common,
+      "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "script_author" }] }),
+      "GET /admin/api/ws/sales/endpoints/e1": () => json(DETAIL),
+      "PATCH /admin/api/ws/sales/endpoints/e1": () => json(DETAIL),
+    });
+    const user = userEvent.setup();
+    renderApp("/w/sales/endpoints/e1");
+
+    // Act
+    await user.click(await screen.findByLabelText("Language"));
+    await user.click(screen.getByRole("option", { name: "Groovy script (full: db, any answer)" }));
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    // Assert
+    await waitFor(() => expect(server.calls.some((c) => c.key === "PATCH /admin/api/ws/sales/endpoints/e1")).toBe(true));
+    const sent = JSON.parse(String(server.calls.find((c) => c.key === "PATCH /admin/api/ws/sales/endpoints/e1")!.init?.body));
+    expect(sent.definition.task).toMatchObject({ type: "script", language: "groovy", mode: "full" });
+    expect(sent.definition.task.source).toContain("db.one(");
+  });
+
   it("saves parameter rules and the alert switch with the draft", async () => {
     // Arrange
     const server = mockServer({

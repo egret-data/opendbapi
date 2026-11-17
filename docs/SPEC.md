@@ -346,7 +346,7 @@ Request tạo/sửa endpoint gửi trường lạ (kể cả trong object lồng
 | `type` | Mô tả | Giai đoạn |
 |---|---|---|
 | `sql` | Một hoặc nhiều câu SQL template (XML) | P1 |
-| `script` | Groovy trả `SqlFragment`, hoặc script đầy đủ dùng `db.*` | P2 |
+| `script` | Groovy trả `SqlFragment` (P2), hoặc script đầy đủ dùng `db.*` (chế độ `full`) | P2/P3 |
 | `elasticsearch` | DSL template | Hoãn |
 | `http` | Proxy sang upstream | Hoãn |
 | `workflow` | DAG nhiều nút | P3 |
@@ -441,7 +441,7 @@ Ghi chú triển khai (P2, bước 19):
 - Kết quả của script đi tiếp qua đúng pipeline của câu SQL chính: kiểm tra tĩnh, rule tham số, lọc dòng, phân trang/keyset, masking, map kết quả và cache.
 - Script lỗi lúc chạy: người gọi nhận 500 `script_failed` kèm request id; chi tiết lỗi ghi vào log và access log. Preview hiện chi tiết cho người viết.
 
-**Chế độ `full`** (script dùng `db.*` và trả object tuỳ ý) **chưa làm, chuyển sang P3.** Lý do: chế độ này cho script tự chạy query và tự dựng response, nên không còn đi qua pipeline (lọc dòng, masking, cache) một cách tự nhiên, và mở rộng bề mặt tấn công của sandbox. Ví dụ dự kiến:
+**Chế độ `full`** (`"mode": "full"`): script tự chạy query qua `db` và trả object tuỳ ý, object đó thành `data` của response.
 
 ```groovy
 def user = db.one(sql"select * from users where id = ${params.id}")
@@ -449,6 +449,13 @@ if (!user) return notFound("User không tồn tại")
 def orders = db.list(sql"select * from orders where user_id = ${user.id} order by id desc limit 10")
 return [user: user, recentOrders: orders]
 ```
+
+- `db.one(q)` trả dòng đầu tiên hoặc `null`; `db.list(q)` trả mọi dòng, tối đa `limits.maxRows`; `db.value(q)` trả cột đầu của dòng đầu; `db.update(q)` chạy INSERT/UPDATE/DELETE và trả số dòng bị đổi. `q` luôn là fragment `sql"…"`. `notFound(msg)` trả 404 `not_found`, `badRequest(msg)` trả 400 `bad_request`.
+- Sandbox áp dụng như chế độ fragment, cộng thêm: chỉ gọi được bốn hàm trên **đúng biến `db`**; không đọc property của `db`, không khai báo lại hay gán `db`/`params`; không có hàm nào khác không có receiver.
+- **Mỗi câu query** đi qua: kiểm tra tĩnh (lỗi như nhiều câu lệnh, UPDATE/DELETE không WHERE, ghi vào datasource `read_only` đều bị chặn, kèm 403 `read_only_datasource`), đúng loại (`db.update` chỉ cho câu ghi, ba hàm còn lại chỉ cho câu đọc), row filter (§12.2, viết lại từng câu đọc; câu không lọc được thì 500 `row_filter_failed`), giới hạn thời gian và số dòng, rồi masking theo lineage của chính câu đó và theo tên cột kết quả.
+- Một lần chạy tối đa 100 query, trên một connection; có transaction khi `task.transaction` (preview và test luôn rollback). Thời gian chạy tối đa `opendbapi.script.full-timeout` (mặc định 30 giây).
+- Không có phân trang hay streaming (validate báo lỗi nếu bật). Cache áp dụng như thường, trừ khi script đã ghi dữ liệu. Validate không thấy trước được các câu query: nó chỉ biên dịch script và ghi chú rằng query được kiểm tra lúc chạy; dùng preview và test case để thử. Script GET có gọi `db.update` thì không bị phát hiện lúc validate; đó là trách nhiệm của người viết.
+- Preview trả thêm `value` (kết quả của script) cùng danh sách SQL đã chạy. UI: menu Language có mục **Groovy script (full: db, any answer)**.
 
 **Bảo mật script.** Sandbox của Groovy **không phải ranh giới bảo mật tin cậy được**. Ngay cả khi đã chặn ở mức AST, metaprogramming vẫn có thể tìm đường vượt qua. Vì vậy:
 

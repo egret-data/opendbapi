@@ -50,7 +50,10 @@ public class QueryExecutor {
     public record ResultColumn(String name, String type) {
     }
 
-    /** The main statement's outcome. {@code rows} for queries, {@code affectedRows} for writes. */
+    /**
+     * The main statement's outcome. {@code rows} for queries, {@code affectedRows} for writes;
+     * {@code value} is what a full-mode script returned (spec §7.4).
+     */
     public record QueryResult(
             List<ResultColumn> columns,
             List<Map<String, Object>> rows,
@@ -59,8 +62,51 @@ public class QueryExecutor {
             Long total,
             Boolean hasNext,
             long durationMs,
-            List<BoundSql> executed) {
+            List<BoundSql> executed,
+            Object value) {
+
+        public QueryResult(List<ResultColumn> columns, List<Map<String, Object>> rows, Long affectedRows, boolean truncated, Long total,
+                           Boolean hasNext, long durationMs, List<BoundSql> executed) {
+            this(columns, rows, affectedRows, truncated, total, hasNext, durationMs, executed, null);
+        }
     }
+
+    /**
+     * Data policies for a run (spec §12): the row filter rewrites each query, masks change the
+     * values each query returns. A full-mode script's queries each go through both.
+     */
+    public interface Policy {
+        Policy NONE = new Policy() {
+            @Override
+            public BoundSql rewrite(BoundSql query) {
+                return query;
+            }
+
+            @Override
+            public void mask(List<ResultColumn> columns, List<Map<String, Object>> rows) {
+            }
+        };
+
+        BoundSql rewrite(BoundSql query);
+
+        void mask(List<ResultColumn> columns, List<Map<String, Object>> rows);
+
+        static Policy rewriteOnly(java.util.function.UnaryOperator<BoundSql> rewrite) {
+            return new Policy() {
+                @Override
+                public BoundSql rewrite(BoundSql query) {
+                    return rewrite.apply(query);
+                }
+
+                @Override
+                public void mask(List<ResultColumn> columns, List<Map<String, Object>> rows) {
+                }
+            };
+        }
+    }
+
+    /** At most this many queries per full-script run. */
+    static final int MAX_SCRIPT_QUERIES = 100;
 
     /** The database refused the SQL; {@code detail} is its own message (for authors, not callers). */
     public static class QueryFailedException extends RuntimeException {
@@ -132,8 +178,160 @@ public class QueryExecutor {
      */
     public QueryResult run(Datasource ds, CompiledTask task, Map<String, Object> params, PageRequest page,
                       EndpointDefinition.Limits limits, RunMode mode, java.util.function.UnaryOperator<BoundSql> mainRewrite) {
+        return run(ds, task, params, page, limits, mode, Policy.rewriteOnly(mainRewrite));
+    }
+
+    /** Like the others, with masks too: full-mode scripts mask each query's values here. */
+    public QueryResult run(Datasource ds, CompiledTask task, Map<String, Object> params, PageRequest page,
+                      EndpointDefinition.Limits limits, RunMode mode, Policy policy) {
         List<BoundSql> executed = new ArrayList<>();
-        return measured(ds, params, executed, () -> runMeasured(ds, task, params, page, limits, mode, mainRewrite, executed));
+        if (task.isFull()) {
+            return measured(ds, params, executed, () -> runScript(ds, task, params, limits, mode, policy, executed));
+        }
+        return measured(ds, params, executed, () -> runMeasured(ds, task, params, page, limits, mode, policy::rewrite, executed));
+    }
+
+    /**
+     * Spec §7.4 full mode: the script runs its queries on one connection (a transaction when
+     * the task asks for one, always rolled back in preview); each query is checked, filtered by
+     * the row filter, limited, and masked before the script sees it.
+     */
+    private QueryResult runScript(Datasource ds, CompiledTask task, Map<String, Object> params, EndpointDefinition.Limits limits,
+                                  RunMode mode, Policy policy, List<BoundSql> executed) {
+        long start = System.nanoTime();
+        try (Connection c = registry.connection(ds)) {
+            boolean manual = mode == RunMode.PREVIEW || task.transaction();
+            if (manual) {
+                c.setAutoCommit(false);
+            }
+            long[] rows = {0};
+            boolean[] truncated = {false};
+            boolean[] wrote = {false};
+            io.opendbapi.core.script.DbAccess db = new io.opendbapi.core.script.DbAccess() {
+                private QueryResult query(io.opendbapi.core.script.SqlFragment q, boolean write) {
+                    if (executed.size() >= MAX_SCRIPT_QUERIES) {
+                        throw new io.opendbapi.core.script.DbAccess.Failure(new ApiProblem(500, "script_failed",
+                                "The script ran more than %d queries.".formatted(MAX_SCRIPT_QUERIES)));
+                    }
+                    if (q == null) {
+                        throw new io.opendbapi.core.script.DbAccess.Failure(new ApiProblem(500, "script_failed",
+                                "db needs a query built with sql\"…\"."));
+                    }
+                    BoundSql bound = q.toBoundSql();
+                    boolean isWrite = io.opendbapi.sql.inspect.SqlInspector.isWrite(bound.sql());
+                    if (isWrite != write) {
+                        throw new io.opendbapi.core.script.DbAccess.Failure(new ApiProblem(500, "script_failed", write
+                                ? "db.update runs INSERT, UPDATE or DELETE; use db.one, db.list or db.value for queries."
+                                : "db.one, db.list and db.value run queries; use db.update for INSERT, UPDATE or DELETE."));
+                    }
+                    if (isWrite && ds.readOnly()) {
+                        throw new io.opendbapi.core.script.DbAccess.Failure(new ApiProblem(403, "read_only_datasource",
+                                "This endpoint's datasource is read-only."));
+                    }
+                    for (var f : io.opendbapi.sql.inspect.SqlInspector.inspect(bound.sql(),
+                            new io.opendbapi.sql.inspect.SqlInspector.Context(false, ds.readOnly()))) {
+                        if (f.severity() == io.opendbapi.sql.inspect.SqlInspector.Severity.ERROR) {
+                            throw new io.opendbapi.core.script.DbAccess.Failure(new ScriptFailed("A query of the script was refused: " + f.message()));
+                        }
+                    }
+                    try {
+                        BoundSql run = isWrite ? bound : policy.rewrite(bound);
+                        executed.add(run);
+                        QueryResult r = execute(c, run, limits);
+                        if (!isWrite) {
+                            policy.mask(r.columns(), r.rows());
+                            rows[0] += r.rows().size();
+                            truncated[0] |= r.truncated();
+                        } else {
+                            wrote[0] = true;
+                        }
+                        return r;
+                    } catch (SQLException e) {
+                        throw new io.opendbapi.core.script.DbAccess.Failure(isTimeout(e)
+                                ? new ApiProblem(504, "query_timeout", "A query did not finish within %d seconds.".formatted(limits.timeoutSeconds()))
+                                : new QueryFailedException(e.getMessage(), e));
+                    } catch (ApiProblem e) {
+                        throw new io.opendbapi.core.script.DbAccess.Failure(e);
+                    }
+                }
+
+                @Override
+                public Map<String, Object> one(io.opendbapi.core.script.SqlFragment q) {
+                    List<Map<String, Object>> r = query(q, false).rows();
+                    return r.isEmpty() ? null : r.get(0);
+                }
+
+                @Override
+                public List<Map<String, Object>> list(io.opendbapi.core.script.SqlFragment q) {
+                    return query(q, false).rows();
+                }
+
+                @Override
+                public Object value(io.opendbapi.core.script.SqlFragment q) {
+                    List<Map<String, Object>> r = query(q, false).rows();
+                    return r.isEmpty() || r.get(0).isEmpty() ? null : r.get(0).values().iterator().next();
+                }
+
+                @Override
+                public long update(io.opendbapi.core.script.SqlFragment q) {
+                    Long n = query(q, true).affectedRows();
+                    return n == null ? 0 : n;
+                }
+            };
+            try {
+                Object value = plainJson(task.full().run(params, db));
+                if (mode == RunMode.PREVIEW) {
+                    c.rollback();
+                } else if (manual) {
+                    c.commit();
+                }
+                long ms = (System.nanoTime() - start) / 1_000_000;
+                return new QueryResult(List.of(), List.of(), wrote[0] ? 0L : null, truncated[0], null, null, ms, executed,
+                        new ScriptValue(value, rows[0], wrote[0]));
+            } catch (RuntimeException e) {
+                if (manual) {
+                    rollbackQuietly(c);
+                }
+                if (e instanceof io.opendbapi.core.script.DbAccess.Failure f) {
+                    throw f.unwrap();
+                }
+                if (e instanceof io.opendbapi.core.script.ScriptAnswer a) {
+                    throw new ApiProblem(a.status(), a.code(), a.getMessage());
+                }
+                if (e instanceof io.opendbapi.core.script.ScriptRejected r) {
+                    org.slf4j.LoggerFactory.getLogger(QueryExecutor.class).warn("Endpoint script failed: {}", r.getMessage());
+                    throw new ScriptFailed(r.getMessage());
+                }
+                throw e;
+            }
+        } catch (SQLException e) {
+            throw new QueryFailedException(e.getMessage(), e);
+        }
+    }
+
+    /** What a full-mode script returned, with how many rows its queries read and whether it wrote. */
+    public record ScriptValue(Object data, long rows, boolean wrote) {
+    }
+
+    /** Groovy strings become plain strings, so the answer serialises as JSON text. */
+    private static Object plainJson(Object v) {
+        if (v instanceof groovy.lang.GString || v instanceof CharSequence) {
+            return v.toString();
+        }
+        if (v instanceof Map<?, ?> m) {
+            Map<String, Object> out = new LinkedHashMap<>();
+            m.forEach((k, x) -> out.put(String.valueOf(k), plainJson(x)));
+            return out;
+        }
+        if (v instanceof java.util.Collection<?> c) {
+            List<Object> out = new ArrayList<>(c.size());
+            c.forEach(x -> out.add(plainJson(x)));
+            return out;
+        }
+        if (v instanceof io.opendbapi.core.script.SqlFragment) {
+            throw new ScriptFailed("A full-mode script returns data, not a sql\"…\" fragment; run it with db.list(…).");
+        }
+        return v;
     }
 
     private QueryResult runMeasured(Datasource ds, CompiledTask task, Map<String, Object> params, PageRequest page,
@@ -222,6 +420,9 @@ public class QueryExecutor {
 
     public long stream(Datasource ds, CompiledTask task, Map<String, Object> params, EndpointDefinition.Limits limits,
                        RowSink sink, java.util.function.UnaryOperator<BoundSql> mainRewrite) {
+        if (task.isFull()) {
+            throw ApiProblem.badRequest("not_streamable", "Full-mode script endpoints answer JSON only.");
+        }
         List<BoundSql> executed = new ArrayList<>();
         return measured(ds, params, executed, () -> streamMeasured(ds, task, params, limits, sink, mainRewrite, executed));
     }

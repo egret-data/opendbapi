@@ -53,16 +53,29 @@ def q = sql"select 1 as ok"
 return q
 `;
 
+export const FULL_SCRIPT_STARTER = `// db.one / db.list / db.value / db.update run queries; return any value.
+def row = db.one(sql"select 1 as id, 'example' as name where 1 = \${params.id ?: 1}")
+if (!row) return notFound("Nothing found")
+return [item: row]
+`;
+
 export function isScript(def: EndpointDefinition): boolean {
   return def.task.type === "script";
 }
 
-/** Switches the task between an SQL template and a Groovy fragment script; both texts are kept. */
-export function withLanguage(def: EndpointDefinition, script: boolean): EndpointDefinition {
+export type TaskKind = "sql" | "fragment" | "full";
+
+export function taskKind(def: EndpointDefinition): TaskKind {
+  return !isScript(def) ? "sql" : def.task.mode === "full" ? "full" : "fragment";
+}
+
+/** Switches between an SQL template and a Groovy script (fragment or full mode); texts are kept. */
+export function withLanguage(def: EndpointDefinition, kind: TaskKind): EndpointDefinition {
   const task = def.task;
-  return script
-    ? { ...def, task: { ...task, type: "script", language: "groovy", mode: "fragment", source: task.source || SCRIPT_STARTER } }
-    : { ...def, task: { ...task, type: "sql" } };
+  if (kind === "sql") return { ...def, task: { ...task, type: "sql" } };
+  const starter = kind === "full" ? FULL_SCRIPT_STARTER : SCRIPT_STARTER;
+  const source = !task.source || task.source === SCRIPT_STARTER || task.source === FULL_SCRIPT_STARTER ? starter : task.source;
+  return { ...def, task: { ...task, type: "script", language: "groovy", mode: kind, source } };
 }
 
 /** The text the UI edits: the main SQL statement, or the script. */

@@ -39,6 +39,10 @@ public class EndpointValidator {
         static Finding warning(String code, String message) {
             return new Finding("warning", code, message);
         }
+
+        static Finding info(String code, String message) {
+            return new Finding("info", code, message);
+        }
     }
 
     public record Validation(List<Finding> findings, List<String> detectedParameters, List<QueryExecutor.ResultColumn> outputColumns) {
@@ -107,6 +111,23 @@ public class EndpointValidator {
             }
         }
 
+        if (task.isFull()) {
+            // Spec §7.4 full mode: the queries only exist once the script runs; they are checked then.
+            findings.add(Finding.info("script_full", "A full-mode script builds its queries while it runs: each one is checked, "
+                    + "filtered and masked then. Use preview and tests to try it."));
+            if (def.pagination().enabled()) {
+                findings.add(Finding.error("pagination", "Full-mode scripts shape their own answer; turn pagination off."));
+            }
+            if (def.streaming().allowed()) {
+                findings.add(Finding.error("streaming", "Full-mode scripts answer JSON only; turn streaming off."));
+            }
+            if (policies.rowFilterColumn() != null && "public".equals(policies.access())) {
+                findings.add(Finding.error("row_filter_public",
+                        "This endpoint has a row filter, which needs to know the calling client. Make it private."));
+            }
+            checkCache(method, def, policies, findings);
+            return new Validation(findings, new ArrayList<>(used), List.of());
+        }
         Map<String, Object> sample = sampleValues(def.params());
         List<QueryExecutor.ResultColumn> output = List.of();
         boolean readOnlyEndpoint = "GET".equals(method);

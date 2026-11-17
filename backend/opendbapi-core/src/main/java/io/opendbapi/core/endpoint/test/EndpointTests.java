@@ -147,13 +147,16 @@ public class EndpointTests {
             }
             DataPolicies.Plan plan = sa == null ? DataPolicies.Plan.NONE : policies.plan(workspaceId, e.id(), ds.id(), sa);
             QueryExecutor.QueryResult result = executor.run(ds, task, params, page, def.limits(), QueryExecutor.RunMode.PREVIEW,
-                    plan::rewriteMain);
+                    (QueryExecutor.Policy) plan);
             io.opendbapi.core.endpoint.ResponseBody.Parts parts = io.opendbapi.core.endpoint.ResponseBody.build(def, result, page,
                     r -> DataPolicies.Plan.apply(plan.masksFor(r.columns()), r.columns(), r.rows()));
             ObjectNode body = json.createObjectNode();
             body.set("data", json.valueToTree(parts.data()));
             body.set("meta", json.valueToTree(parts.pageMeta()));
-            return new Answer(200, null, body, result.columns(), result.affectedRows() != null ? null : result.rows().size(), elapsed(start));
+            Integer rowCount = result.value() instanceof QueryExecutor.ScriptValue v
+                    ? (v.data() instanceof java.util.Collection<?> c ? c.size() : null)
+                    : result.affectedRows() != null ? null : result.rows().size();
+            return new Answer(200, null, body, result.columns(), rowCount, elapsed(start));
         } catch (ApiProblem p) {
             return new Answer(p.status(), p.code(), problem(p.code(), p.getMessage()), List.of(), null, elapsed(start));
         } catch (QueryExecutor.QueryFailedException q) {
