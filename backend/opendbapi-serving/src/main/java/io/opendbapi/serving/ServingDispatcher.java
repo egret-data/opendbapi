@@ -181,6 +181,7 @@ public class ServingDispatcher {
         EndpointRegistry.Route route = match.route();
         outcome.endpointId = route.endpointId().toString();
         outcome.version = route.version();
+        announceDeprecation(route, request, servletResponse, path);
 
         byte[] rawBody = readBody(request, method);
         io.opendbapi.core.client.ServiceAccountStore.ClientSecurity clientSecurity =
@@ -523,6 +524,31 @@ public class ServingDispatcher {
 
     private static String decode(String s) {
         return java.net.URLDecoder.decode(s, java.nio.charset.StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Spec §16: {@code Deprecation} (RFC 9745), {@code Sunset} (RFC 8594) and a link to the newest
+     * live major, on every answer of a deprecated endpoint.
+     */
+    private static void announceDeprecation(EndpointRegistry.Route route, HttpServletRequest request,
+                                            jakarta.servlet.http.HttpServletResponse response, String path) {
+        EndpointRegistry.Deprecation d = route.deprecation();
+        if (d == null) {
+            return;
+        }
+        response.setHeader("Deprecation", "@" + d.since().toEpochSecond());
+        if (d.sunset() != null) {
+            response.setHeader("Sunset", java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME
+                    .format(d.sunset().atZoneSameInstant(java.time.ZoneOffset.UTC)));
+        }
+        if (d.successorPath() != null) {
+            String uri = request.getRequestURI();
+            String rest = path.startsWith("/") ? path.substring(1) : path;
+            String base = uri.endsWith(rest) ? uri.substring(0, uri.length() - rest.length()) : null;
+            if (base != null) {
+                response.setHeader(HttpHeaders.LINK, "<" + base + d.successorPath() + ">; rel=\"successor-version\"");
+            }
+        }
     }
 
     private static Map<String, String> headers(HttpServletRequest request) {

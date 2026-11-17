@@ -26,7 +26,11 @@ public class EndpointRegistry {
     private static final Logger log = LoggerFactory.getLogger(EndpointRegistry.class);
 
     public record Route(UUID endpointId, UUID versionId, int version, String method, PathPattern pattern,
-                        String access, EndpointDefinition definition, CompiledTask task) {
+                        String access, EndpointDefinition definition, CompiledTask task, Deprecation deprecation) {
+    }
+
+    /** What a deprecated endpoint announces in its responses (spec §16); null when not deprecated. */
+    public record Deprecation(java.time.OffsetDateTime since, java.time.OffsetDateTime sunset, String successorPath) {
     }
 
     public record Match(Route route, Map<String, String> pathVariables) {
@@ -86,7 +90,8 @@ public class EndpointRegistry {
             EndpointVersion.Snapshot s = row.snapshot();
             try {
                 out.add(new Route(row.endpointId(), row.versionId(), row.version(), s.method(),
-                        parser.parse("/" + s.path()), s.access(), s.definition(), CompiledTask.compile(s.definition().task())));
+                        parser.parse("/" + s.path()), s.access(), s.definition(), CompiledTask.compile(s.definition().task()),
+                        row.deprecatedAt() == null ? null : new Deprecation(row.deprecatedAt(), row.sunsetAt(), row.successorPath())));
             } catch (RuntimeException e) {
                 log.error("Live endpoint {} v{} cannot be compiled and is not served: {}", row.endpointId(), row.version(), e.getMessage());
             }

@@ -13,7 +13,7 @@ import org.springframework.stereotype.Repository;
 public class DocsStore {
 
     public record DocEntry(UUID endpointId, String name, String description, String group, int version,
-                           EndpointVersion.Snapshot snapshot, JsonNode outputSchema) {
+                           EndpointVersion.Snapshot snapshot, JsonNode outputSchema, boolean deprecated) {
     }
 
     private final JdbcClient jdbc;
@@ -26,7 +26,8 @@ public class DocsStore {
 
     public List<DocEntry> live(UUID endpointIdOrNull) {
         return jdbc.sql("""
-                select e.id, e.name, e.description, g.name as group_name, v.version, v.definition, v.output_schema
+                select e.id, e.name, e.description, g.name as group_name, v.version, v.definition, v.output_schema,
+                       e.deprecated_at is not null as deprecated
                 from endpoint e join endpoint_version v on v.id = e.live_version_id
                 left join api_group g on g.id = e.group_id
                 where e.state = 'live' and e.deleted_at is null and (?::uuid is null or e.id = ?::uuid)
@@ -37,7 +38,7 @@ public class DocsStore {
                         return new DocEntry(rs.getObject("id", UUID.class), rs.getString("name"), rs.getString("description"),
                                 rs.getString("group_name"), rs.getInt("version"),
                                 json.readValue(rs.getString("definition"), EndpointVersion.Snapshot.class),
-                                json.readTree(rs.getString("output_schema")));
+                                json.readTree(rs.getString("output_schema")), rs.getBoolean("deprecated"));
                     } catch (java.io.IOException e) {
                         throw new java.sql.SQLException("Unreadable endpoint version", e);
                     }

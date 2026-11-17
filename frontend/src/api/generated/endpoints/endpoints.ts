@@ -26,10 +26,13 @@ import type {
 
 import type {
   CreateEndpoint,
+  DeprecateRequest,
   EndpointDetail,
   EndpointOpenApi200,
   EndpointSummary,
+  LineageMember,
   ListEndpointsParams,
+  NewMajorRequest,
   PreviewRequest,
   PreviewResponse,
   PublishRequest,
@@ -574,7 +577,115 @@ export const useUpdateEndpoint = <TError = unknown,
       > => {
       return useMutation(getUpdateEndpointMutationOptions(options), queryClient);
     }
-    export const getEndpointOpenApiUrl = (ws: string,
+    export const getEndpointLineageUrl = (ws: string,
+    id: string,) => {
+
+
+
+
+  return `/admin/api/ws/${ws}/endpoints/${id}/lineage`
+}
+
+/**
+ * @summary The major versions of this endpoint, oldest first
+ */
+export const endpointLineage = async (ws: string,
+    id: string, options?: Parameters<typeof customInstance>[1]): Promise<LineageMember[]> => {
+
+  return customInstance<LineageMember[]>(getEndpointLineageUrl(ws,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getEndpointLineageQueryKey = (ws: string,
+    id: string,) => {
+    return [
+    `/admin/api/ws/${ws}/endpoints/${id}/lineage`
+    ] as const;
+    }
+
+
+export const getEndpointLineageQueryOptions = <TData = Awaited<ReturnType<typeof endpointLineage>>, TError = unknown>(ws: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof endpointLineage>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getEndpointLineageQueryKey(ws,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof endpointLineage>>> = ({ signal }) => endpointLineage(ws,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: ws !== null && ws !== undefined && id !== null && id !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof endpointLineage>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type EndpointLineageQueryResult = NonNullable<Awaited<ReturnType<typeof endpointLineage>>>
+export type EndpointLineageQueryError = unknown
+
+
+export function useEndpointLineage<TData = Awaited<ReturnType<typeof endpointLineage>>, TError = unknown>(
+ ws: string,
+    id: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof endpointLineage>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof endpointLineage>>,
+          TError,
+          Awaited<ReturnType<typeof endpointLineage>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useEndpointLineage<TData = Awaited<ReturnType<typeof endpointLineage>>, TError = unknown>(
+ ws: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof endpointLineage>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof endpointLineage>>,
+          TError,
+          Awaited<ReturnType<typeof endpointLineage>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useEndpointLineage<TData = Awaited<ReturnType<typeof endpointLineage>>, TError = unknown>(
+ ws: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof endpointLineage>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary The major versions of this endpoint, oldest first
+ */
+
+export function useEndpointLineage<TData = Awaited<ReturnType<typeof endpointLineage>>, TError = unknown>(
+ ws: string,
+    id: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof endpointLineage>>, TError, TData>>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getEndpointLineageQueryOptions(ws,id,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+export const getEndpointOpenApiUrl = (ws: string,
     id: string,) => {
 
 
@@ -1126,6 +1237,79 @@ export const useRollbackEndpoint = <TError = unknown,
       > => {
       return useMutation(getRollbackEndpointMutationOptions(options), queryClient);
     }
+    export const getDeprecateEndpointUrl = (ws: string,
+    id: string,) => {
+
+
+
+
+  return `/admin/api/ws/${ws}/endpoints/${id}:deprecate`
+}
+
+/**
+ * @summary Announce in responses that callers should move on (author)
+ */
+export const deprecateEndpoint = async (ws: string,
+    id: string,
+    deprecateRequest?: DeprecateRequest, options?: Parameters<typeof customInstance>[1]): Promise<EndpointSummary> => {
+
+  return customInstance<EndpointSummary>(getDeprecateEndpointUrl(ws,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(deprecateRequest)
+  }
+);}
+
+
+
+
+
+export const getDeprecateEndpointMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deprecateEndpoint>>, TError,{ws: string;id: string;data?: DeprecateRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof deprecateEndpoint>>, TError,{ws: string;id: string;data?: DeprecateRequest}, TContext> => {
+
+const mutationKey = ['deprecateEndpoint'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deprecateEndpoint>>, {ws: string;id: string;data?: DeprecateRequest}> = (props) => {
+          const {ws,id,data} = props ?? {};
+
+          return  deprecateEndpoint(ws,id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type DeprecateEndpointMutationResult = NonNullable<Awaited<ReturnType<typeof deprecateEndpoint>>>
+    export type DeprecateEndpointMutationBody = DeprecateRequest | undefined
+    export type DeprecateEndpointMutationError = unknown
+
+    /**
+ * @summary Announce in responses that callers should move on (author)
+ */
+export const useDeprecateEndpoint = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deprecateEndpoint>>, TError,{ws: string;id: string;data?: DeprecateRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof deprecateEndpoint>>,
+        TError,
+        {ws: string;id: string;data?: DeprecateRequest},
+        TContext
+      > => {
+      return useMutation(getDeprecateEndpointMutationOptions(options), queryClient);
+    }
     export const getDisableEndpointUrl = (ws: string,
     id: string,) => {
 
@@ -1341,6 +1525,79 @@ export const useEnableEndpoint = <TError = unknown,
         TContext
       > => {
       return useMutation(getEnableEndpointMutationOptions(options), queryClient);
+    }
+    export const getNewMajorEndpointUrl = (ws: string,
+    id: string,) => {
+
+
+
+
+  return `/admin/api/ws/${ws}/endpoints/${id}:new-major`
+}
+
+/**
+ * @summary Copy the draft to a new route as the next major version (author)
+ */
+export const newMajorEndpoint = async (ws: string,
+    id: string,
+    newMajorRequest?: NewMajorRequest, options?: Parameters<typeof customInstance>[1]): Promise<EndpointDetail> => {
+
+  return customInstance<EndpointDetail>(getNewMajorEndpointUrl(ws,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(newMajorRequest)
+  }
+);}
+
+
+
+
+
+export const getNewMajorEndpointMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof newMajorEndpoint>>, TError,{ws: string;id: string;data?: NewMajorRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof newMajorEndpoint>>, TError,{ws: string;id: string;data?: NewMajorRequest}, TContext> => {
+
+const mutationKey = ['newMajorEndpoint'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof newMajorEndpoint>>, {ws: string;id: string;data?: NewMajorRequest}> = (props) => {
+          const {ws,id,data} = props ?? {};
+
+          return  newMajorEndpoint(ws,id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type NewMajorEndpointMutationResult = NonNullable<Awaited<ReturnType<typeof newMajorEndpoint>>>
+    export type NewMajorEndpointMutationBody = NewMajorRequest | undefined
+    export type NewMajorEndpointMutationError = unknown
+
+    /**
+ * @summary Copy the draft to a new route as the next major version (author)
+ */
+export const useNewMajorEndpoint = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof newMajorEndpoint>>, TError,{ws: string;id: string;data?: NewMajorRequest}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof newMajorEndpoint>>,
+        TError,
+        {ws: string;id: string;data?: NewMajorRequest},
+        TContext
+      > => {
+      return useMutation(getNewMajorEndpointMutationOptions(options), queryClient);
     }
     export const getPublishEndpointUrl = (ws: string,
     id: string,) => {
@@ -1558,6 +1815,78 @@ export const useTrashEndpoint = <TError = unknown,
         TContext
       > => {
       return useMutation(getTrashEndpointMutationOptions(options), queryClient);
+    }
+    export const getUndeprecateEndpointUrl = (ws: string,
+    id: string,) => {
+
+
+
+
+  return `/admin/api/ws/${ws}/endpoints/${id}:undeprecate`
+}
+
+/**
+ * @summary Stop announcing deprecation (author)
+ */
+export const undeprecateEndpoint = async (ws: string,
+    id: string, options?: Parameters<typeof customInstance>[1]): Promise<EndpointSummary> => {
+
+  return customInstance<EndpointSummary>(getUndeprecateEndpointUrl(ws,id),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getUndeprecateEndpointMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof undeprecateEndpoint>>, TError,{ws: string;id: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof undeprecateEndpoint>>, TError,{ws: string;id: string}, TContext> => {
+
+const mutationKey = ['undeprecateEndpoint'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof undeprecateEndpoint>>, {ws: string;id: string}> = (props) => {
+          const {ws,id} = props ?? {};
+
+          return  undeprecateEndpoint(ws,id,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UndeprecateEndpointMutationResult = NonNullable<Awaited<ReturnType<typeof undeprecateEndpoint>>>
+
+    export type UndeprecateEndpointMutationError = unknown
+
+    /**
+ * @summary Stop announcing deprecation (author)
+ */
+export const useUndeprecateEndpoint = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof undeprecateEndpoint>>, TError,{ws: string;id: string}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof undeprecateEndpoint>>,
+        TError,
+        {ws: string;id: string},
+        TContext
+      > => {
+      return useMutation(getUndeprecateEndpointMutationOptions(options), queryClient);
     }
     export const getValidateEndpointUrl = (ws: string,
     id: string,) => {

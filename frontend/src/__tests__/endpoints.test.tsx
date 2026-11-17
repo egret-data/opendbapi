@@ -21,6 +21,7 @@ const meAs = (role: "author" | "viewer") => ({ ...ME_ALICE, workspaces: [{ id: "
 const SUMMARY: EndpointSummary = {
   id: "e1", name: "Customers", description: null, method: "GET", path: "customers", state: "live", liveVersion: 2,
   dirty: true, access: "private", groupId: null, datasourceId: "ds1", trashed: false, updatedAt: "2026-11-16T00:00:00Z",
+  major: 1, deprecatedAt: null, sunsetAt: null,
 };
 
 const DETAIL: EndpointDetail = {

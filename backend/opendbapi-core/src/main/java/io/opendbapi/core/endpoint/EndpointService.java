@@ -84,8 +84,41 @@ public class EndpointService {
     public EndpointValidator.Validation validate(UUID ws, UUID id) {
         return scope.call(ws, () -> {
             Endpoint e = find(id);
-            return validator.validate(e.method(), e.path(), e.definition(), datasourceOf(e.definition()), policies(e));
+            return withBreakingChanges(e, validator.validate(e.method(), e.path(), e.definition(), datasourceOf(e.definition()), policies(e)));
         });
+    }
+
+    /**
+     * Spec §16: compares the draft's result columns with the live version's. Dropped columns
+     * or changed types break callers; the warning suggests a new major instead.
+     */
+    private EndpointValidator.Validation withBreakingChanges(Endpoint e, EndpointValidator.Validation v) {
+        if (e.liveVersion() == null || v.outputColumns() == null || v.outputColumns().isEmpty()) {
+            return v;
+        }
+        var live = store.version(e.id(), e.liveVersion()).map(EndpointVersion::outputSchema).orElse(null);
+        if (live == null || !live.isArray() || live.isEmpty()) {
+            return v;
+        }
+        Map<String, String> now = new java.util.HashMap<>();
+        v.outputColumns().forEach(c -> now.put(c.name(), c.type()));
+        List<String> problems = new java.util.ArrayList<>();
+        for (var col : live) {
+            String name = col.path("name").asText();
+            String type = col.path("type").asText(null);
+            if (!now.containsKey(name)) {
+                problems.add("drops column '" + name + "'");
+            } else if (type != null && now.get(name) != null && !type.equalsIgnoreCase(now.get(name))) {
+                problems.add("changes '" + name + "' from " + type + " to " + now.get(name));
+            }
+        }
+        if (problems.isEmpty()) {
+            return v;
+        }
+        List<EndpointValidator.Finding> findings = new java.util.ArrayList<>(v.findings());
+        findings.add(new EndpointValidator.Finding("warning", "breaking_change", "Compared with live version %d, this %s; callers may break. Consider a new major version instead."
+                .formatted(e.liveVersion(), String.join(", ", problems))));
+        return new EndpointValidator.Validation(findings, v.detectedParameters(), v.outputColumns());
     }
 
     /** Policies on the endpoint and on the datasource its draft uses; called inside the workspace scope. */
@@ -202,6 +235,49 @@ public class EndpointService {
             }
             throw ApiProblem.conflict("route_taken", "No free path for the copy; rename existing copies first.");
         });
+    }
+
+    private static final java.util.regex.Pattern VERSION_PREFIX = java.util.regex.Pattern.compile("^v(\\d+)/(.+)$");
+    private static final java.util.regex.Pattern NAME_SUFFIX = java.util.regex.Pattern.compile("\\s+v\\d+$");
+
+    /**
+     * Spec §16: copies the draft to a new route as the next major of its lineage, as a draft.
+     * Without a path, {@code v1/orders} becomes {@code v2/orders} and {@code orders} becomes
+     * {@code v2/orders}.
+     */
+    public Endpoint newMajor(UUID ws, UUID id, String path, UUID userId) {
+        return scope.call(ws, () -> {
+            Endpoint e = find(id);
+            requireNotTrashed(e);
+            int major = store.highestMajor(e.lineageId()) + 1;
+            String target = path == null || path.isBlank() ? nextMajorPath(e.path(), major) : path.strip().replaceFirst("^/", "");
+            if (target.equals(e.path())) {
+                throw ApiProblem.badRequest("invalid_path", "A new major needs a different path.");
+            }
+            String name = NAME_SUFFIX.matcher(e.name()).replaceFirst("") + " v" + major;
+            return store.createMajor(e, name.length() > 120 ? name.substring(0, 120) : name, target, major, userId);
+        });
+    }
+
+    static String nextMajorPath(String path, int major) {
+        var m = VERSION_PREFIX.matcher(path);
+        return m.matches() ? "v" + major + "/" + m.group(2) : "v" + major + "/" + path;
+    }
+
+    /** Announces in every response that callers should move on (spec §16); sunset is optional. */
+    public Endpoint deprecate(UUID ws, UUID id, java.time.OffsetDateTime sunset) {
+        return transition(ws, id, e -> {
+            requireNotTrashed(e);
+            store.setDeprecation(id, e.deprecatedAt() != null ? e.deprecatedAt() : java.time.OffsetDateTime.now(), sunset);
+        });
+    }
+
+    public Endpoint undeprecate(UUID ws, UUID id) {
+        return transition(ws, id, e -> store.setDeprecation(id, null, null));
+    }
+
+    public List<EndpointStore.LineageMember> lineage(UUID ws, UUID id) {
+        return scope.call(ws, () -> store.lineage(find(id).lineageId()));
     }
 
     public List<EndpointVersion> versions(UUID ws, UUID id) {

@@ -12,6 +12,7 @@ import {
   getListEndpointsQueryKey,
   useDisableEndpoint,
   useDuplicateEndpoint,
+  useUndeprecateEndpoint,
   useEnableEndpoint,
   useGetEndpoint,
   usePublishEndpoint,
@@ -35,8 +36,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { errorMessage } from "@/lib/errors";
+import { formatDate } from "@/lib/format";
 import { useUnsavedChangesWarning } from "@/lib/useUnsavedChangesWarning";
 import { AccessTab } from "./AccessTab";
+import { DeprecateDialog, LineagePanel, NewMajorDialog } from "./MajorVersions";
 import { TestsTab } from "./TestsTab";
 import { ParamsEditor } from "./ParamsEditor";
 import { FindingsList, PreviewPanel } from "./PreviewPanel";
@@ -98,6 +101,9 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
   const enable = useEnableEndpoint({ mutation: { onSuccess: refresh, onError: fail } });
   const trash = useTrashEndpoint({ mutation: { onError: fail } });
   const duplicate = useDuplicateEndpoint({ mutation: { onError: fail } });
+  const undeprecate = useUndeprecateEndpoint({ mutation: { onSuccess: refresh, onError: fail } });
+  const [majorOpen, setMajorOpen] = useState(false);
+  const [deprecateOpen, setDeprecateOpen] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const validate = useValidateEndpoint();
   const openPublish = () => {
@@ -131,6 +137,12 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
             <StatusBadge tone={STATE_TONE[s.state]}>{t(STATE_LABEL[s.state])}{s.liveVersion != null ? ` · v${s.liveVersion}` : ""}</StatusBadge>
             {s.dirty && s.liveVersion != null && <StatusBadge tone="highlight">{t("Unpublished changes")}</StatusBadge>}
             {s.access === "public" && <StatusBadge tone="highlight">{t("Public")}</StatusBadge>}
+            {s.major > 1 && <StatusBadge tone="neutral">{t("Major {{n}}", { n: s.major })}</StatusBadge>}
+            {s.deprecatedAt && (
+              <StatusBadge tone="inactive">
+                {s.sunsetAt ? t("Deprecated · sunset {{date}}", { date: formatDate(s.sunsetAt) }) : t("Deprecated")}
+              </StatusBadge>
+            )}
           </span>
         }
         description={
@@ -168,6 +180,10 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
                     onSuccess: (c) => navigate(`/w/${ws}/endpoints/${c.summary.id}`) })}>
                     {t("Duplicate")}
                   </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setMajorOpen(true)}>{t("New major version…")}</DropdownMenuItem>
+                  {s.deprecatedAt
+                    ? <DropdownMenuItem onSelect={() => undeprecate.mutate({ ws, id: s.id })}>{t("Stop deprecation")}</DropdownMenuItem>
+                    : <DropdownMenuItem onSelect={() => setDeprecateOpen(true)}>{t("Deprecate…")}</DropdownMenuItem>}
                   <DropdownMenuItem disabled={s.state === "live"} title={s.state === "live" ? t("Disable it first") : undefined}
                     onSelect={() => trash.mutate({ ws, id: s.id }, { onSuccess: () => {
                       qc.invalidateQueries({ queryKey: getListEndpointsQueryKey(ws) });
@@ -242,10 +258,15 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
         <TabsContent value="access" className="pt-4">
           <AccessTab ws={ws} endpointId={s.id} datasourceId={saved.definition.task.datasourceId} isPublic={s.access === "public"} isAdmin={isAdmin} />
         </TabsContent>
-        <TabsContent value="versions" className="pt-4">
+        <TabsContent value="versions" className="space-y-6 pt-4">
+          <LineagePanel ws={ws} id={s.id} />
           <VersionsTab ws={ws} id={s.id} draftSql={mainSql(saved.definition)} canAuthor={canAuthor} onChanged={refresh} />
         </TabsContent>
       </Tabs>
+      {majorOpen && <NewMajorDialog ws={ws} endpoint={s} open onOpenChange={setMajorOpen}
+        onCreated={(id) => { setMajorOpen(false); qc.invalidateQueries({ queryKey: getListEndpointsQueryKey(ws) }); navigate(`/w/${ws}/endpoints/${id}`); }} />}
+      {deprecateOpen && <DeprecateDialog ws={ws} endpoint={s} open onOpenChange={setDeprecateOpen}
+        onDone={() => { setDeprecateOpen(false); refresh(); }} />}
       <PublishDialog ws={ws} id={s.id} open={publishing} onOpenChange={setPublishing} onPublished={refresh}
         validating={validate.isPending} validation={validate.data ?? null}
         validationError={validate.error ? errorMessage(validate.error) : null} />

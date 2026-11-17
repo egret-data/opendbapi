@@ -60,11 +60,15 @@ public class EndpointController {
             @Schema(nullable = true) UUID groupId,
             @Schema(nullable = true) UUID datasourceId,
             boolean trashed,
-            OffsetDateTime updatedAt) {
+            OffsetDateTime updatedAt,
+            @Schema(description = "Major version within its lineage (spec §16)") int major,
+            @Schema(nullable = true) OffsetDateTime deprecatedAt,
+            @Schema(nullable = true) OffsetDateTime sunsetAt) {
 
         static EndpointSummary of(Endpoint e) {
             return new EndpointSummary(e.id(), e.name(), e.description(), e.method(), e.path(), e.state(), e.liveVersion(),
-                    e.dirty(), e.access(), e.groupId(), e.definition().task().datasourceId(), e.trashed(), e.updatedAt());
+                    e.dirty(), e.access(), e.groupId(), e.definition().task().datasourceId(), e.trashed(), e.updatedAt(),
+                    e.major(), e.deprecatedAt(), e.sunsetAt());
         }
     }
 
@@ -91,6 +95,14 @@ public class EndpointController {
             @Schema(nullable = true) UUID groupId,
             @NotBlank @Pattern(regexp = "private|public") String access,
             @NotNull EndpointDefinition definition) {
+    }
+
+    public record NewMajorRequest(@Schema(nullable = true, description = "Defaults to v<N>/… from the current path")
+                                  @Size(max = 200) @Pattern(regexp = PATH_REGEX, message = PATH_MESSAGE) String path) {
+    }
+
+    public record DeprecateRequest(@Schema(nullable = true, description = "When the endpoint will stop answering (Sunset header)")
+                                   OffsetDateTime sunset) {
     }
 
     public record PublishRequest(@Schema(nullable = true) @Size(max = 500) String note) {
@@ -244,6 +256,38 @@ public class EndpointController {
         Endpoint copy = endpoints.duplicate(granted.workspace().id(), id, granted.user().id());
         audit(granted, "endpoint.create", copy, Map.of("copiedFrom", id.toString()));
         return EndpointDetail.of(copy);
+    }
+
+    @PostMapping("/{id}:new-major")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(operationId = "newMajorEndpoint", summary = "Copy the draft to a new route as the next major version (author)")
+    public EndpointDetail newMajor(@PathVariable String ws, @PathVariable UUID id, @Valid @RequestBody(required = false) NewMajorRequest body) {
+        var granted = access.require(ws, WorkspaceRole.AUTHOR);
+        Endpoint copy = endpoints.newMajor(granted.workspace().id(), id, body == null ? null : body.path(), granted.user().id());
+        audit(granted, "endpoint.create", copy, Map.of("majorOf", id.toString(), "major", copy.major()));
+        return EndpointDetail.of(copy);
+    }
+
+    @PostMapping("/{id}:deprecate")
+    @Operation(operationId = "deprecateEndpoint", summary = "Announce in responses that callers should move on (author)")
+    public EndpointSummary deprecate(@PathVariable String ws, @PathVariable UUID id, @RequestBody(required = false) DeprecateRequest body) {
+        var granted = access.require(ws, WorkspaceRole.AUTHOR);
+        Endpoint e = endpoints.deprecate(granted.workspace().id(), id, body == null ? null : body.sunset());
+        audit(granted, "endpoint.deprecate", e, body == null || body.sunset() == null ? Map.of() : Map.of("sunset", body.sunset().toString()));
+        return EndpointSummary.of(e);
+    }
+
+    @PostMapping("/{id}:undeprecate")
+    @Operation(operationId = "undeprecateEndpoint", summary = "Stop announcing deprecation (author)")
+    public EndpointSummary undeprecate(@PathVariable String ws, @PathVariable UUID id) {
+        return lifecycle(ws, id, "endpoint.undeprecate", endpoints::undeprecate);
+    }
+
+    @GetMapping("/{id}/lineage")
+    @Operation(operationId = "endpointLineage", summary = "The major versions of this endpoint, oldest first")
+    public List<io.opendbapi.core.endpoint.EndpointStore.LineageMember> lineage(@PathVariable String ws, @PathVariable UUID id) {
+        var granted = access.require(ws, WorkspaceRole.VIEWER);
+        return endpoints.lineage(granted.workspace().id(), id);
     }
 
     @DeleteMapping("/{id}")

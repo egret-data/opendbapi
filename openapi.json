@@ -2274,6 +2274,44 @@
         "tags" : [ "endpoints" ]
       }
     },
+    "/admin/api/ws/{ws}/endpoints/{id}/lineage" : {
+      "get" : {
+        "operationId" : "endpointLineage",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/LineageMember"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "The major versions of this endpoint, oldest first",
+        "tags" : [ "endpoints" ]
+      }
+    },
     "/admin/api/ws/{ws}/endpoints/{id}/openapi.json" : {
       "get" : {
         "operationId" : "endpointOpenApi",
@@ -2523,6 +2561,50 @@
         "tags" : [ "endpoints" ]
       }
     },
+    "/admin/api/ws/{ws}/endpoints/{id}:deprecate" : {
+      "post" : {
+        "operationId" : "deprecateEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DeprecateRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EndpointSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Announce in responses that callers should move on (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
     "/admin/api/ws/{ws}/endpoints/{id}:disable" : {
       "post" : {
         "operationId" : "disableEndpoint",
@@ -2625,6 +2707,50 @@
           }
         },
         "summary" : "Serve the live version again (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{id}:new-major" : {
+      "post" : {
+        "operationId" : "newMajorEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NewMajorRequest"
+              }
+            }
+          }
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EndpointDetail"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Copy the draft to a new route as the next major version (author)",
         "tags" : [ "endpoints" ]
       }
     },
@@ -2739,6 +2865,41 @@
           }
         },
         "summary" : "Move a draft or disabled endpoint to the trash (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
+    "/admin/api/ws/{ws}/endpoints/{id}:undeprecate" : {
+      "post" : {
+        "operationId" : "undeprecateEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EndpointSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Stop announcing deprecation (author)",
         "tags" : [ "endpoints" ]
       }
     },
@@ -4558,6 +4719,17 @@
           }
         }
       },
+      "DeprecateRequest" : {
+        "type" : "object",
+        "properties" : {
+          "sunset" : {
+            "type" : "string",
+            "description" : "When the endpoint will stop answering (Sunset header)",
+            "format" : "date-time",
+            "nullable" : true
+          }
+        }
+      },
       "DialectInfo" : {
         "required" : [ "allowedProperties", "defaultPort", "dialect" ],
         "type" : "object",
@@ -4655,7 +4827,7 @@
         }
       },
       "EndpointSummary" : {
-        "required" : [ "access", "dirty", "id", "method", "name", "path", "state", "trashed", "updatedAt" ],
+        "required" : [ "access", "dirty", "id", "major", "method", "name", "path", "state", "trashed", "updatedAt" ],
         "type" : "object",
         "properties" : {
           "access" : {
@@ -4665,6 +4837,11 @@
           "datasourceId" : {
             "type" : "string",
             "format" : "uuid",
+            "nullable" : true
+          },
+          "deprecatedAt" : {
+            "type" : "string",
+            "format" : "date-time",
             "nullable" : true
           },
           "description" : {
@@ -4688,6 +4865,11 @@
             "format" : "int32",
             "nullable" : true
           },
+          "major" : {
+            "type" : "integer",
+            "description" : "Major version within its lineage (spec §16)",
+            "format" : "int32"
+          },
           "method" : {
             "type" : "string"
           },
@@ -4700,6 +4882,11 @@
           "state" : {
             "type" : "string",
             "enum" : [ "draft", "live", "disabled" ]
+          },
+          "sunsetAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "nullable" : true
           },
           "trashed" : {
             "type" : "boolean"
@@ -4944,6 +5131,47 @@
           "timeoutSeconds" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "LineageMember" : {
+        "required" : [ "id", "major", "method", "name", "path", "state" ],
+        "type" : "object",
+        "properties" : {
+          "deprecatedAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "nullable" : true
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "liveVersion" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "major" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "method" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "state" : {
+            "type" : "string"
+          },
+          "sunsetAt" : {
+            "type" : "string",
+            "format" : "date-time",
+            "nullable" : true
           }
         }
       },
@@ -5248,6 +5476,19 @@
           "clientSecret" : {
             "type" : "string",
             "description" : "Shown once; store it now"
+          }
+        }
+      },
+      "NewMajorRequest" : {
+        "type" : "object",
+        "properties" : {
+          "path" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "pattern" : "^[A-Za-z0-9_\\-{}]+(/[A-Za-z0-9_\\-{}]+)*$",
+            "type" : "string",
+            "description" : "Defaults to v<N>/… from the current path",
+            "nullable" : true
           }
         }
       },

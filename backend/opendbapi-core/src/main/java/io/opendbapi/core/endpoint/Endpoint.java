@@ -21,7 +21,11 @@ public record Endpoint(
         OffsetDateTime deletedAt,
         UUID createdBy,
         OffsetDateTime createdAt,
-        OffsetDateTime updatedAt) {
+        OffsetDateTime updatedAt,
+        UUID lineageId,
+        int major,
+        OffsetDateTime deprecatedAt,
+        OffsetDateTime sunsetAt) {
 
     public static final String DRAFT = "draft";
     public static final String LIVE = "live";

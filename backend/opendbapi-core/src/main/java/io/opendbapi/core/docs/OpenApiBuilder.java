@@ -80,6 +80,9 @@ public final class OpenApiBuilder {
         ObjectNode op = F.objectNode();
         op.put("operationId", operationId(e));
         op.put("summary", e.name());
+        if (e.deprecated()) {
+            op.put("deprecated", true);
+        }
         if (e.description() != null && !e.description().isBlank()) {
             op.put("description", e.description());
         }

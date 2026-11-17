@@ -316,5 +316,22 @@
   "Decimal as text": "Thập phân dạng chuỗi",
   "ISO 8601 date": "Ngày ISO 8601",
   "Epoch milliseconds": "Epoch mili giây",
-  "Boolean (0/1)": "Boolean (0/1)"
+  "Boolean (0/1)": "Boolean (0/1)",
+  "Major {{n}}": "Major {{n}}",
+  "Deprecated · sunset {{date}}": "Ngừng khuyến nghị · dừng ngày {{date}}",
+  "Deprecated": "Ngừng khuyến nghị",
+  "New major version…": "Tạo phiên bản major mới…",
+  "Stop deprecation": "Bỏ ngừng khuyến nghị",
+  "Deprecate…": "Ngừng khuyến nghị…",
+  "New major version": "Phiên bản major mới",
+  "For changes that break callers. The draft is copied to a new route; both versions are served side by side, so callers move when they are ready.": "Dùng cho thay đổi phá vỡ bên gọi. Bản draft được sao sang route mới; hai phiên bản cùng chạy song song để bên gọi chuyển sang khi sẵn sàng.",
+  "Path of the new version": "Path của phiên bản mới",
+  "Leave empty for v{{n}}/…": "Để trống để dùng v{{n}}/…",
+  "Create draft": "Tạo bản draft",
+  "Deprecate endpoint": "Ngừng khuyến nghị endpoint",
+  "It keeps answering, but every response carries a Deprecation header, a Sunset header when you set a date, and a link to the newest live major version.": "Endpoint vẫn trả lời, nhưng mọi response có thêm header Deprecation, header Sunset nếu bạn đặt ngày, và link tới phiên bản major mới nhất đang live.",
+  "Sunset date (optional)": "Ngày dừng phục vụ (không bắt buộc)",
+  "Deprecate": "Ngừng khuyến nghị",
+  "Major versions": "Các phiên bản major",
+  "Major": "Major"
 }
