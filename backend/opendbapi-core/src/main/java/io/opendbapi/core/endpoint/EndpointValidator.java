@@ -134,6 +134,18 @@ public class EndpointValidator {
                     findings.add(Finding.warning("workflow", "Node '%s' could not be rendered with sample values: %s".formatted(n.id(), e.getMessage())));
                 }
             }
+            for (CompiledWorkflow.Node n : wf.nodes()) {
+                if (n.kind() != CompiledWorkflow.Kind.DECISION) {
+                    continue;
+                }
+                for (boolean branch : new boolean[] {true, false}) {
+                    boolean taken = wf.nodes().stream().anyMatch(o -> o.dependsOn().stream()
+                            .anyMatch(d -> d.id().equals(n.id()) && Boolean.valueOf(branch).equals(d.branch())));
+                    if (!taken) {
+                        findings.add(Finding.warning("workflow", "Decision '%s' has nothing on its %s branch.".formatted(n.id(), branch ? "yes" : "no")));
+                    }
+                }
+            }
             findings.add(Finding.info("workflow_levels", "Runs in %d step(s): %s.".formatted(wf.levels().size(), String.join(" → ",
                     wf.levels().stream().map(l -> String.join(" + ", l.stream().map(CompiledWorkflow.Node::id).toList())).toList()))));
             if (def.pagination().enabled()) {

@@ -46,6 +46,11 @@ public class EndpointRegistry {
         this.scope = scope;
     }
 
+    /** The live route of one endpoint, e.g. for a workflow's api node. */
+    public Optional<Route> find(UUID workspaceId, UUID endpointId) {
+        return routes.computeIfAbsent(workspaceId, this::load).stream().filter(r -> r.endpointId().equals(endpointId)).findFirst();
+    }
+
     public Optional<Match> resolve(UUID workspaceId, String method, String path) {
         PathContainer container = PathContainer.parsePath(path.startsWith("/") ? path : "/" + path);
         for (Route route : routes.computeIfAbsent(workspaceId, this::load)) {

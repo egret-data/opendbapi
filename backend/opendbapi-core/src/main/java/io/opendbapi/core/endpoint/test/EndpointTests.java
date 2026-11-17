@@ -104,6 +104,13 @@ public class EndpointTests {
         return !store.list(endpointId).isEmpty();
     }
 
+    private io.opendbapi.core.endpoint.EndpointInvoker invoker;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setInvoker(io.opendbapi.core.endpoint.EndpointInvoker invoker) {
+        this.invoker = invoker;
+    }
+
     private Answer answer(UUID workspaceId, Endpoint e, EndpointTestCase t) {
         long start = System.nanoTime();
         EndpointDefinition def = e.definition();
@@ -147,7 +154,7 @@ public class EndpointTests {
             }
             DataPolicies.Plan plan = sa == null ? DataPolicies.Plan.NONE : policies.plan(workspaceId, e.id(), ds.id(), sa);
             QueryExecutor.QueryResult result = executor.run(ds, task, params, page, def.limits(), QueryExecutor.RunMode.PREVIEW,
-                    (QueryExecutor.Policy) plan);
+                    plan, invoker == null ? null : invoker.caller(workspaceId, sa, QueryExecutor.RunMode.PREVIEW));
             io.opendbapi.core.endpoint.ResponseBody.Parts parts = io.opendbapi.core.endpoint.ResponseBody.build(def, result, page,
                     r -> DataPolicies.Plan.apply(plan.masksFor(r.columns()), r.columns(), r.rows()));
             ObjectNode body = json.createObjectNode();

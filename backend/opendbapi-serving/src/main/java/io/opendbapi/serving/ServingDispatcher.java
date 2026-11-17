@@ -172,6 +172,14 @@ public class ServingDispatcher {
         }
     }
 
+    private io.opendbapi.core.endpoint.EndpointInvoker invoker;
+
+    /** Runs workflow api nodes (spec §6.1). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setInvoker(io.opendbapi.core.endpoint.EndpointInvoker invoker) {
+        this.invoker = invoker;
+    }
+
     private ResponseEntity<?> serve(String slug, String method, String path, HttpServletRequest request,
                                     jakarta.servlet.http.HttpServletResponse servletResponse, String requestId, Outcome outcome) {
         Workspace ws = workspaces.findBySlug(slug).filter(Workspace::active).orElseThrow(() -> notFound(method, path, slug));
@@ -240,7 +248,8 @@ public class ServingDispatcher {
         }
 
         QueryExecutor.QueryResult result = executor.run(ds, route.task(), params, page, def.limits(), QueryExecutor.RunMode.SERVE,
-                (QueryExecutor.Policy) policy);
+                policy, invoker == null ? null : invoker.caller(ws.id(),
+                        outcome.serviceAccountId == null ? null : UUID.fromString(outcome.serviceAccountId), QueryExecutor.RunMode.SERVE));
         io.opendbapi.core.endpoint.ResponseBody.Parts parts = io.opendbapi.core.endpoint.ResponseBody.build(def, result, page,
                 r -> io.opendbapi.core.datapolicy.DataPolicies.Plan.apply(policy.masksFor(r.columns()), r.columns(), r.rows()));
         if (cacheKey != null && result.affectedRows() == null) {

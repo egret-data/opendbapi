@@ -12,4 +12,7 @@ export type WorkflowNodeKind = typeof WorkflowNodeKind[keyof typeof WorkflowNode
 export const WorkflowNodeKind = {
   sql: 'sql',
   script: 'script',
+  api: 'api',
+  decision: 'decision',
+  end: 'end',
 } as const;

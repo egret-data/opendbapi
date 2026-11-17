@@ -17,6 +17,8 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import org.springframework.stereotype.Component;
 
 /**
@@ -106,6 +108,14 @@ public class QueryExecutor {
         }
     }
 
+    /**
+     * Calls another endpoint of the workspace for a workflow's api node (spec §6.1): its live
+     * version, as the same caller, with its own data policies. Returns the answer's data.
+     */
+    public interface EndpointCaller {
+        Object call(UUID endpointId, Map<String, Object> params);
+    }
+
     /** At most this many queries per full-script run. */
     static final int MAX_SCRIPT_QUERIES = 100;
 
@@ -185,12 +195,18 @@ public class QueryExecutor {
     /** Like the others, with masks too: full-mode scripts mask each query's values here. */
     public QueryResult run(Datasource ds, CompiledTask task, Map<String, Object> params, PageRequest page,
                       EndpointDefinition.Limits limits, RunMode mode, Policy policy) {
+        return run(ds, task, params, page, limits, mode, policy, null);
+    }
+
+    /** @param caller runs workflow api nodes; null where calling other endpoints is not available */
+    public QueryResult run(Datasource ds, CompiledTask task, Map<String, Object> params, PageRequest page,
+                      EndpointDefinition.Limits limits, RunMode mode, Policy policy, EndpointCaller caller) {
         List<BoundSql> executed = new ArrayList<>();
         if (task.isFull()) {
             return measured(ds, params, executed, () -> runScript(ds, task, params, limits, mode, policy, executed));
         }
         if (task.isWorkflow()) {
-            return measured(ds, params, executed, () -> runWorkflow(ds, task, params, limits, mode, policy, executed));
+            return measured(ds, params, executed, () -> runWorkflow(ds, task, params, limits, mode, policy, executed, caller));
         }
         return measured(ds, params, executed, () -> runMeasured(ds, task, params, page, limits, mode, policy::rewrite, executed));
     }
@@ -373,10 +389,11 @@ public class QueryExecutor {
      * order on one connection, committed or rolled back together.
      */
     private QueryResult runWorkflow(Datasource ds, CompiledTask task, Map<String, Object> params, EndpointDefinition.Limits limits,
-                                    RunMode mode, Policy policy, List<BoundSql> executed) {
+                                    RunMode mode, Policy policy, List<BoundSql> executed, EndpointCaller caller) {
         long start = System.nanoTime();
         CompiledWorkflow wf = task.workflow();
         Map<String, Object> results = new java.util.concurrent.ConcurrentHashMap<>();
+        Set<String> inactive = java.util.concurrent.ConcurrentHashMap.newKeySet();
         boolean together = mode == RunMode.PREVIEW || task.transaction();
         List<BoundSql> shared = java.util.Collections.synchronizedList(executed);
         try (Connection c = registry.connection(ds)) {
@@ -388,7 +405,7 @@ public class QueryExecutor {
                 for (List<CompiledWorkflow.Node> level : wf.levels()) {
                     if (together || level.size() == 1) {
                         for (CompiledWorkflow.Node n : level) {
-                            runNode(n, params, results, db);
+                            runNode(n, params, results, inactive, db, caller);
                         }
                     } else {
                         List<java.util.concurrent.Future<?>> running = new ArrayList<>();
@@ -396,7 +413,7 @@ public class QueryExecutor {
                             for (CompiledWorkflow.Node n : level) {
                                 running.add(pool.submit(() -> {
                                     try (Connection own = registry.connection(ds)) {
-                                        runNode(n, params, results, db.on(own));
+                                        runNode(n, params, results, inactive, db.on(own), caller);
                                     } catch (SQLException e) {
                                         throw new QueryFailedException(e.getMessage(), e);
                                     }
@@ -417,7 +434,7 @@ public class QueryExecutor {
                         }
                     }
                 }
-                QueryResult result = db.finish(results.get(wf.output()) == NULL ? null : results.get(wf.output()), start);
+                QueryResult result = db.finish(answer(wf, results, inactive), start);
                 if (mode == RunMode.PREVIEW) {
                     c.rollback();
                 } else if (together) {
@@ -438,7 +455,31 @@ public class QueryExecutor {
     /** Stands for a null result in concurrent maps. */
     private static final Object NULL = new Object();
 
-    private static void runNode(CompiledWorkflow.Node n, Map<String, Object> params, Map<String, Object> results, ScriptDb db) {
+    /** The output node's result, or else the result of the last sink that ran (e.g. the end node of the branch taken). */
+    private static Object answer(CompiledWorkflow wf, Map<String, Object> results, Set<String> inactive) {
+        String id = wf.output();
+        if (id == null) {
+            List<CompiledWorkflow.Node> nodes = wf.nodes();
+            for (int i = nodes.size() - 1; i >= 0; i--) {
+                if (nodes.get(i).sink() && !inactive.contains(nodes.get(i).id())) {
+                    id = nodes.get(i).id();
+                    break;
+                }
+            }
+        }
+        Object v = id == null ? null : results.get(id);
+        return v == NULL ? null : v;
+    }
+
+    private static void runNode(CompiledWorkflow.Node n, Map<String, Object> params, Map<String, Object> results, Set<String> inactive,
+                                ScriptDb db, EndpointCaller caller) {
+        // A node on a branch not taken, or after one, does not run (spec §6.1).
+        for (CompiledWorkflow.Dep d : n.dependsOn()) {
+            if (inactive.contains(d.id()) || (d.branch() != null && !d.branch().equals(results.get(d.id())))) {
+                inactive.add(n.id());
+                return;
+            }
+        }
         Map<String, Object> context = new LinkedHashMap<>(params);
         results.forEach((k, v) -> context.put(k, v == NULL ? null : v));
         if (n.when() != null && !n.when().test(context::get)) {
@@ -446,7 +487,22 @@ public class QueryExecutor {
             return;
         }
         Object value;
-        if (n.script() != null) {
+        if (n.kind() == CompiledWorkflow.Kind.DECISION) {
+            value = n.condition().test(context::get);
+        } else if (n.kind() == CompiledWorkflow.Kind.END) {
+            value = n.answer().evaluate(context::get);
+        } else if (n.kind() == CompiledWorkflow.Kind.API) {
+            if (caller == null) {
+                throw new ApiProblem(500, "workflow_failed", "Node '%s' calls another endpoint, which is not available here.".formatted(n.id()));
+            }
+            Map<String, Object> values = new LinkedHashMap<>();
+            n.params().forEach((name, e) -> values.put(name, e.evaluate(context::get)));
+            try {
+                value = caller.call(n.endpointId(), values);
+            } catch (ApiProblem e) {
+                throw new ApiProblem(e.status(), e.code(), "Node '%s': %s".formatted(n.id(), e.getMessage()));
+            }
+        } else if (n.script() != null) {
             value = n.script().run(context, db);
         } else {
             BoundSql bound;
