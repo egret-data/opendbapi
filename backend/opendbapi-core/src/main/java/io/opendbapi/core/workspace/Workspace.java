@@ -11,7 +11,8 @@ public record Workspace(
         String status,
         Map<String, Object> quotas,
         OffsetDateTime archivedAt,
-        OffsetDateTime createdAt) {
+        OffsetDateTime createdAt,
+        boolean configLocked) {
 
     public boolean active() {
         return "active".equals(status);

@@ -46,10 +46,14 @@ public class WorkspaceController {
             String status,
             Map<String, Object> quotas,
             @Schema(nullable = true) OffsetDateTime archivedAt,
-            OffsetDateTime createdAt) {
+            OffsetDateTime createdAt,
+            @Schema(description = "Managed by configuration files: endpoints and the like change through config:apply only (spec §15.2)")
+            boolean configLocked,
+            @Schema(description = "Locked by the server for every workspace (opendbapi.ui.read-only)") boolean lockedByServer) {
 
-        static WorkspaceView of(Workspace w) {
-            return new WorkspaceView(w.id(), w.slug(), w.name(), w.status(), w.quotas(), w.archivedAt(), w.createdAt());
+        static WorkspaceView of(Workspace w, ConfigLock lock) {
+            return new WorkspaceView(w.id(), w.slug(), w.name(), w.status(), w.quotas(), w.archivedAt(), w.createdAt(), lock.locked(w),
+                    lock.serverWide());
         }
     }
 
@@ -63,7 +67,8 @@ public class WorkspaceController {
 
     public record UpdateWorkspace(
             @Schema(nullable = true) @Size(min = 1, max = 120) String name,
-            @Schema(nullable = true) Map<String, Object> quotas) {
+            @Schema(nullable = true) Map<String, Object> quotas,
+            @Schema(nullable = true, description = "Manage the workspace through configuration files only") Boolean configLocked) {
     }
 
     private final CurrentUser currentUser;
@@ -73,8 +78,11 @@ public class WorkspaceController {
     private final UserStore users;
     private final AuditLog audit;
 
+    private final ConfigLock lock;
+
     public WorkspaceController(CurrentUser currentUser, WorkspaceAccess access, WorkspaceStore workspaces,
-                               MembershipStore memberships, UserStore users, AuditLog audit) {
+                               MembershipStore memberships, UserStore users, AuditLog audit, ConfigLock lock) {
+        this.lock = lock;
         this.currentUser = currentUser;
         this.access = access;
         this.workspaces = workspaces;
@@ -87,7 +95,7 @@ public class WorkspaceController {
     @Operation(operationId = "listWorkspaces", summary = "Every workspace, archived included (system admin)")
     public List<WorkspaceView> list() {
         currentUser.requireSystemAdmin();
-        return workspaces.list().stream().map(WorkspaceView::of).toList();
+        return workspaces.list().stream().map(w -> WorkspaceView.of(w, lock)).toList();
     }
 
     @PostMapping
@@ -103,13 +111,13 @@ public class WorkspaceController {
         memberships.upsert(created.id(), owner.id(), WorkspaceRole.OWNER, false);
         audit.record(created.id(), caller.id(), "workspace.create", "workspace", created.slug(),
                 Map.of("name", created.name(), "owner", owner.username()));
-        return WorkspaceView.of(created);
+        return WorkspaceView.of(created, lock);
     }
 
     @GetMapping("/{ws}")
     @Operation(operationId = "getWorkspace", summary = "One workspace (any member)")
     public WorkspaceView get(@PathVariable String ws) {
-        return WorkspaceView.of(access.require(ws, WorkspaceRole.VIEWER).workspace());
+        return WorkspaceView.of(access.require(ws, WorkspaceRole.VIEWER).workspace(), lock);
     }
 
     @PatchMapping("/{ws}")
@@ -120,9 +128,14 @@ public class WorkspaceController {
             throw ApiProblem.forbidden("Only a system administrator can change quotas.");
         }
         Workspace updated = workspaces.update(granted.workspace().id(), body.name(), body.quotas());
+        if (body.configLocked() != null && body.configLocked() != updated.configLocked()) {
+            updated = workspaces.setConfigLocked(updated.id(), body.configLocked());
+            audit.record(updated.id(), granted.user().id(), body.configLocked() ? "workspace.config_lock" : "workspace.config_unlock",
+                    "workspace", updated.slug(), Map.of());
+        }
         audit.record(updated.id(), granted.user().id(), "workspace.update", "workspace", updated.slug(),
                 Map.of("name", updated.name()));
-        return WorkspaceView.of(updated);
+        return WorkspaceView.of(updated, lock);
     }
 
     @PostMapping("/{ws}:archive")
@@ -144,6 +157,6 @@ public class WorkspaceController {
         Workspace updated = workspaces.setArchived(workspace.id(), archived);
         audit.record(updated.id(), caller.id(), archived ? "workspace.archive" : "workspace.restore", "workspace",
                 updated.slug(), Map.of());
-        return WorkspaceView.of(updated);
+        return WorkspaceView.of(updated, lock);
     }
 }

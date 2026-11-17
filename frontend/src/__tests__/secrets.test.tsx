@@ -7,7 +7,7 @@ import { ME_ALICE, json, mockServer, renderApp } from "./testServer";
 
 afterEach(() => vi.unstubAllGlobals());
 
-const asAdmin = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "admin" as const }] };
+const asAdmin = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "admin" as const, configLocked: false }] };
 const USED: ManagedSecret = {
   name: "crm-db-password", description: "CRM replica", createdAt: "2026-11-17T00:00:00Z", updatedAt: "2026-11-17T00:00:00Z",
   usedBy: [{ kind: "datasource", id: "d1", name: "crm" }],

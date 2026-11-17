@@ -12,7 +12,7 @@ vi.mock("@/components/monaco/MonacoEditor", () => ({
 
 afterEach(() => vi.unstubAllGlobals());
 
-const asAuthor = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "author" as const }] };
+const asAuthor = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "author" as const, configLocked: false }] };
 const V1: EndpointSummary = {
   id: "e1", name: "Orders", description: null, method: "GET", path: "orders", state: "live", liveVersion: 3, dirty: false,
   access: "public", groupId: null, datasourceId: "ds1", trashed: false, updatedAt: "2026-11-17T00:00:00Z",

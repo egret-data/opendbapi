@@ -39,8 +39,8 @@ export const ME_ALICE: Me = {
   source: "ldap",
   systemAdmin: false,
   workspaces: [
-    { id: "w1", slug: "sales", name: "Sales", role: "author" },
-    { id: "w2", slug: "finance", name: "Finance", role: "viewer" },
+    { id: "w1", slug: "sales", name: "Sales", role: "author", configLocked: false },
+    { id: "w2", slug: "finance", name: "Finance", role: "viewer", configLocked: false },
   ],
 };
 

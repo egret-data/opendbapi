@@ -18,7 +18,7 @@ afterEach(() => {
 });
 
 const server = () => mockServer({
-  "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "author" }] }),
+  "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "author", configLocked: false }] }),
   "GET /admin/api/system/info": () => json({ version: "dev", mode: "standalone", servingBaseUrl: "http://h/api" }),
   "GET /admin/api/ws/sales/datasources": () => json([{ id: "ds1", name: "crm" }]),
   "GET /admin/api/ws/sales/groups": () => json([]),

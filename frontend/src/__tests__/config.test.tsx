@@ -7,7 +7,7 @@ import { ME_ALICE, json, mockServer, renderApp } from "./testServer";
 
 afterEach(() => vi.unstubAllGlobals());
 
-const asAdmin = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "admin" as const }] };
+const asAdmin = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "admin" as const, configLocked: false }] };
 const PLAN: ConfigPlan = {
   environment: "prod", prune: false, publish: true, digest: "abc123",
   counts: { create: 1, skip: 1, unchanged: 2 },

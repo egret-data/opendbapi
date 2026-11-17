@@ -6,7 +6,7 @@ import { ME_ALICE, json, mockServer, renderApp } from "./testServer";
 
 afterEach(() => vi.unstubAllGlobals());
 
-const me = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "admin" as const }] };
+const me = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "admin" as const, configLocked: false }] };
 const TOKEN = { id: "t1", name: "CI deploy", prefix: "odb_AbCdEf", workspace: "sales", createdAt: "2026-11-17T00:00:00Z",
   expiresAt: "2027-02-15T00:00:00Z", lastUsedAt: null };
 

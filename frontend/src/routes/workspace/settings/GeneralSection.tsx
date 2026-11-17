@@ -11,6 +11,7 @@ import { QueryBoundary } from "@/components/QueryBoundary";
 import { ConfigTable, ConfigTableGroup, ConfigTableRow } from "@/components/config/ConfigTable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { errorMessage } from "@/lib/errors";
 import { ROLE_LABEL } from "@/lib/roles";
 import { useUnsavedChangesWarning } from "@/lib/useUnsavedChangesWarning";
@@ -19,7 +20,7 @@ export function GeneralSection({ ws, role }: { ws: string; role: WorkspaceRole }
   const query = useGetWorkspace(ws);
   return (
     <QueryBoundary query={query} what="the workspace">
-      {(workspace) => <GeneralForm key={workspace.name} workspace={workspace} role={role} />}
+      {(workspace) => <GeneralForm key={`${workspace.name}-${workspace.configLocked}`} workspace={workspace} role={role} />}
     </QueryBoundary>
   );
 }
@@ -31,17 +32,28 @@ function GeneralForm({ workspace, role }: { workspace: WorkspaceView; role: Work
   const [name, setName] = useState(workspace.name);
   const [error, setError] = useState<string | null>(null);
   const nameId = useId();
+  const lockId = useId();
   const canEdit = role === "owner";
   const dirty = name.trim() !== workspace.name;
   useUnsavedChangesWarning(dirty);
   const quotas = Object.entries(workspace.quotas);
   const { t } = useTranslation();
 
+  const toggleLock = (locked: boolean) =>
+    update.mutate({ ws: workspace.slug, data: { name: null, quotas: null, configLocked: locked } }, {
+      onSuccess: () => {
+        toast.success(locked ? t("This workspace now changes through configuration files.") : t("Editing in the UI is open again."));
+        qc.invalidateQueries({ queryKey: getGetWorkspaceQueryKey(workspace.slug) });
+        qc.invalidateQueries({ queryKey: authKeys.me });
+      },
+      onError: (err) => toast.error(errorMessage(err)),
+    });
+
   const save = (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     update.mutate(
-      { ws: workspace.slug, data: { name: name.trim(), quotas: null } },
+      { ws: workspace.slug, data: { name: name.trim(), quotas: null, configLocked: null } },
       {
         onSuccess: () => {
           toast.success(t("Workspace renamed."));
@@ -70,6 +82,13 @@ function GeneralForm({ workspace, role }: { workspace: WorkspaceView; role: Work
         </ConfigTableRow>
         <ConfigTableRow label={t("Your role")} details={t("Change it on the Members tab, if you are allowed to")}>
           {t(ROLE_LABEL[role])}
+        </ConfigTableRow>
+        <ConfigTableGroup label={t("Configuration as code")} />
+        <ConfigTableRow label={t("Managed by configuration files")} htmlFor={lockId}
+          details={workspace.lockedByServer ? t("Locked for every workspace by the server (opendbapi.ui.read-only)")
+            : t("Endpoints, groups, service accounts and data policies then change through opendbapi apply only, never by editing here")}>
+          <Switch id={lockId} checked={workspace.configLocked} disabled={!canEdit || workspace.lockedByServer || update.isPending}
+            onCheckedChange={toggleLock} />
         </ConfigTableRow>
         <ConfigTableGroup label={t("Quotas")} />
         {quotas.length === 0 ? (

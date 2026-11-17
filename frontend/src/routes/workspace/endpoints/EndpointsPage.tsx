@@ -19,6 +19,7 @@ import {
 import { useListGroups } from "@/api/generated/groups/groups";
 import { useSystemInfo } from "@/api/generated/system/system";
 import type { EndpointSummary } from "@/api/generated/model";
+import { useConfigLocked } from "@/components/ConfigLockedNotice";
 import { useAuth, effectiveRole, hasRole } from "@/auth/useAuth";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { QueryBoundary } from "@/components/QueryBoundary";
@@ -42,7 +43,8 @@ export default function EndpointsPage() {
   const { ws = "" } = useParams();
   const { me } = useAuth();
   const { t } = useTranslation();
-  const canAuthor = hasRole(effectiveRole(me, ws) ?? "viewer", "author");
+  const locked = useConfigLocked(ws);
+  const canAuthor = hasRole(effectiveRole(me, ws) ?? "viewer", "author") && !locked;
   const [params, setParams] = useSearchParams();
   const trashed = params.get("view") === "trash";
   const state = params.get("state") ?? "";

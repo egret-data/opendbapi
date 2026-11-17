@@ -29,7 +29,9 @@ import org.springframework.web.bind.annotation.RestController;
 @Tag(name = "me")
 public class MeController {
 
-    public record MyWorkspace(UUID id, String slug, String name, RoleName role) {
+    public record MyWorkspace(UUID id, String slug, String name, RoleName role,
+                              @io.swagger.v3.oas.annotations.media.Schema(description = "Managed by configuration files (spec §15.2)")
+                              boolean configLocked) {
     }
 
     public record Me(
@@ -51,6 +53,13 @@ public class MeController {
     private final Passwords passwords;
     private final AuditLog audit;
 
+    private io.opendbapi.admin.workspace.ConfigLock lock;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setLock(io.opendbapi.admin.workspace.ConfigLock lock) {
+        this.lock = lock;
+    }
+
     public MeController(CurrentUser currentUser, MembershipStore memberships, UserStore users, Passwords passwords,
                         AuditLog audit) {
         this.currentUser = currentUser;
@@ -66,7 +75,7 @@ public class MeController {
         UserAccount user = currentUser.require();
         return new Me(user.id(), user.username(), user.displayName(), user.email(), user.source(), user.systemAdmin(),
                 memberships.activeWorkspacesOf(user.id()).stream()
-                        .map(w -> new MyWorkspace(w.id(), w.slug(), w.name(), RoleName.of(w.role())))
+                        .map(w -> new MyWorkspace(w.id(), w.slug(), w.name(), RoleName.of(w.role()), lock.serverWide() || w.configLocked()))
                         .toList());
     }
 

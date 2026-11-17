@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import { ME_ALICE, json, mockServer, renderApp } from "./testServer";
 
-const me = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "viewer" }] };
+const me = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "viewer", configLocked: false }] };
 const SUMMARY = {
   requests: 200, errors: 10, p95Ms: 42.4, activeClients: 3,
   byDay: [{ day: "2026-11-16", requests: 120, errors: 4 }, { day: "2026-11-17", requests: 80, errors: 6 }],

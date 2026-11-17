@@ -8,6 +8,8 @@
 import type { MyWorkspaceRole } from './myWorkspaceRole';
 
 export interface MyWorkspace {
+  /** Managed by configuration files (spec §15.2) */
+  configLocked: boolean;
   id: string;
   name: string;
   role: MyWorkspaceRole;

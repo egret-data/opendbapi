@@ -9,6 +9,11 @@ import type { UpdateWorkspaceQuotas } from './updateWorkspaceQuotas';
 
 export interface UpdateWorkspace {
   /**
+     * Manage the workspace through configuration files only
+     * @nullable
+     */
+  configLocked?: boolean | null;
+  /**
      * @minLength 1
      * @maxLength 120
      * @nullable
