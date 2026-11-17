@@ -7,7 +7,7 @@ import { ME_ALICE, json, mockServer, renderApp } from "./testServer";
 
 afterEach(() => vi.unstubAllGlobals());
 
-const asAdmin = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "admin" as const }] };
+const asAdmin = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "admin" as const, configLocked: false }] };
 
 const REPORT = (dryRun: boolean): ImportReport => ({
   dryRun, created: 1, skipped: 1,
@@ -47,7 +47,7 @@ describe("Import & export", () => {
 
   it("is only for workspace admins", async () => {
     // Arrange
-    mockServer({ "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "author" }] }) });
+    mockServer({ "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "author", configLocked: false }] }) });
 
     // Act
     renderApp("/w/sales/settings/transfer");

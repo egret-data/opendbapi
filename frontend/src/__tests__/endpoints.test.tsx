@@ -306,7 +306,7 @@ describe("Endpoints", () => {
       task: { ...DETAIL.definition.task, type: "script", language: "groovy", mode: "fragment", source: "return sql\"select 1\"" } } };
     const server = mockServer({
       ...common,
-      "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "script_author" }] }),
+      "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "script_author", configLocked: false }] }),
       "GET /admin/api/ws/sales/endpoints/e1": () => json(DETAIL),
       "PATCH /admin/api/ws/sales/endpoints/e1": () => json(DETAIL),
     });
@@ -340,7 +340,7 @@ describe("Endpoints", () => {
       task: { ...DETAIL.definition.task, type: "script", language: "groovy", mode: "full", source: "return [n: db.value(sql\"select 1\")]" } } };
     const server = mockServer({
       ...common,
-      "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "script_author" }] }),
+      "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "script_author", configLocked: false }] }),
       "GET /admin/api/ws/sales/endpoints/e1": () => json(full),
       "PATCH /admin/api/ws/sales/endpoints/e1": () => json(full),
       "POST /admin/api/ws/sales/endpoints/e1/preview": () =>
@@ -364,7 +364,7 @@ describe("Endpoints", () => {
     // Arrange
     const server = mockServer({
       ...common,
-      "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "script_author" }] }),
+      "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "script_author", configLocked: false }] }),
       "GET /admin/api/ws/sales/endpoints/e1": () => json(DETAIL),
       "PATCH /admin/api/ws/sales/endpoints/e1": () => json(DETAIL),
     });

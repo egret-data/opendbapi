@@ -8,7 +8,7 @@ import { ME_ALICE, json, mockServer, renderApp } from "./testServer";
 
 afterEach(() => vi.unstubAllGlobals());
 
-const asAdmin = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "admin" as const }] };
+const asAdmin = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "admin" as const, configLocked: false }] };
 
 const DS: DatasourceView = {
   id: "ds1", name: "crm", description: null, dialect: "POSTGRESQL", host: "db", port: 5432, database: "crm", username: "r",

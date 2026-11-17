@@ -22,6 +22,7 @@ import {
 } from "@/api/generated/endpoints/endpoints";
 import { useSystemInfo } from "@/api/generated/system/system";
 import type { EndpointDetail, ValidationView } from "@/api/generated/model";
+import { useConfigLocked } from "@/components/ConfigLockedNotice";
 import { useAuth, effectiveRole, hasRole } from "@/auth/useAuth";
 import { QueryBoundary } from "@/components/QueryBoundary";
 import { DetailHeader } from "@/components/layout/DetailHeader";
@@ -67,7 +68,10 @@ export default function EndpointDetailPage() {
 function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
   const { me } = useAuth();
   const { t } = useTranslation();
-  const canAuthor = hasRole(effectiveRole(me, ws) ?? "viewer", "author");
+  const locked = useConfigLocked(ws);
+  // Authors may still preview and try a locked workspace's endpoints; they cannot change them.
+  const isAuthor = hasRole(effectiveRole(me, ws) ?? "viewer", "author");
+  const canAuthor = isAuthor && !locked;
   const canScript = hasRole(effectiveRole(me, ws) ?? "viewer", "script_author");
   const isAdmin = hasRole(effectiveRole(me, ws) ?? "viewer", "admin");
   const s = detail.summary;
@@ -203,7 +207,7 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
       <Tabs value={tab} onValueChange={goTab}>
         <TabsList>
           <TabsTrigger value="query">{t("Query")}</TabsTrigger>
-          {canAuthor && <TabsTrigger value="try">{t("Try it")}</TabsTrigger>}
+          {isAuthor && <TabsTrigger value="try">{t("Try it")}</TabsTrigger>}
           <TabsTrigger value="tests">{t("Tests")}</TabsTrigger>
           <TabsTrigger value="settings">{t("Settings")}</TabsTrigger>
           <TabsTrigger value="access">{t("Access")}</TabsTrigger>
@@ -252,12 +256,12 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
               ignore={nodeIds(form.definition)}
               onChange={(p) => setForm({ ...form, definition: { ...form.definition, params: p } })} />
           </div>
-          {canAuthor && (!scripted || canScript) && <PreviewPanel ws={ws} id={s.id} form={form} />}
+          {isAuthor && (!scripted || canScript) && <PreviewPanel ws={ws} id={s.id} form={form} />}
         </TabsContent>
         <TabsContent value="settings" className="pt-4">
           <SettingsTab ws={ws} endpointId={s.id} form={form} onChange={setForm} live={s.state === "live"} disabled={!canAuthor} />
         </TabsContent>
-        {canAuthor && (
+        {isAuthor && (
           <TabsContent value="try" className="pt-4">
             <TryItTab ws={ws} summary={s} onOpenAccess={() => goTab("access")} />
           </TabsContent>

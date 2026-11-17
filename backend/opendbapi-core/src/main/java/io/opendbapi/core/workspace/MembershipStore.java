@@ -11,7 +11,7 @@ import org.springframework.stereotype.Repository;
 public class MembershipStore {
 
     /** A user's membership as shown in {@code /me}. */
-    public record ActiveMembership(UUID id, String slug, String name, WorkspaceRole role) {
+    public record ActiveMembership(UUID id, String slug, String name, WorkspaceRole role, boolean configLocked) {
     }
 
     /** A workspace member as shown on the Members page. */
@@ -38,7 +38,7 @@ public class MembershipStore {
 
     public List<ActiveMembership> activeWorkspacesOf(UUID userId) {
         return jdbc.sql("""
-                select w.id, w.slug, w.name, m.role
+                select w.id, w.slug, w.name, m.role, w.config_locked
                 from workspace_member m join workspace w on w.id = m.workspace_id
                 where m.user_id = ? and w.status = 'active'
                 order by lower(w.name)""")
@@ -47,7 +47,8 @@ public class MembershipStore {
                         rs.getObject("id", UUID.class),
                         rs.getString("slug"),
                         rs.getString("name"),
-                        WorkspaceRole.fromDb(rs.getString("role"))))
+                        WorkspaceRole.fromDb(rs.getString("role")),
+                        rs.getBoolean("config_locked")))
                 .list();
     }
 

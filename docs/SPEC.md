@@ -949,6 +949,9 @@ Các `kind` khác: `Datasource` (không chứa bí mật, chỉ `passwordRef: se
   - Cấu hình qua `--url`/`OPENDBAPI_URL`, `--workspace`/`OPENDBAPI_WORKSPACE`; đăng nhập bằng user local `OPENDBAPI_USER`/`OPENDBAPI_PASSWORD` (admin của workspace).
 - Đường đi đề xuất: viết trên dev → export vào Git → PR review → CI chạy `plan` → merge → `apply --publish` lên staging/prod.
 - Đăng nhập cho CI bằng API token (§8.6).
+- **Khoá cấu hình** (Settings → General → **Managed by configuration files**, owner; hoặc `opendbapi.ui.read-only=true` khoá mọi workspace): những gì file YAML mô tả — endpoint và test case, group, service account và grant, data policy — chỉ thay đổi qua `config:apply`. Sửa trực tiếp nhận 409 `config_locked`.
+  - Vẫn làm được: validate, preview, chạy test, xoá cache, Try-it, quản lý client của service account, và mọi thứ gắn với môi trường (datasource, secret, thành viên, cảnh báo, environment, chính sách serving).
+  - UI hiện dải thông báo trên các trang của workspace và khoá các nút sửa endpoint; `GET /me` và `GET /workspaces/{ws}` trả `configLocked`.
 
 ### 15.3 Import từ DBAPI (P2)
 

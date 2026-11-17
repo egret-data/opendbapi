@@ -62,6 +62,10 @@ public class WorkspaceStore {
                 .single();
     }
 
+    public Workspace setConfigLocked(UUID id, boolean locked) {
+        return jdbc.sql("update workspace set config_locked = ? where id = ? returning *").params(locked, id).query(this::map).single();
+    }
+
     public Workspace setArchived(UUID id, boolean archived) {
         return jdbc.sql("""
                 update workspace
@@ -90,7 +94,8 @@ public class WorkspaceStore {
                     rs.getString("status"),
                     json.readValue(rs.getString("quotas"), MAP),
                     rs.getObject("archived_at", OffsetDateTime.class),
-                    rs.getObject("created_at", OffsetDateTime.class));
+                    rs.getObject("created_at", OffsetDateTime.class),
+                    rs.getBoolean("config_locked"));
         } catch (JsonProcessingException e) {
             throw new SQLException("Bad quotas json", e);
         }

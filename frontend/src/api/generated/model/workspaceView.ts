@@ -10,8 +10,12 @@ import type { WorkspaceViewQuotas } from './workspaceViewQuotas';
 export interface WorkspaceView {
   /** @nullable */
   archivedAt?: string | null;
+  /** Managed by configuration files: endpoints and the like change through config:apply only (spec §15.2) */
+  configLocked: boolean;
   createdAt: string;
   id: string;
+  /** Locked by the server for every workspace (opendbapi.ui.read-only) */
+  lockedByServer: boolean;
   name: string;
   quotas: WorkspaceViewQuotas;
   slug: string;

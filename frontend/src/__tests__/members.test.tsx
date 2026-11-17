@@ -104,7 +104,7 @@ describe("Members", () => {
 describe("Members: last owner", () => {
   it("locks the only owner's role and removal, saying why", async () => {
     // Arrange
-    const me = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "owner" as const }] };
+    const me = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "owner" as const, configLocked: false }] };
     mockServer({
       "GET /admin/api/me": () => json(me),
       "GET /admin/api/ws/sales/members": () =>

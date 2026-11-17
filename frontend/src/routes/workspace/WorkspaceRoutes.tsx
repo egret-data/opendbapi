@@ -1,5 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
+import { ConfigLockedNotice } from "@/components/ConfigLockedNotice";
+
 import { NotFound } from "@/routes/NotFound";
 import SettingsPage from "./settings/SettingsPage";
 import ActivityPage from "./activity/ActivityPage";
@@ -16,6 +18,8 @@ import { RequireRole } from "@/auth/guards";
 /** Everything under `/w/:ws` (spec §17.3). Loaded lazily from `App.tsx`. */
 export default function WorkspaceRoutes() {
   return (
+    <>
+    <ConfigLockedNotice />
     <Routes>
       <Route index element={<Navigate to="endpoints" replace />} />
       <Route path="endpoints" element={<EndpointsPage />} />
@@ -30,5 +34,6 @@ export default function WorkspaceRoutes() {
       <Route path="settings/*" element={<SettingsPage />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
+    </>
   );
 }

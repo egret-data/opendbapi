@@ -252,5 +252,12 @@
   "Lower-case letters, digits, '.', '_' and '-'. It cannot be renamed later.": "Chữ thường, chữ số, '.', '_' và '-'. Không đổi tên được về sau.",
   "New value (optional)": "Giá trị mới (không bắt buộc)",
   "Unchanged": "Giữ nguyên",
-  "Or type secret:NAME to read the URL from a managed secret.": "Hoặc nhập secret:NAME để đọc URL từ secret được quản lý."
+  "Or type secret:NAME to read the URL from a managed secret.": "Hoặc nhập secret:NAME để đọc URL từ secret được quản lý.",
+  "This workspace is managed by configuration files: endpoints, groups, service accounts and data policies change through opendbapi apply. You can still test, preview and manage datasources, secrets and clients.": "Workspace này được quản lý bằng file cấu hình: endpoint, group, service account và data policy chỉ thay đổi qua opendbapi apply. Bạn vẫn có thể test, preview và quản lý nguồn dữ liệu, secret và client.",
+  "This workspace now changes through configuration files.": "Từ giờ workspace này chỉ thay đổi qua file cấu hình.",
+  "Editing in the UI is open again.": "Đã mở lại việc sửa trên UI.",
+  "Configuration as code": "Cấu hình dưới dạng code",
+  "Managed by configuration files": "Quản lý bằng file cấu hình",
+  "Locked for every workspace by the server (opendbapi.ui.read-only)": "Máy chủ đã khoá cho mọi workspace (opendbapi.ui.read-only)",
+  "Endpoints, groups, service accounts and data policies then change through opendbapi apply only, never by editing here": "Khi bật, endpoint, group, service account và data policy chỉ thay đổi qua opendbapi apply, không sửa trực tiếp ở đây"
 }

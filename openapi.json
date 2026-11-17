@@ -5555,9 +5555,13 @@
         }
       },
       "MyWorkspace" : {
-        "required" : [ "id", "name", "role", "slug" ],
+        "required" : [ "configLocked", "id", "name", "role", "slug" ],
         "type" : "object",
         "properties" : {
+          "configLocked" : {
+            "type" : "boolean",
+            "description" : "Managed by configuration files (spec §15.2)"
+          },
           "id" : {
             "type" : "string",
             "format" : "uuid"
@@ -6945,6 +6949,11 @@
       "UpdateWorkspace" : {
         "type" : "object",
         "properties" : {
+          "configLocked" : {
+            "type" : "boolean",
+            "description" : "Manage the workspace through configuration files only",
+            "nullable" : true
+          },
           "name" : {
             "maxLength" : 120,
             "minLength" : 1,
@@ -7173,13 +7182,17 @@
         "nullable" : true
       },
       "WorkspaceView" : {
-        "required" : [ "createdAt", "id", "name", "quotas", "slug", "status" ],
+        "required" : [ "configLocked", "createdAt", "id", "lockedByServer", "name", "quotas", "slug", "status" ],
         "type" : "object",
         "properties" : {
           "archivedAt" : {
             "type" : "string",
             "format" : "date-time",
             "nullable" : true
+          },
+          "configLocked" : {
+            "type" : "boolean",
+            "description" : "Managed by configuration files: endpoints and the like change through config:apply only (spec §15.2)"
           },
           "createdAt" : {
             "type" : "string",
@@ -7188,6 +7201,10 @@
           "id" : {
             "type" : "string",
             "format" : "uuid"
+          },
+          "lockedByServer" : {
+            "type" : "boolean",
+            "description" : "Locked by the server for every workspace (opendbapi.ui.read-only)"
           },
           "name" : {
             "type" : "string"

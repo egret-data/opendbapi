@@ -107,7 +107,7 @@ describe("Datasources pages", () => {
   it("lists each datasource with its last connection test", async () => {
     // Arrange
     mockServer({
-      "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "admin" }] }),
+      "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "admin", configLocked: false }] }),
       "GET /admin/api/ws/sales/datasources": () => json([
         { ...DS, lastTest: { at: "2026-11-17T00:00:00Z", ok: true, message: "Connected to PostgreSQL 16 in 4 ms." } },
         { ...DS, id: "ds2", name: "legacy", lastTest: { at: "2026-11-17T00:00:00Z", ok: false, message: "Connection refused" } },
