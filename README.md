@@ -144,7 +144,8 @@ OpenDBAPI needs one PostgreSQL 14+ for its own data, with two roles: an owner th
 migrations and an app role subject to row-level security (see
 `deploy/dev/postgres/init-roles.sql`). Every instance is identical; browser sessions, HMAC
 nonces and cache invalidation (`LISTEN/NOTIFY`) go through PostgreSQL, so you scale by adding
-pods, with no sticky sessions or Redis. Rate limits and result caches count per pod.
+pods, with no sticky sessions or Redis. Rate limits are shared too with `OPENDBAPI_RATE_LIMIT_SHARED=true` (on in the
+Helm chart); result caches are per pod.
 
 ```bash
 docker build -t opendbapi .

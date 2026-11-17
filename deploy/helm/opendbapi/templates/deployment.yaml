@@ -70,6 +70,8 @@ spec:
                 secretKeyRef: {name: {{ include "opendbapi.secretName" . }}, key: {{ .Values.secretKeys.bootstrapAdminPassword }}, optional: true}
             - name: OPENDBAPI_SECURE_COOKIES
               value: {{ .Values.secureCookies | quote }}
+            - name: OPENDBAPI_RATE_LIMIT_SHARED
+              value: {{ .Values.rateLimit.shared | quote }}
             - name: JAVA_TOOL_OPTIONS
               value: {{ .Values.javaToolOptions | quote }}
             {{- with .Values.vault }}
