@@ -131,7 +131,13 @@ public class EndpointTests {
                     EndpointValidator.RESERVED);
             ParamRules.enforce(def.rules(), params);
             QueryExecutor.PageRequest page = null;
-            if (def.pagination().enabled()) {
+            if (def.pagination().keyset()) {
+                int size = intValue(raw.get("size"), def.pagination().defaultSize());
+                Object after = raw.get("after");
+                page = new QueryExecutor.PageRequest(1, size, false, def.pagination().keys(),
+                        after == null || after.toString().isBlank() ? null
+                                : io.opendbapi.core.endpoint.KeysetCursor.decode(after.toString(), def.pagination().keys().size()));
+            } else if (def.pagination().enabled()) {
                 int p = intValue(raw.get("page"), 1);
                 int size = intValue(raw.get("size"), def.pagination().defaultSize());
                 if (p < 1 || size < 1 || size > def.pagination().maxSize()) {
@@ -142,24 +148,11 @@ public class EndpointTests {
             DataPolicies.Plan plan = sa == null ? DataPolicies.Plan.NONE : policies.plan(workspaceId, e.id(), ds.id(), sa);
             QueryExecutor.QueryResult result = executor.run(ds, task, params, page, def.limits(), QueryExecutor.RunMode.PREVIEW,
                     plan::rewriteMain);
-            if (result.affectedRows() == null) {
-                DataPolicies.Plan.apply(plan.masksFor(result.columns()), result.columns(), result.rows());
-            }
+            io.opendbapi.core.endpoint.ResponseBody.Parts parts = io.opendbapi.core.endpoint.ResponseBody.build(def, result, page,
+                    r -> DataPolicies.Plan.apply(plan.masksFor(r.columns()), r.columns(), r.rows()));
             ObjectNode body = json.createObjectNode();
-            body.set("data", json.valueToTree(result.affectedRows() != null ? Map.of("affectedRows", result.affectedRows()) : result.rows()));
-            Map<String, Object> meta = new LinkedHashMap<>();
-            if (page != null) {
-                meta.put("page", page.page());
-                meta.put("size", page.size());
-                if (result.total() != null) {
-                    meta.put("total", result.total());
-                }
-                meta.put("hasNext", result.hasNext());
-            }
-            if (result.truncated()) {
-                meta.put("truncated", true);
-            }
-            body.set("meta", json.valueToTree(meta));
+            body.set("data", json.valueToTree(parts.data()));
+            body.set("meta", json.valueToTree(parts.pageMeta()));
             return new Answer(200, null, body, result.columns(), result.affectedRows() != null ? null : result.rows().size(), elapsed(start));
         } catch (ApiProblem p) {
             return new Answer(p.status(), p.code(), problem(p.code(), p.getMessage()), List.of(), null, elapsed(start));

@@ -567,22 +567,33 @@ Ba nguồn đăng nhập, bật/tắt độc lập. Màn hình login hiển th�
 
 ### 9.2 Map kết quả (P2)
 
-- `naming: camelCase` đổi `created_at` thành `createdAt`.
-- `types`: `decimal_string` (tránh mất chính xác ở JS), `iso8601`, `epoch_ms`, `boolean` (ép 0/1).
-- `nest`: gộp các dòng phẳng thành object lồng nhau:
+Cấu hình ở `definition.output`. Map chạy sau masking, theo thứ tự `types` → `nest` → `naming` → `shape`. Áp dụng cho lời gọi thật, Try-it và test case; Preview hiện dữ liệu thô dạng bảng.
+
+- `types` đổi kiểu giá trị theo tên cột trong SQL:
+  - `decimal_string`: số thành chuỗi, để JavaScript không mất chữ số.
+  - `iso8601`: thời điểm thành chuỗi ISO; số được hiểu là epoch ms.
+  - `epoch_ms`: ngày giờ ISO thành số mili giây; giờ không có múi giờ tính theo UTC.
+  - `boolean`: `0`/`1`, `t`/`f`, `yes`/`no` thành `true`/`false`.
+- `nest` gộp các dòng phẳng của một phép join thành object lồng nhau (một cấp):
 
 ```jsonc
 "nest": [
-  { "key": "id",                         // gom các dòng theo cột này
+  { "key": "id",                         // gom các dòng theo cột này, giữ thứ tự xuất hiện
     "collections": [
       { "as": "orders", "prefix": "order_", "key": "order_id" }
     ] }
 ]
 ```
 
-Các dòng `id, name, order_id, order_total` trở thành `{id, name, orders: [{id, total}]}`.
-
-- `shape: single`: trả object đầu tiên, không có dòng nào thì trả 404 `not_found`. `shape: scalar`: trả giá trị của cột đầu tiên.
+  Các dòng `id, name, order_id, order_total` trở thành `{id, name, orders: [{id, total}]}`. Dòng có khoá con `null` (left join không khớp) không tạo phần tử con; khoá con trùng lặp chỉ lấy một lần. Không dùng được `nest` cùng phân trang (một trang sẽ cắt ngang danh sách con của một bản ghi) hay stream.
+- `naming: camelCase` đổi `created_at` thành `createdAt`, áp dụng cả cho object con. Tên không có dấu `_` giữ nguyên.
+- `shape`:
+  - `list` (mặc định): trả mảng các dòng.
+  - `single`: trả object đầu tiên; không có dòng nào thì trả 404 `not_found`.
+  - `scalar`: trả giá trị cột đầu tiên của dòng đầu tiên; không có dòng thì trả 404.
+  - `single` và `scalar` không dùng được cùng phân trang hay stream.
+- Khi stream, `types` và `naming` vẫn áp dụng cho từng dòng.
+- OpenAPI sinh tự động (§10) phản ánh đủ các tuỳ chọn trên: tên camelCase, kiểu sau khi đổi, cấu trúc lồng và shape.
 
 ### 9.3 Phân trang (P1)
 
@@ -591,7 +602,12 @@ Các dòng `id, name, order_id, order_total` trở thành `{id, name, orders: [{
   - data: nếu tầng ngoài cùng của câu chưa tự giới hạn (không có LIMIT/OFFSET/FETCH/TOP) thì **nối** mệnh đề phân trang; ngược lại, hoặc khi không parse được, thì **bọc** `SELECT * FROM (<sql>) page_q`. Cách bọc luôn đúng. Theo dialect: `LIMIT ? OFFSET ?` (PostgreSQL, MySQL, MariaDB, SQLite, H2, ClickHouse, không rõ); `OFFSET ? ROWS FETCH NEXT ? ROWS ONLY` (Oracle, DB2); SQL Server thêm `ORDER BY (SELECT NULL)` khi câu chưa có ORDER BY, vì OFFSET bắt buộc đi sau ORDER BY.
   - count: `SELECT COUNT(*) FROM (<sql>) count_q`. Bỏ ORDER BY ở tầng ngoài nếu an toàn: câu không tự giới hạn và ORDER BY không chứa tham số. Lý do: thứ tự không đổi kết quả đếm, và SQL Server không cho ORDER BY trong derived table. Có thể tắt count bằng `pagination.count = false` để nhanh hơn; khi đó trả `hasNext` thay cho `total`.
   - Dialect suy ra từ JDBC URL.
-- `mode: keyset` (P2): `after=<cursor>`, với cursor được mã hoá từ giá trị của các cột sắp xếp.
+- `mode: keyset` (P2): `pagination.keys` liệt kê 1 đến 4 cột kết quả, mỗi cột có thể sắp giảm dần. Các cột này không được `null` và gộp lại phải duy nhất, nên cột cuối thường là `id`.
+  - Bên gọi gửi `size` và `after=<meta.nextCursor của trang trước>`; trang cuối có `nextCursor: null`. Không có `page` hay `total`.
+  - Câu SQL được bọc thành `SELECT * FROM (<sql bỏ ORDER BY ngoài cùng>) keyset_q WHERE (k1 > ?) OR (k1 = ? AND k2 > ?) … ORDER BY k1, k2 LIMIT ?`. Điều kiện viết dạng OR/AND thay vì so sánh row-value để chạy được trên mọi dialect.
+  - Câu tự giới hạn (`LIMIT`/`TOP`…) hoặc có `ORDER BY` đọc tham số thì không phân trang keyset được; validate sẽ báo lỗi.
+  - Cursor là JSON mã hoá base64url, gồm giá trị khoá kèm loại kiểu (timestamp, date, số…) để bind lại đúng kiểu. Cursor chỉ cho biết chỗ đọc tiếp, không cấp thêm quyền gì. Cursor sai trả 400 `invalid_cursor`.
+  - Cursor được tính từ dữ liệu trước masking và map, nên che cột khoá không làm hỏng việc phân trang.
 
 ### 9.4 Envelope
 
@@ -1161,7 +1177,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 13. ✅ (2026-11-17) Che cột và lọc dòng (§12): bảng `data_policy`, thuộc tính service account, áp dụng ở bước rewrite và post-process của pipeline (cả stream), kiểm tra khi validate/publish, admin API, tab Masking của datasource, phần Data policies trong tab Access, phần Attributes trên trang service account.
 14. ✅ (2026-11-17) Rule tham số (§13.1) và kênh cảnh báo lỗi qua webhook (§13.2).
 15. ✅ (2026-11-17) Bộ test case cho từng endpoint (§11.3): bảng `endpoint_test_case`, chạy trên draft (kể cả với tư cách service account), chặn publish khi `require-tests-pass`, tab Tests.
-16. Map kết quả (§9.2): `naming`, `shape`, `nest`, `types`; phân trang keyset.
+16. ✅ (2026-11-17) Map kết quả (§9.2): `naming`, `shape`, `nest`, `types`; phân trang keyset (§9.3); OpenAPI phản ánh cả hai.
 17. Cache kết quả (§9.5), metric `opendbapi_cache_hits_total`.
 18. Ký request HMAC (§8.2) và mã hoá response (§8.3).
 19. Task Groovy `SqlFragment` (§7.4) trong sandbox.

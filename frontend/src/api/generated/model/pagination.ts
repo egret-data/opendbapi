@@ -5,10 +5,16 @@
  * Authoring and administration API consumed by the OpenDBAPI web UI.
  * OpenAPI spec version: v1
  */
+import type { KeysetKey } from './keysetKey';
+import type { PaginationMode } from './paginationMode';
 
 export interface Pagination {
   count: boolean;
   defaultSize: number;
   enabled: boolean;
+  /** @nullable */
+  keys?: (KeysetKey | null)[] | null;
   maxSize: number;
+  /** @nullable */
+  mode?: PaginationMode;
 }

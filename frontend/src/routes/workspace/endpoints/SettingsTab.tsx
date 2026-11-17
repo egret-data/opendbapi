@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { METHODS, type DraftForm, type Method } from "./endpointForm";
+import { OutputRows, PaginationModeRows } from "./OutputSettings";
 
 const NONE = "__none__";
 const int = (s: string, fallback: number) => (Number.isFinite(Number.parseInt(s, 10)) ? Number.parseInt(s, 10) : fallback);
@@ -63,7 +64,7 @@ export function SettingsTab({ ws, form, onChange, live, disabled }: {
         </ConfigTableRow>
 
         <ConfigTableGroup label="Pagination" />
-        <ConfigTableRow label="Paginate" htmlFor="ep-page" details="Callers send page and size; the engine adds LIMIT/OFFSET for the database">
+        <ConfigTableRow label="Paginate" htmlFor="ep-page" details="Callers ask for one page at a time; the engine adds the paging clause for the database">
           <Switch id="ep-page" checked={def.pagination.enabled} onCheckedChange={(v) => setDef({ pagination: { ...def.pagination, enabled: v } })} />
         </ConfigTableRow>
         <ConfigTableRow label="Default page size" htmlFor="ep-size">
@@ -74,10 +75,13 @@ export function SettingsTab({ ws, form, onChange, live, disabled }: {
           <Input id="ep-max" type="number" min={1} className="w-32 tabular-nums" value={def.pagination.maxSize} disabled={disabled || !def.pagination.enabled}
             onChange={(e) => setDef({ pagination: { ...def.pagination, maxSize: int(e.target.value, 500) } })} />
         </ConfigTableRow>
-        <ConfigTableRow label="Count total" htmlFor="ep-count" details="Adds a COUNT query per call; off returns only hasNext">
-          <Switch id="ep-count" checked={def.pagination.count} disabled={disabled || !def.pagination.enabled}
+        <ConfigTableRow label="Count total" htmlFor="ep-count" details="Offset mode: adds a COUNT query per call; off returns only hasNext">
+          <Switch id="ep-count" checked={def.pagination.count} disabled={disabled || !def.pagination.enabled || def.pagination.mode === "keyset"}
             onCheckedChange={(v) => setDef({ pagination: { ...def.pagination, count: v } })} />
         </ConfigTableRow>
+        <PaginationModeRows def={def} setDef={setDef} disabled={disabled} />
+
+        <OutputRows def={def} setDef={setDef} />
 
         <ConfigTableGroup label="Streaming" />
         <ConfigTableRow label="Allow streaming" htmlFor="ep-stream"

@@ -70,6 +70,83 @@ public final class Paginator {
         return new Paged(new BoundSql(data, dataParams), count);
     }
 
+    /** A sort key of keyset pagination: a result column, ascending unless {@code descending}. */
+    public record Key(String column, boolean descending) {
+        public Key {
+            if (column == null || !column.matches("[A-Za-z_][A-Za-z0-9_]{0,127}")) {
+                throw new IllegalArgumentException("Not a plain column name: " + column);
+            }
+        }
+    }
+
+    /**
+     * Keyset pagination (spec §9.3): the rows after {@code after} in key order, at most
+     * {@code limit} of them. The query becomes a derived table ordered by the keys; its own
+     * top-level ORDER BY is dropped. Keys must be result columns that are never null and,
+     * together, unique.
+     *
+     * @param after the last row's key values, or null for the first page
+     * @throws IllegalArgumentException when the query cannot be paged this way
+     */
+    public static BoundSql keyset(BoundSql query, Dialect dialect, List<Key> keys, List<Object> after, int limit) {
+        if (keys == null || keys.isEmpty()) {
+            throw new IllegalArgumentException("Keyset pagination needs at least one key column.");
+        }
+        if (after != null && after.size() != keys.size()) {
+            throw new IllegalArgumentException("The cursor does not match the key columns.");
+        }
+        String sql = stripTerminator(query.sql());
+        Statement statement;
+        try {
+            statement = CCJSqlParserUtil.parse(sql);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Keyset pagination needs a query it can parse.");
+        }
+        if (!(statement instanceof Select select)) {
+            throw new IllegalArgumentException("Keyset pagination applies only to queries.");
+        }
+        boolean limited = select.getLimit() != null || select.getOffset() != null || select.getFetch() != null
+                || (select instanceof PlainSelect p && p.getTop() != null);
+        if (limited) {
+            throw new IllegalArgumentException("The query limits itself; remove LIMIT/OFFSET/FETCH/TOP to page it by key.");
+        }
+        String inner = sql;
+        if (select.getOrderByElements() != null && !select.getOrderByElements().isEmpty()) {
+            if (select.getOrderByElements().stream().anyMatch(o -> o.toString().contains("?"))) {
+                throw new IllegalArgumentException("The query's ORDER BY reads a parameter; keyset pagination orders by its keys instead.");
+            }
+            select.setOrderByElements(null);
+            inner = select.toString();
+        }
+        List<Object> params = new ArrayList<>(query.parameters());
+        StringBuilder out = new StringBuilder("SELECT * FROM (").append(inner).append(") keyset_q");
+        if (after != null) {
+            // (k1 > ?) OR (k1 = ? AND k2 > ?) OR ...: portable, unlike row-value comparison.
+            List<String> ors = new ArrayList<>();
+            for (int i = 0; i < keys.size(); i++) {
+                List<String> ands = new ArrayList<>();
+                for (int j = 0; j < i; j++) {
+                    ands.add("keyset_q." + keys.get(j).column() + " = ?");
+                    params.add(after.get(j));
+                }
+                Key k = keys.get(i);
+                ands.add("keyset_q." + k.column() + (k.descending() ? " < ?" : " > ?"));
+                params.add(after.get(i));
+                ors.add("(" + String.join(" AND ", ands) + ")");
+            }
+            out.append(" WHERE ").append(String.join(" OR ", ors));
+        }
+        out.append(" ORDER BY ").append(String.join(", ", keys.stream()
+                .map(k -> "keyset_q." + k.column() + (k.descending() ? " DESC" : " ASC")).toList()));
+        if (dialect.style == Dialect.Style.LIMIT_OFFSET) {
+            out.append(" LIMIT ?");
+        } else {
+            out.append(" OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY");
+        }
+        params.add(limit);
+        return new BoundSql(out.toString(), params);
+    }
+
     private static String stripTerminator(String sql) {
         String s = sql.strip();
         while (s.endsWith(";")) {

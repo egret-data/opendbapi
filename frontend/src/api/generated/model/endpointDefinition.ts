@@ -7,6 +7,7 @@
  */
 import type { Alerts } from './alerts';
 import type { Limits } from './limits';
+import type { Output } from './output';
 import type { Pagination } from './pagination';
 import type { Param } from './param';
 import type { Rule } from './rule';
@@ -16,6 +17,7 @@ import type { Task } from './task';
 export interface EndpointDefinition {
   alerts: Alerts;
   limits: Limits;
+  output: Output;
   pagination: Pagination;
   params: Param[];
   /** Checks on the bound parameters, run before the query (spec §13.1) */

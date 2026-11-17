@@ -48,7 +48,7 @@ public class EndpointValidator {
     }
 
     /** Names the platform reads itself (spec §9.3); not declarable as parameters. */
-    public static final Set<String> RESERVED = Set.of("page", "size", "format");
+    public static final Set<String> RESERVED = Set.of("page", "size", "format", "after");
     private static final Pattern PATH_VARIABLE = Pattern.compile("\\{([A-Za-z_][A-Za-z0-9_]*)}");
     private static final Pattern NAME = Pattern.compile("^[A-Za-z_][A-Za-z0-9_.-]{0,63}$");
 
@@ -134,6 +134,10 @@ public class EndpointValidator {
                 checkRowFilter(policies, bound, output, datasource, findings);
             }
         }
+        for (String problem : ResultMapper.problems(def.output(), def, output)) {
+            findings.add(Finding.error("output", problem));
+        }
+        checkKeyset(def, output, task, sample, datasource, findings);
         if (def.pagination().enabled() && def.pagination().defaultSize() > def.pagination().maxSize()) {
             findings.add(Finding.error("pagination", "The default page size is larger than the maximum."));
         }
@@ -167,6 +171,44 @@ public class EndpointValidator {
                 findings.add(Finding.error("row_filter_unsupported",
                         "The database rejects the query with the row filter added: " + described.get(0).message()));
             }
+        }
+    }
+
+    /** Spec §9.3 keyset mode: plain key columns the query returns, and a query that can be paged by them. */
+    private void checkKeyset(EndpointDefinition def, List<QueryExecutor.ResultColumn> output, CompiledTask task,
+                             Map<String, Object> sample, Datasource datasource, List<Finding> findings) {
+        EndpointDefinition.Pagination p = def.pagination();
+        if (!p.enabled()) {
+            return;
+        }
+        if (!"offset".equals(p.mode()) && !"keyset".equals(p.mode())) {
+            findings.add(Finding.error("pagination", "Pagination mode must be offset or keyset."));
+            return;
+        }
+        if (!p.keyset()) {
+            return;
+        }
+        if (p.keys().isEmpty() || p.keys().size() > 4) {
+            findings.add(Finding.error("pagination", "Keyset pagination needs 1 to 4 key columns, the last one unique (such as id)."));
+            return;
+        }
+        List<io.opendbapi.sql.page.Paginator.Key> keys = new ArrayList<>();
+        for (EndpointDefinition.KeysetKey k : p.keys()) {
+            try {
+                keys.add(new io.opendbapi.sql.page.Paginator.Key(k.column(), k.descending()));
+            } catch (IllegalArgumentException e) {
+                findings.add(Finding.error("pagination", "Key '%s' must be a plain column name.".formatted(k.column())));
+                return;
+            }
+            if (!output.isEmpty() && output.stream().noneMatch(c -> c.name().equals(k.column()))) {
+                findings.add(Finding.error("pagination", "Key '%s' is not a column the query returns.".formatted(k.column())));
+            }
+        }
+        try {
+            BoundSql main = task.statements().get(task.mainIndex()).template().render(sample);
+            io.opendbapi.sql.page.Paginator.keyset(main, io.opendbapi.sql.page.Dialect.POSTGRESQL, keys, null, 1);
+        } catch (IllegalArgumentException | TemplateException e) {
+            findings.add(Finding.error("pagination", "Keyset pagination cannot page this query: " + e.getMessage()));
         }
     }
 

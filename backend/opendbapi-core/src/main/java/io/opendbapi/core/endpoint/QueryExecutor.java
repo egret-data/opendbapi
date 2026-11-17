@@ -29,7 +29,22 @@ public class QueryExecutor {
 
     public enum RunMode { SERVE, PREVIEW }
 
-    public record PageRequest(int page, int size, boolean count) {
+    /**
+     * Offset pages ({@code page}, {@code size}, optional count) or, when {@code keys} is not
+     * empty, keyset pages: {@code size} rows after the {@code after} key values (null = first page).
+     */
+    public record PageRequest(int page, int size, boolean count, List<EndpointDefinition.KeysetKey> keys, List<Object> after) {
+        public PageRequest {
+            keys = keys == null ? List.of() : keys;
+        }
+
+        public PageRequest(int page, int size, boolean count) {
+            this(page, size, count, null, null);
+        }
+
+        public boolean keyset() {
+            return !keys.isEmpty();
+        }
     }
 
     public record ResultColumn(String name, String type) {
@@ -306,6 +321,20 @@ public class QueryExecutor {
 
     private QueryResult paged(Connection c, BoundSql bound, Dialect dialect, PageRequest page, EndpointDefinition.Limits limits,
                          List<BoundSql> executed) throws SQLException {
+        if (page.keyset()) {
+            BoundSql data;
+            try {
+                data = Paginator.keyset(bound, dialect,
+                        page.keys().stream().map(k -> new Paginator.Key(k.column(), k.descending())).toList(), page.after(), page.size() + 1);
+            } catch (IllegalArgumentException e) {
+                throw new ApiProblem(500, "keyset_failed", "This endpoint's keyset pagination cannot page its query: " + e.getMessage());
+            }
+            executed.add(data);
+            QueryResult result = execute(c, data, limits);
+            boolean hasNext = result.rows().size() > page.size();
+            List<Map<String, Object>> rows = hasNext ? result.rows().subList(0, page.size()) : result.rows();
+            return new QueryResult(result.columns(), rows, null, result.truncated(), null, hasNext, 0, executed);
+        }
         Paginator.Paged paged = Paginator.paginate(bound, dialect, page.page(), page.size());
         Long total = null;
         if (page.count()) {
