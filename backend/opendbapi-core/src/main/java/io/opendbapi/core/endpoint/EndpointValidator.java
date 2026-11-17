@@ -58,7 +58,21 @@ public class EndpointValidator {
         this.registry = registry;
     }
 
+    /**
+     * The data policies that apply to the endpoint being checked (spec §12).
+     *
+     * @param rowFilterColumn the row filter's column, or null
+     * @param maskColumns     columns of the masks that apply, as written in the policies
+     */
+    public record PolicyContext(String access, String rowFilterColumn, List<String> maskColumns) {
+        public static final PolicyContext NONE = new PolicyContext(null, null, List.of());
+    }
+
     public Validation validate(String method, String path, EndpointDefinition def, Datasource datasource) {
+        return validate(method, path, def, datasource, PolicyContext.NONE);
+    }
+
+    public Validation validate(String method, String path, EndpointDefinition def, Datasource datasource, PolicyContext policies) {
         List<Finding> findings = new ArrayList<>();
         checkParams(method, path, def, findings);
 
@@ -107,14 +121,52 @@ public class EndpointValidator {
             for (SqlInspector.SqlFinding f : SqlInspector.inspect(bound.sql(), new SqlInspector.Context(readOnlyEndpoint, readOnlyDatasource))) {
                 findings.add(new Finding(f.severity().name().toLowerCase(), f.code(), f.message()));
             }
+            if (i == task.mainIndex() && !policies.maskColumns().isEmpty()
+                    && io.opendbapi.sql.policy.ColumnLineage.trace(bound.sql()).isEmpty()) {
+                findings.add(Finding.warning("mask_untraced", "Masks apply by result column name only: the SQL could not be "
+                        + "parsed to see which table columns each result column comes from. Alias masked columns with their own name."));
+            }
             if (i == task.mainIndex() && datasource != null) {
                 output = describe(datasource, bound, findings);
+            }
+            if (i == task.mainIndex() && policies.rowFilterColumn() != null) {
+                checkRowFilter(policies, bound, output, datasource, findings);
             }
         }
         if (def.pagination().enabled() && def.pagination().defaultSize() > def.pagination().maxSize()) {
             findings.add(Finding.error("pagination", "The default page size is larger than the maximum."));
         }
         return new Validation(findings, new ArrayList<>(used), output);
+    }
+
+    /** Spec §12.2: private only, the column is returned, and the filtered SQL is accepted by the database. */
+    private void checkRowFilter(PolicyContext policies, BoundSql main, List<QueryExecutor.ResultColumn> output, Datasource datasource,
+                                List<Finding> findings) {
+        String column = policies.rowFilterColumn();
+        if ("public".equals(policies.access())) {
+            findings.add(Finding.error("row_filter_public",
+                    "This endpoint has a row filter, which needs to know the calling client. Make it private."));
+        }
+        if (!output.isEmpty() && output.stream().noneMatch(c -> c.name().equalsIgnoreCase(column))) {
+            findings.add(Finding.error("row_filter_column",
+                    "The row filter reads column '%s', which the query does not return.".formatted(column)));
+            return;
+        }
+        BoundSql filtered;
+        try {
+            filtered = io.opendbapi.sql.policy.RowFilters.apply(main, column, List.of("sample"));
+        } catch (io.opendbapi.sql.policy.RowFilters.UnsupportedException | IllegalArgumentException e) {
+            findings.add(Finding.error("row_filter_unsupported", "The row filter cannot be applied: " + e.getMessage()));
+            return;
+        }
+        if (datasource != null && !output.isEmpty()) {
+            List<Finding> described = new ArrayList<>();
+            describe(datasource, filtered, described);
+            if (!described.isEmpty()) {
+                findings.add(Finding.error("row_filter_unsupported",
+                        "The database rejects the query with the row filter added: " + described.get(0).message()));
+            }
+        }
     }
 
     private static void checkParams(String method, String path, EndpointDefinition def, List<Finding> findings) {

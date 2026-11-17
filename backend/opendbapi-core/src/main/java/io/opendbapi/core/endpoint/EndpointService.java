@@ -33,9 +33,12 @@ public class EndpointService {
     private final EndpointRegistry registry;
     private final QueryExecutor executor;
     private final ObjectMapper json;
+    private final io.opendbapi.core.datapolicy.DataPolicyStore dataPolicies;
 
     public EndpointService(WorkspaceScope scope, EndpointStore store, DatasourceStore datasources, EndpointValidator validator,
-                           EndpointRegistry registry, QueryExecutor executor, ObjectMapper json) {
+                           EndpointRegistry registry, QueryExecutor executor, ObjectMapper json,
+                           io.opendbapi.core.datapolicy.DataPolicyStore dataPolicies) {
+        this.dataPolicies = dataPolicies;
         this.scope = scope;
         this.store = store;
         this.datasources = datasources;
@@ -72,15 +75,36 @@ public class EndpointService {
     public EndpointValidator.Validation validate(UUID ws, UUID id) {
         return scope.call(ws, () -> {
             Endpoint e = find(id);
-            return validator.validate(e.method(), e.path(), e.definition(), datasourceOf(e.definition()));
+            return validator.validate(e.method(), e.path(), e.definition(), datasourceOf(e.definition()), policies(e));
         });
+    }
+
+    /** Policies on the endpoint and on the datasource its draft uses; called inside the workspace scope. */
+    private EndpointValidator.PolicyContext policies(Endpoint e) {
+        UUID datasourceId = e.definition().task().datasourceId();
+        String rowFilter = null;
+        java.util.List<String> masks = new java.util.ArrayList<>();
+        for (io.opendbapi.core.datapolicy.DataPolicyStore.Stored stored : dataPolicies.all()) {
+            io.opendbapi.core.datapolicy.DataPolicy p = stored.policy();
+            boolean mine = e.id().equals(p.endpointId()) || (datasourceId != null && datasourceId.equals(p.datasourceId()));
+            if (!mine) {
+                continue;
+            }
+            if (io.opendbapi.core.datapolicy.DataPolicy.ROW_FILTER.equals(p.kind())) {
+                rowFilter = p.column();
+            } else {
+                masks.add(p.column());
+            }
+        }
+        return new EndpointValidator.PolicyContext(e.access(), rowFilter, masks);
     }
 
     public EndpointVersion publish(UUID ws, UUID id, String note, UUID userId) {
         EndpointVersion v = scope.call(ws, () -> {
             Endpoint e = find(id);
             requireNotTrashed(e);
-            EndpointValidator.Validation validation = validator.validate(e.method(), e.path(), e.definition(), datasourceOf(e.definition()));
+            EndpointValidator.Validation validation = validator.validate(e.method(), e.path(), e.definition(), datasourceOf(e.definition()),
+                    policies(e));
             if (!validation.ok()) {
                 throw new ApiProblem(409, "validation_failed", "Fix the errors before publishing: " + validation.findings().stream()
                         .filter(f -> "error".equals(f.severity())).map(EndpointValidator.Finding::message)

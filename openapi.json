@@ -899,6 +899,158 @@
         "tags" : [ "audit" ]
       }
     },
+    "/admin/api/ws/{ws}/data-policies" : {
+      "get" : {
+        "operationId" : "listDataPolicies",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "query",
+          "name" : "datasourceId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }, {
+          "in" : "query",
+          "name" : "endpointId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/DataPolicy"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Data policies, optionally of one datasource or endpoint",
+        "tags" : [ "data-policies" ]
+      },
+      "post" : {
+        "operationId" : "createDataPolicy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveDataPolicy"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DataPolicy"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "Add a mask or row filter (admin)",
+        "tags" : [ "data-policies" ]
+      }
+    },
+    "/admin/api/ws/{ws}/data-policies/{id}" : {
+      "delete" : {
+        "operationId" : "deleteDataPolicy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK"
+          }
+        },
+        "summary" : "Remove a policy (admin)",
+        "tags" : [ "data-policies" ]
+      },
+      "patch" : {
+        "operationId" : "updateDataPolicy",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SaveDataPolicy"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/DataPolicy"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Change a policy's column, mask, attribute or exemptions (admin)",
+        "tags" : [ "data-policies" ]
+      }
+    },
     "/admin/api/ws/{ws}/datasources" : {
       "get" : {
         "operationId" : "listDatasources",
@@ -3060,6 +3212,58 @@
           }
         }
       },
+      "DataPolicy" : {
+        "required" : [ "column", "createdAt", "exemptServiceAccounts", "id", "kind", "mask", "updatedAt" ],
+        "type" : "object",
+        "properties" : {
+          "attribute" : {
+            "type" : "string",
+            "description" : "For kind row_filter: the service account attribute holding the allowed value(s)",
+            "nullable" : true
+          },
+          "column" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "datasourceId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "nullable" : true
+          },
+          "endpointId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "nullable" : true
+          },
+          "exemptServiceAccounts" : {
+            "type" : "array",
+            "description" : "Service accounts this policy does not apply to",
+            "items" : {
+              "type" : "string",
+              "description" : "Service accounts this policy does not apply to",
+              "format" : "uuid"
+            }
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "mask", "row_filter" ]
+          },
+          "mask" : {
+            "$ref" : "#/components/schemas/Mask"
+          },
+          "updatedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          }
+        }
+      },
       "DatasourceTestResult" : {
         "required" : [ "message", "ok" ],
         "type" : "object",
@@ -3525,6 +3729,27 @@
           }
         }
       },
+      "Mask" : {
+        "required" : [ "type" ],
+        "type" : "object",
+        "properties" : {
+          "keepEnd" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "keepStart" : {
+            "type" : "integer",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "phone", "email", "partial", "hash", "nullify" ]
+          }
+        },
+        "nullable" : true
+      },
       "Me" : {
         "required" : [ "id", "source", "systemAdmin", "username", "workspaces" ],
         "type" : "object",
@@ -3926,6 +4151,45 @@
           }
         }
       },
+      "SaveDataPolicy" : {
+        "required" : [ "column", "kind", "mask" ],
+        "type" : "object",
+        "properties" : {
+          "attribute" : {
+            "type" : "string",
+            "nullable" : true
+          },
+          "column" : {
+            "type" : "string"
+          },
+          "datasourceId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "nullable" : true
+          },
+          "endpointId" : {
+            "type" : "string",
+            "format" : "uuid",
+            "nullable" : true
+          },
+          "exemptServiceAccounts" : {
+            "type" : "array",
+            "nullable" : true,
+            "items" : {
+              "type" : "string",
+              "format" : "uuid",
+              "nullable" : true
+            }
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "mask", "row_filter" ]
+          },
+          "mask" : {
+            "$ref" : "#/components/schemas/Mask"
+          }
+        }
+      },
       "SaveDatasource" : {
         "required" : [ "database", "dialect", "host", "name", "pool", "readOnly", "username" ],
         "type" : "object",
@@ -4037,6 +4301,12 @@
         "required" : [ "disabled", "name" ],
         "type" : "object",
         "properties" : {
+          "attributes" : {
+            "type" : "object",
+            "additionalProperties" : true,
+            "description" : "Replaces all attributes; null keeps them",
+            "nullable" : true
+          },
           "description" : {
             "maxLength" : 1000,
             "minLength" : 0,
@@ -4054,9 +4324,14 @@
         }
       },
       "ServiceAccount" : {
-        "required" : [ "clientCount", "createdAt", "disabled", "grantCount", "id", "name" ],
+        "required" : [ "attributes", "clientCount", "createdAt", "disabled", "grantCount", "id", "name" ],
         "type" : "object",
         "properties" : {
+          "attributes" : {
+            "type" : "object",
+            "additionalProperties" : true,
+            "description" : "Facts about the caller that row filters read (spec §12.2), values are strings, numbers, booleans or lists of them"
+          },
           "clientCount" : {
             "type" : "integer",
             "format" : "int32"

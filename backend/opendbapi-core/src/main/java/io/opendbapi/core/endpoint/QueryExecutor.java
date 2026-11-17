@@ -108,12 +108,22 @@ public class QueryExecutor {
 
     public QueryResult run(Datasource ds, CompiledTask task, Map<String, Object> params, PageRequest page,
                       EndpointDefinition.Limits limits, RunMode mode) {
+        return run(ds, task, params, page, limits, mode, java.util.function.UnaryOperator.identity());
+    }
+
+    /**
+     * @param mainRewrite applied to the rendered main statement before pagination, e.g. a row
+     *                    filter (spec §9.1 step 11)
+     */
+    public QueryResult run(Datasource ds, CompiledTask task, Map<String, Object> params, PageRequest page,
+                      EndpointDefinition.Limits limits, RunMode mode, java.util.function.UnaryOperator<BoundSql> mainRewrite) {
         List<BoundSql> executed = new ArrayList<>();
-        return measured(ds, params, executed, () -> runMeasured(ds, task, params, page, limits, mode, executed));
+        return measured(ds, params, executed, () -> runMeasured(ds, task, params, page, limits, mode, mainRewrite, executed));
     }
 
     private QueryResult runMeasured(Datasource ds, CompiledTask task, Map<String, Object> params, PageRequest page,
-                      EndpointDefinition.Limits limits, RunMode mode, List<BoundSql> executed) {
+                      EndpointDefinition.Limits limits, RunMode mode, java.util.function.UnaryOperator<BoundSql> mainRewrite,
+                      List<BoundSql> executed) {
         long start = System.nanoTime();
         Dialect dialect = Dialect.valueOf(ds.config().dialect().name());
         try (Connection c = registry.connection(ds)) {
@@ -124,8 +134,11 @@ public class QueryExecutor {
             try {
                 QueryResult main = null;
                 for (int i = 0; i < task.statements().size(); i++) {
-                    BoundSql bound = render(task.statements().get(i), params);
                     boolean isMain = i == task.mainIndex();
+                    BoundSql bound = render(task.statements().get(i), params);
+                    if (isMain) {
+                        bound = mainRewrite.apply(bound);
+                    }
                     if (isMain && page != null) {
                         main = paged(c, bound, dialect, page, limits, executed);
                     } else {
@@ -189,12 +202,17 @@ public class QueryExecutor {
      */
     public long stream(Datasource ds, CompiledTask task, Map<String, Object> params, EndpointDefinition.Limits limits,
                        RowSink sink) {
+        return stream(ds, task, params, limits, sink, java.util.function.UnaryOperator.identity());
+    }
+
+    public long stream(Datasource ds, CompiledTask task, Map<String, Object> params, EndpointDefinition.Limits limits,
+                       RowSink sink, java.util.function.UnaryOperator<BoundSql> mainRewrite) {
         List<BoundSql> executed = new ArrayList<>();
-        return measured(ds, params, executed, () -> streamMeasured(ds, task, params, limits, sink, executed));
+        return measured(ds, params, executed, () -> streamMeasured(ds, task, params, limits, sink, mainRewrite, executed));
     }
 
     private long streamMeasured(Datasource ds, CompiledTask task, Map<String, Object> params, EndpointDefinition.Limits limits,
-                                RowSink sink, List<BoundSql> executed) {
+                                RowSink sink, java.util.function.UnaryOperator<BoundSql> mainRewrite, List<BoundSql> executed) {
         int limit = limits.streamRowLimit();
         try (Connection c = registry.connection(ds)) {
             c.setAutoCommit(false); // PostgreSQL only uses a cursor (fetch size) inside a transaction
@@ -202,6 +220,9 @@ public class QueryExecutor {
             try {
                 for (int i = 0; i < task.statements().size(); i++) {
                     BoundSql bound = render(task.statements().get(i), params);
+                    if (i == task.mainIndex()) {
+                        bound = mainRewrite.apply(bound);
+                    }
                     executed.add(bound);
                     if (i != task.mainIndex()) {
                         execute(c, bound, limits);

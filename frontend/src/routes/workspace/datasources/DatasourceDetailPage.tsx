@@ -28,8 +28,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 import { errorMessage } from "@/lib/errors";
 import { useUnsavedChangesWarning } from "@/lib/useUnsavedChangesWarning";
+import { DataPoliciesSection } from "../datapolicies/DataPoliciesSection";
 import { DatasourceFields, TestConnection } from "./DatasourceFields";
 import { DIALECT_LABEL, formFrom, toRequest } from "./datasourceForm";
 
@@ -39,7 +41,7 @@ export default function DatasourceDetailPage() {
   const role = effectiveRole(me, ws) ?? "viewer";
   const query = useGetDatasource(ws, id);
   const [params, setParams] = useSearchParams();
-  const tab = params.get("tab") === "tables" || params.get("tab") === "usage" ? params.get("tab")! : "settings";
+  const tab = ["tables", "usage", "policies"].includes(params.get("tab") ?? "") ? params.get("tab")! : "settings";
 
   return (
     <PageContainer>
@@ -57,7 +59,11 @@ export default function DatasourceDetailPage() {
                 <TabsTrigger value="settings">Settings</TabsTrigger>
                 <TabsTrigger value="tables">Tables</TabsTrigger>
                 <TabsTrigger value="usage">Usage</TabsTrigger>
+                <TabsTrigger value="policies">Masking</TabsTrigger>
               </TabsList>
+              <TabsContent value="policies" className="pt-4">
+                <DataPoliciesSection ws={ws} scope={{ kind: "datasource", datasourceId: ds.id }} isAdmin={hasRole(role, "admin")} />
+              </TabsContent>
               <TabsContent value="usage" className="pt-4">
                 <UsageTab ws={ws} datasourceId={ds.id} />
               </TabsContent>

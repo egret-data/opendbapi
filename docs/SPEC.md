@@ -227,7 +227,7 @@ Schema mới trong PostgreSQL, schema `opendbapi`. Dữ liệu DBAPI được nh
 ### 4.5 Các bảng khác
 
 - `datasource(id, name, type 'jdbc'|'elasticsearch'|'http', config jsonb, secret_ref text, read_only bool, ...)`: `secret_ref` có dạng `enc:<AES-GCM>`, `env:NAME`, hoặc `vault:path#key`.
-- `data_policy(id, datasource_id NULL, endpoint_id NULL, kind 'mask'|'row_filter', column text NULL, rule jsonb)`
+- `data_policy(id, datasource_id NULL, endpoint_id NULL, kind 'mask'|'row_filter', column_name text, rule jsonb)`: đúng một trong hai `datasource_id`, `endpoint_id`; row filter chỉ gắn với endpoint; `rule` chứa kiểu mask, thuộc tính, danh sách exempt và salt của hash.
 - `access_log(id, ts, endpoint_id, version, method, path, status, duration_ms, rows, client_id, service_account_id, ip, error_code, error, trace_id, actor_user_id NULL)`: `actor_user_id` khác NULL nghĩa là lời gọi đến từ Try-it, không tính vào thống kê [E].
 - `audit_log(id, ts, user_id, action, target_type, target_id, detail jsonb)`
 
@@ -692,30 +692,40 @@ Cache dùng khoá `(endpointId, version, paramsHash, scope)`. `scope = client` s
 
 ## 12. Bảo mật dữ liệu: che cột và lọc dòng (P2)
 
+Workspace admin quản lý data policy qua `/data-policies` (§21.2). Trên UI: tab **Masking** của datasource, phần *Data policies* trong tab Access của endpoint. Mọi thay đổi được ghi vào audit log. Policy được cache 5 giây trên mỗi instance; thay đổi qua instance nào thì cache của instance đó xoá ngay.
+
+Policy áp dụng cho lời gọi thật và Try-it. **Preview không áp dụng policy**, vì người viết endpoint vốn đã đọc được dữ liệu gốc qua SQL. Mỗi policy có danh sách `exemptServiceAccounts`: các service account này không bị áp policy.
+
 ### 12.1 Che dữ liệu (masking)
 
-Gắn theo datasource + cột (áp dụng cho mọi endpoint) hoặc theo từng endpoint:
+Gắn theo datasource (áp dụng cho mọi endpoint dùng datasource đó) hoặc theo từng endpoint:
 
 | Kiểu | Ví dụ kết quả |
 |---|---|
-| `phone` | `090****123` |
-| `email` | `n***@example.com` |
-| `partial(keepStart, keepEnd)` | |
-| `hash` | SHA-256 có salt |
-| `null` | luôn trả `null` |
+| `phone` | `090****123` (giữ 3 ký tự đầu, 3 ký tự cuối) |
+| `email` | `n***@example.com` (không lộ độ dài phần tên) |
+| `partial` (`keepStart`, `keepEnd`, 0–64) | `AB***F` |
+| `hash` | HMAC-SHA-256 với salt riêng của policy; cùng giá trị cho cùng kết quả nên vẫn join được. Salt không bao giờ trả ra API |
+| `nullify` | luôn trả `null` |
 
-- Áp dụng sau khi thực thi, theo **tên cột trong kết quả**. Engine dùng JSqlParser để truy ngược alias về cột gốc. Không truy ngược được thì cảnh báo khi validate.
-- Ngoại lệ theo service account: `rule.exemptServiceAccounts`.
+- Giá trị `null` giữ nguyên `null`. Giá trị khác được che dưới dạng chuỗi. Chuỗi ngắn tới mức không còn gì để che thì thay toàn bộ bằng `*`.
+- **Mask theo endpoint** ghi tên cột trong kết quả.
+- **Mask theo datasource** ghi cột của bảng: `column`, `table.column` hoặc `schema.table.column`. Engine dùng JSqlParser truy ngược mỗi cột kết quả về các cột bảng tạo ra nó (qua alias, biểu thức, derived table, các nhánh UNION). Cột kết quả được che khi nó lấy từ cột bị che, **hoặc** khi tên của nó trùng tên cột bị che. Quy tắc thứ hai là phương án dự phòng, chấp nhận che thừa, cho trường hợp `select *` hay CTE. Không phân tích được câu SQL thì chỉ còn so theo tên, và validate sẽ cảnh báo `mask_untraced`.
+- Mask áp dụng cả khi trả kết quả dạng stream.
 
 ### 12.2 Lọc dòng (row filter)
 
 ```jsonc
-{ "kind": "row_filter", "endpointId": "…",
-  "rule": { "column": "tenant_id", "claim": "tenant" } }
+{ "kind": "row_filter", "endpointId": "…", "column": "tenant_id", "attribute": "tenant" }
 ```
 
-- Giá trị lấy từ thuộc tính của service account (`service_account.attributes.tenant`), không lấy từ tham số request.
-- Engine bọc câu SQL: `select * from (<sql>) t where t.tenant_id = ?`. Cột phải xuất hiện trong kết quả, nếu không thì báo lỗi validate.
+- Mỗi endpoint có tối đa một row filter.
+- Giá trị cho phép lấy từ thuộc tính của service account đang gọi (`service_account.attributes.tenant`), không bao giờ lấy từ tham số request. Thuộc tính là chuỗi, số, boolean hoặc danh sách các giá trị đó: danh sách cho ra `IN (…)`, danh sách rỗng không trả dòng nào. Kiểu giá trị phải khớp kiểu cột, ví dụ cột số thì thuộc tính là số. Admin sửa thuộc tính trên trang service account.
+- Điều kiện được chèn vào chính mệnh đề `WHERE` của câu SQL chính, trên biểu thức tạo ra cột đó (ví dụ `o.org AS tenant` sẽ lọc `o.org = ?`). Nhờ vậy `ORDER BY`, phân trang, số đếm `total`, `GROUP BY` và window function chỉ thấy dòng của người gọi. Với `UNION`, điều kiện được chèn vào từng nhánh. `select *` trên một bảng thì lọc bằng `alias.column`.
+- Chỉ khi cột chỉ đến từ `*` trên join hay derived table **và** câu không có `ORDER BY` ở cấp ngoài cùng, câu mới bị bọc thành `SELECT * FROM (<sql>) opendbapi_rf WHERE opendbapi_rf.col = ?`.
+- Các trường hợp còn lại bị từ chối: cột tính bằng hàm gộp, window function hay subquery; câu không phân tích được; câu không phải SELECT. Validate báo lỗi `row_filter_unsupported`; lúc chạy thì trả 500 `row_filter_failed` (fail closed).
+- Validate và publish cũng báo lỗi khi endpoint là public (`row_filter_public`), khi câu SQL không trả về cột được lọc (`row_filter_column`), hoặc khi database từ chối câu đã chèn bộ lọc.
+- Lúc chạy: gọi không có token thì trả 403 `row_filter_needs_client`; service account không có thuộc tính đó thì trả 403 `missing_attribute`.
 - Endpoint có row filter bắt buộc dùng cache `scope = client` (§9.5).
 
 ---
@@ -1128,7 +1138,7 @@ management:
 Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và qua gate như P1.
 
 12. ✅ (2026-11-17) Lộ trình P2 và test Playwright cho luồng chính (§24).
-13. Che cột và lọc dòng (§12): bảng `data_policy`, áp dụng ở bước post-process và rewrite của pipeline, admin API, màn hình quản lý.
+13. ✅ (2026-11-17) Che cột và lọc dòng (§12): bảng `data_policy`, thuộc tính service account, áp dụng ở bước rewrite và post-process của pipeline (cả stream), kiểm tra khi validate/publish, admin API, tab Masking của datasource, phần Data policies trong tab Access, phần Attributes trên trang service account.
 14. Rule tham số (§13.1) và kênh cảnh báo lỗi qua webhook (§13.2).
 15. Bộ test case cho từng endpoint (§11.3): bảng `endpoint_test_case`, chạy bộ test trước khi publish, tab Tests.
 16. Map kết quả (§9.2): `naming`, `shape`, `nest`, `types`; phân trang keyset.

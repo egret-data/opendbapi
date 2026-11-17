@@ -5,8 +5,11 @@
  * Authoring and administration API consumed by the OpenDBAPI web UI.
  * OpenAPI spec version: v1
  */
+import type { ServiceAccountAttributes } from './serviceAccountAttributes';
 
 export interface ServiceAccount {
+  /** Facts about the caller that row filters read (spec §12.2), values are strings, numbers, booleans or lists of them */
+  attributes: ServiceAccountAttributes;
   clientCount: number;
   createdAt: string;
   /** @nullable */

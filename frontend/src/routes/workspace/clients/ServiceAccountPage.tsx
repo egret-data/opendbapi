@@ -37,6 +37,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { errorMessage } from "@/lib/errors";
 import { formatDateTime } from "@/lib/format";
 
+import { AttributesSection } from "./AttributesSection";
+
 export default function ServiceAccountPage() {
   const { ws = "", id = "" } = useParams();
   const query = useGetServiceAccount(ws, id);
@@ -89,6 +91,7 @@ function Account({ ws, detail }: { ws: string; detail: ServiceAccountDetail }) {
       <div className="space-y-8">
         <ClientsSection ws={ws} saId={sa.id} clients={detail.clients} isAdmin={isAdmin} onChanged={refresh} />
         <GrantsSection ws={ws} saId={sa.id} grants={detail.grants} isAdmin={isAdmin} onChanged={refresh} />
+        <AttributesSection ws={ws} sa={sa} isAdmin={isAdmin} onChanged={refresh} />
       </div>
       <EditDialog ws={ws} detail={detail} open={editing} onOpenChange={setEditing} onSaved={refresh} />
       <ConfirmDialog

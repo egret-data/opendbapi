@@ -11,6 +11,9 @@ export default defineConfig({
     environment: "jsdom",
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
+    // Page tests type into real forms; on a busy machine (a backend build alongside) they can
+    // take several times their usual second, so the 5 s default made them flaky.
+    testTimeout: 15_000,
     // Playwright specs run via `npm run test:e2e`, not Vitest.
     exclude: [...configDefaults.exclude, "tests/e2e/**"],
   },

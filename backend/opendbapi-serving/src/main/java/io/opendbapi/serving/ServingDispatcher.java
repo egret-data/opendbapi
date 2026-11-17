@@ -65,6 +65,7 @@ public class ServingDispatcher {
     private final ServingGuard guard;
     private final TryItRelay relay;
     private final io.opendbapi.core.activity.AccessLogWriter accessLog;
+    private final io.opendbapi.core.datapolicy.DataPolicies dataPolicies;
     private final io.micrometer.core.instrument.MeterRegistry meters;
     private final org.springframework.beans.factory.ObjectProvider<io.micrometer.tracing.Tracer> tracer;
 
@@ -72,7 +73,9 @@ public class ServingDispatcher {
                              DatasourceStore datasources, QueryExecutor executor, AccessTokens tokens,
                              CallerAuthorizer authorizer, ServingGuard guard, TryItRelay relay,
                              io.opendbapi.core.activity.AccessLogWriter accessLog, io.micrometer.core.instrument.MeterRegistry meters,
-                             org.springframework.beans.factory.ObjectProvider<io.micrometer.tracing.Tracer> tracer) {
+                             org.springframework.beans.factory.ObjectProvider<io.micrometer.tracing.Tracer> tracer,
+                             io.opendbapi.core.datapolicy.DataPolicies dataPolicies) {
+        this.dataPolicies = dataPolicies;
         this.accessLog = accessLog;
         this.meters = meters;
         this.tracer = tracer;
@@ -173,12 +176,20 @@ public class ServingDispatcher {
         Datasource ds = scope.call(ws.id(), () -> datasources.find(route.task().datasourceId()))
                 .orElseThrow(() -> new ApiProblem(503, "datasource_missing", "This endpoint's datasource is not available."));
 
+        // Spec §12: row filter on the main statement, masks on the values.
+        io.opendbapi.core.datapolicy.DataPolicies.Plan policy = dataPolicies.plan(ws.id(), route.endpointId(), ds.id(),
+                outcome.serviceAccountId == null ? null : UUID.fromString(outcome.serviceAccountId));
+
         if (stream != null) {
-            streamTo(servletResponse, stream, ds, route, params, def, rate, requestId, outcome);
+            streamTo(servletResponse, stream, ds, route, params, def, rate, requestId, outcome, policy);
             return null;
         }
 
-        QueryExecutor.QueryResult result = executor.run(ds, route.task(), params, page, def.limits(), QueryExecutor.RunMode.SERVE);
+        QueryExecutor.QueryResult result = executor.run(ds, route.task(), params, page, def.limits(), QueryExecutor.RunMode.SERVE,
+                policy::rewriteMain);
+        if (result.affectedRows() == null) {
+            io.opendbapi.core.datapolicy.DataPolicies.Plan.apply(policy.masksFor(result.columns()), result.columns(), result.rows());
+        }
 
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("version", route.version());
@@ -287,7 +298,8 @@ public class ServingDispatcher {
 
     private void streamTo(jakarta.servlet.http.HttpServletResponse response, EndpointDefinition.StreamFormat format, Datasource ds,
                           EndpointRegistry.Route route, Map<String, Object> params, EndpointDefinition def,
-                          RateLimiter.Decision rate, String requestId, Outcome outcome) {
+                          RateLimiter.Decision rate, String requestId, Outcome outcome,
+                          io.opendbapi.core.datapolicy.DataPolicies.Plan policy) {
         // Headers are set by the sink's start(), i.e. only after the query ran: an early failure
         // still becomes an ordinary problem response.
         java.io.OutputStream out = new java.io.OutputStream() {
@@ -327,14 +339,18 @@ public class ServingDispatcher {
         QueryExecutor.RowSink sink = format == EndpointDefinition.StreamFormat.csv
                 ? StreamWriters.csv(out, RequestJson.MAPPER) : StreamWriters.ndjson(out, RequestJson.MAPPER, requestId);
         QueryExecutor.RowSink committing = new QueryExecutor.RowSink() {
+            private io.opendbapi.sql.policy.Masks.Masker[] masks;
+
             @Override
             public void start(List<QueryExecutor.ResultColumn> columns) throws IOException {
+                masks = policy.masksFor(columns);
                 sink.start(columns);
                 out.flush(); // commits status and headers once the query has run
             }
 
             @Override
             public void row(Object[] values) throws IOException {
+                io.opendbapi.core.datapolicy.DataPolicies.Plan.apply(masks, values);
                 sink.row(values);
             }
 
@@ -349,7 +365,7 @@ public class ServingDispatcher {
                 sink.failed(code);
             }
         };
-        outcome.rows = executor.stream(ds, route.task(), params, def.limits(), committing);
+        outcome.rows = executor.stream(ds, route.task(), params, def.limits(), committing, policy::rewriteMain);
     }
 
     /** IETF draft RateLimit header fields, for the tightest limit that applied. */

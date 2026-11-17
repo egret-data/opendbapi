@@ -9,7 +9,7 @@ const meAs = (role: "admin" | "author") => ({ ...ME_ALICE, workspaces: [{ id: "w
 
 const DETAIL: ServiceAccountDetail = {
   summary: { id: "sa1", name: "billing", description: null, disabled: false, createdAt: "2026-11-17T00:00:00Z",
-    clientCount: 1, grantCount: 1, lastUsedAt: null },
+    clientCount: 1, grantCount: 1, lastUsedAt: null, attributes: {} },
   clients: [{ id: "c1", clientId: "odc_abc", createdAt: "2026-11-17T00:00:00Z", expiresAt: null, lastUsedAt: null, revokedAt: null }],
   grants: [{ resourceType: "endpoint", resourceId: "e1", resourceName: "Customers", detail: "GET /customers", grantedAt: "2026-11-17T00:00:00Z" }],
 };
