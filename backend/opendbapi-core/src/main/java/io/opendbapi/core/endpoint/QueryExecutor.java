@@ -114,10 +114,11 @@ public class QueryExecutor {
      */
     public interface EndpointCaller {
         /**
+         * @param readOnly the caller answers GET, so the callee must not change data either
          * @param shared the calling workflow's connection while it runs as one transaction; the callee
          *               joins it when it uses the same datasource; null otherwise
          */
-        Object call(UUID endpointId, Map<String, Object> params, SharedConnection shared);
+        Object call(UUID endpointId, Map<String, Object> params, SharedConnection shared, boolean readOnly);
     }
 
     /** A connection a workflow runs in one transaction, and the datasource it belongs to. */
@@ -261,10 +262,12 @@ public class QueryExecutor {
         private final java.util.concurrent.atomic.AtomicLong rows;
         private final java.util.concurrent.atomic.AtomicBoolean truncated;
         private final java.util.concurrent.atomic.AtomicBoolean wrote;
+        private final boolean readOnlyRequest;
 
         ScriptDb(Connection connection, Datasource ds, EndpointDefinition.Limits limits, Policy policy, List<BoundSql> executed,
                  java.util.concurrent.atomic.AtomicLong rows, java.util.concurrent.atomic.AtomicBoolean truncated,
-                 java.util.concurrent.atomic.AtomicBoolean wrote) {
+                 java.util.concurrent.atomic.AtomicBoolean wrote, boolean readOnlyRequest) {
+            this.readOnlyRequest = readOnlyRequest;
             this.connection = connection;
             this.ds = ds;
             this.limits = limits;
@@ -276,7 +279,7 @@ public class QueryExecutor {
         }
 
         ScriptDb on(Connection other) {
-            return new ScriptDb(other, ds, limits, policy, executed, rows, truncated, wrote);
+            return new ScriptDb(other, ds, limits, policy, executed, rows, truncated, wrote, readOnlyRequest);
         }
 
         /** @throws io.opendbapi.core.script.DbAccess.Failure wrapping what went wrong */
@@ -292,6 +295,10 @@ public class QueryExecutor {
                 throw new io.opendbapi.core.script.DbAccess.Failure(new ApiProblem(500, "script_failed", write
                         ? "update runs INSERT, UPDATE or DELETE; use one, list or value for queries."
                         : "one, list and value run queries; use update for INSERT, UPDATE or DELETE."));
+            }
+            if (isWrite && readOnlyRequest) {
+                throw new io.opendbapi.core.script.DbAccess.Failure(new ApiProblem(403, "write_in_get",
+                        "A GET endpoint must not change data; answer with POST, PUT or DELETE for this."));
             }
             if (isWrite && ds.readOnly()) {
                 throw new io.opendbapi.core.script.DbAccess.Failure(new ApiProblem(403, "read_only_datasource",
@@ -366,9 +373,10 @@ public class QueryExecutor {
         }
     }
 
-    private ScriptDb scriptDb(Connection c, Datasource ds, EndpointDefinition.Limits limits, Policy policy, List<BoundSql> executed) {
+    private ScriptDb scriptDb(Connection c, Datasource ds, EndpointDefinition.Limits limits, Policy policy, List<BoundSql> executed,
+                              boolean readOnlyRequest) {
         return new ScriptDb(c, ds, limits, policy, executed, new java.util.concurrent.atomic.AtomicLong(),
-                new java.util.concurrent.atomic.AtomicBoolean(), new java.util.concurrent.atomic.AtomicBoolean());
+                new java.util.concurrent.atomic.AtomicBoolean(), new java.util.concurrent.atomic.AtomicBoolean(), readOnlyRequest);
     }
 
     /** Turns what a script or workflow threw into the answer a caller gets. */
@@ -398,7 +406,7 @@ public class QueryExecutor {
             if (manual) {
                 c.setAutoCommit(false);
             }
-            ScriptDb db = scriptDb(c, ds, limits, policy, java.util.Collections.synchronizedList(executed));
+            ScriptDb db = scriptDb(c, ds, limits, policy, java.util.Collections.synchronizedList(executed), task.readOnly());
             try {
                 Object value = task.full().run(params, db);
                 QueryResult result = db.finish(value, start);
@@ -436,7 +444,7 @@ public class QueryExecutor {
             if (together) {
                 c.setAutoCommit(false);
             }
-            ScriptDb db = scriptDb(c, ds, limits, policy, log);
+            ScriptDb db = scriptDb(c, ds, limits, policy, log, task.readOnly());
             SharedConnection joinable = together ? new SharedConnection(c, ds.id()) : null;
             try {
                 for (List<CompiledWorkflow.Node> level : wf.levels()) {
@@ -535,7 +543,7 @@ public class QueryExecutor {
             Map<String, Object> values = new LinkedHashMap<>();
             n.params().forEach((name, e) -> values.put(name, e.evaluate(context::get)));
             try {
-                value = caller.call(n.endpointId(), values, joinable);
+                value = caller.call(n.endpointId(), values, joinable, db.readOnlyRequest);
             } catch (ApiProblem e) {
                 throw new ApiProblem(e.status(), e.code(), "Node '%s': %s".formatted(n.id(), e.getMessage()));
             }
@@ -599,6 +607,9 @@ public class QueryExecutor {
                 for (int i = 0; i < task.statements().size(); i++) {
                     boolean isMain = i == task.mainIndex();
                     BoundSql bound = render(task.statements().get(i), params);
+                    if (task.readOnly() && io.opendbapi.sql.inspect.SqlInspector.isWrite(bound.sql())) {
+                        throw new ApiProblem(403, "write_in_get", "A GET endpoint must not change data, nor the endpoints it calls.");
+                    }
                     if (isMain) {
                         bound = mainRewrite.apply(bound);
                     }

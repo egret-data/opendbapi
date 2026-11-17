@@ -361,7 +361,7 @@ public class EndpointService {
             }
             CompiledTask task;
             try {
-                task = CompiledTask.compile(definition.task());
+                task = CompiledTask.compile(definition.task()).forMethod(method);
             } catch (TemplateException e) {
                 throw ApiProblem.badRequest("template", e.getMessage());
             }

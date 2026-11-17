@@ -111,6 +111,10 @@ public class EndpointValidator {
             }
         }
 
+        if ("GET".equals(method) && writesThroughDb(def.task())) {
+            findings.add(Finding.error("write_in_get", "A GET endpoint must not change data, and a script here calls db.update; "
+                    + "use POST, PUT or DELETE."));
+        }
         if (task.isWorkflow()) {
             CompiledWorkflow wf = task.workflow();
             Map<String, Object> sample = CompiledWorkflow.sampleContext(sampleValues(def.params()), wf);
@@ -217,6 +221,18 @@ public class EndpointValidator {
             findings.add(Finding.error("pagination", "The default page size is larger than the maximum."));
         }
         return new Validation(findings, new ArrayList<>(used), output);
+    }
+
+    /** Whether a full-mode script, or a workflow's script node, calls db.update. */
+    private static boolean writesThroughDb(EndpointDefinition.Task t) {
+        java.util.regex.Pattern update = java.util.regex.Pattern.compile("\\bdb\\s*\\.\\s*update\\s*\\(");
+        if (t.script() && "full".equals(t.mode())) {
+            return t.source() != null && update.matcher(t.source()).find();
+        }
+        if (t.workflow()) {
+            return t.nodes().stream().anyMatch(n -> "script".equals(n.kind()) && n.source() != null && update.matcher(n.source()).find());
+        }
+        return false;
     }
 
     /** Spec §12.2: private only, the column is returned, and the filtered SQL is accepted by the database. */

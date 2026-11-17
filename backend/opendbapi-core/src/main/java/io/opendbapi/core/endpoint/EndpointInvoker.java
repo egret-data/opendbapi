@@ -44,7 +44,7 @@ public class EndpointInvoker {
     }
 
     private QueryExecutor.EndpointCaller caller(UUID workspaceId, UUID serviceAccountId, QueryExecutor.RunMode mode, int depth) {
-        return (endpointId, values, shared) -> {
+        return (endpointId, values, shared, readOnly) -> {
             if (depth > MAX_DEPTH) {
                 throw new ApiProblem(500, "workflow_failed", "Endpoints call each other more than %d deep.".formatted(MAX_DEPTH));
             }
@@ -61,7 +61,8 @@ public class EndpointInvoker {
                     ? new QueryExecutor.PageRequest(1, def.pagination().defaultSize(), false) : null;
             // Spec §6.1: inside a workflow transaction, a callee on the same datasource joins it.
             java.sql.Connection join = shared != null && shared.datasourceId().equals(ds.id()) ? shared.connection() : null;
-            QueryExecutor.QueryResult result = executor.run(ds, route.task(), params, page, def.limits(), mode, plan,
+            CompiledTask task = readOnly ? route.task().forMethod("GET") : route.task();
+            QueryExecutor.QueryResult result = executor.run(ds, task, params, page, def.limits(), mode, plan,
                     caller(workspaceId, serviceAccountId, mode, depth + 1), join);
             return ResponseBody.build(def, result, page,
                     r -> DataPolicies.Plan.apply(plan.masksFor(r.columns()), r.columns(), r.rows())).data();

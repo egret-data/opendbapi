@@ -46,9 +46,13 @@ class FullScriptIntegrationTest extends AppTestSupport {
     }
 
     private String endpoint(String path, String source) {
-        String id = admin.post(ws("/endpoints"), Map.of("name", path, "method", "GET", "path", path, "access", "public",
+        return endpoint(path, source, "GET");
+    }
+
+    private String endpoint(String path, String source, String method) {
+        String id = admin.post(ws("/endpoints"), Map.of("name", path, "method", method, "path", path, "access", "public",
                 "datasourceId", dsId)).expect(201).json().path("summary").path("id").asText();
-        admin.patch(ws("/endpoints/" + id), Map.of("name", path, "method", "GET", "path", path, "access", "public",
+        admin.patch(ws("/endpoints/" + id), Map.of("name", path, "method", method, "path", path, "access", "public",
                 "definition", definition(source))).expect(200);
         return id;
     }
@@ -84,7 +88,7 @@ class FullScriptIntegrationTest extends AppTestSupport {
         // Arrange
         String props = endpoint("props", "return db.connection");
         String reassign = endpoint("reassign", "db = null\nreturn 1");
-        String write = endpoint("write", "return db.update(sql\"update pg_class set relname = relname where false\")");
+        String write = endpoint("write", "return db.update(sql\"update pg_class set relname = relname where false\")", "POST");
         String wrongKind = endpoint("kind", "return db.list(sql\"delete from pg_class where false\")");
         String file = endpoint("file", "return 'file:///etc/passwd'.toURL().text");
 
@@ -94,7 +98,7 @@ class FullScriptIntegrationTest extends AppTestSupport {
         JsonNode fileCheck = admin.post(ws("/endpoints/" + file + ":validate"), Map.of()).expect(200).json();
         admin.post(ws("/endpoints/" + write + ":publish"), Map.of()).expect(200);
         admin.post(ws("/endpoints/" + wrongKind + ":publish"), Map.of()).expect(200);
-        var writeOnReadOnly = client().get("/api/" + ws + "/write");
+        var writeOnReadOnly = client().post("/api/" + ws + "/write", Map.of());
         var deleteThroughList = client().get("/api/" + ws + "/kind");
 
         // Assert

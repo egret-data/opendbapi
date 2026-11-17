@@ -10,10 +10,20 @@ import java.util.UUID;
 
 /** A task with its templates compiled once (spec §3.3). */
 public record CompiledTask(UUID datasourceId, boolean transaction, List<CompiledStatement> statements, int mainIndex,
-                           io.opendbapi.core.script.ScriptSandbox.Compiled full, CompiledWorkflow workflow) {
+                           io.opendbapi.core.script.ScriptSandbox.Compiled full, CompiledWorkflow workflow, boolean readOnly) {
 
     public CompiledTask(UUID datasourceId, boolean transaction, List<CompiledStatement> statements, int mainIndex) {
-        this(datasourceId, transaction, statements, mainIndex, null, null);
+        this(datasourceId, transaction, statements, mainIndex, null, null, false);
+    }
+
+    public CompiledTask(UUID datasourceId, boolean transaction, List<CompiledStatement> statements, int mainIndex,
+                        io.opendbapi.core.script.ScriptSandbox.Compiled full, CompiledWorkflow workflow) {
+        this(datasourceId, transaction, statements, mainIndex, full, workflow, false);
+    }
+
+    /** The same task for an endpoint answering {@code method}: a GET must not change data, which scripts and workflows check as they run. */
+    public CompiledTask forMethod(String method) {
+        return new CompiledTask(datasourceId, transaction, statements, mainIndex, full, workflow, "GET".equals(method));
     }
 
     /** Spec §6.1: a graph of nodes rather than statements. */
