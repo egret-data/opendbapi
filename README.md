@@ -39,6 +39,8 @@ backend/            Maven multi-module, Java 21, Spring Boot 3.3
   opendbapi-app/      standalone Spring Boot app (bundles the UI)
 frontend/           React 19 + Vite + Tailwind v4 (shell and primitives from Egret)
 deploy/dev/         docker compose: PostgreSQL, OpenLDAP, Keycloak
+deploy/helm/        Helm chart (N identical pods on PostgreSQL)
+Dockerfile          one image: API + UI
 openapi.json        management API contract; frontend client is generated from it
 docs/SPEC.md        specification
 ```
@@ -134,6 +136,44 @@ cd ../frontend && npm run gen:api
 
 `npm run build` in `frontend/`, then `mvn package` in `backend/`: the app jar serves the UI
 from `frontend/dist`. Without a frontend build the jar still runs, API only.
+
+## Deploy
+
+OpenDBAPI needs one PostgreSQL 14+ for its own data, with two roles: an owner that runs the
+migrations and an app role subject to row-level security (see
+`deploy/dev/postgres/init-roles.sql`). Every instance is identical; browser sessions, HMAC
+nonces and cache invalidation (`LISTEN/NOTIFY`) go through PostgreSQL, so you scale by adding
+pods, with no sticky sessions or Redis. Rate limits and result caches count per pod.
+
+```bash
+docker build -t opendbapi .
+docker run -p 8520:8520 \
+  -e OPENDBAPI_DB_URL=jdbc:postgresql://db:5432/opendbapi \
+  -e OPENDBAPI_DB_PASSWORD=... -e OPENDBAPI_DB_OWNER_PASSWORD=... \
+  -e OPENDBAPI_MASTER_KEY="$(openssl rand -base64 32)" \
+  -e OPENDBAPI_SECURE_COOKIES=false \
+  opendbapi
+```
+
+The image runs as a non-root user; `/actuator/health/liveness` and `/readiness` are the
+probes and `/actuator/prometheus` serves metrics. Keep the master key: secrets stored in
+OpenDBAPI cannot be read without it. Set `OPENDBAPI_SECURE_COOKIES=false` only for plain-HTTP
+trials.
+
+On Kubernetes (1.30+), the chart takes the database URL and a Secret:
+
+```bash
+kubectl create secret generic opendbapi \
+  --from-literal=db-password=... --from-literal=db-owner-password=... \
+  --from-literal=master-key="$(openssl rand -base64 32)" \
+  --from-literal=bootstrap-admin-password=...
+helm install opendbapi deploy/helm/opendbapi \
+  --set database.url=jdbc:postgresql://postgres:5432/opendbapi \
+  --set existingSecret=opendbapi --set replicaCount=3
+```
+
+See `deploy/helm/opendbapi/values.yaml` for ingress, autoscaling, resources and extra
+environment (LDAP/OIDC settings).
 
 ## License
 

@@ -1,0 +1,18 @@
+OpenDBAPI is starting with {{ if .Values.autoscaling.enabled }}{{ .Values.autoscaling.minReplicas }}-{{ .Values.autoscaling.maxReplicas }}{{ else }}{{ .Values.replicaCount }}{{ end }} pod(s).
+
+{{- if .Values.ingress.enabled }}
+Open: http{{ if .Values.ingress.tls }}s{{ end }}://{{ (index .Values.ingress.hosts 0).host }}/
+{{- else }}
+Try it locally:
+  kubectl port-forward svc/{{ include "opendbapi.fullname" . }} 8520:{{ .Values.service.port }}
+  open http://localhost:8520/
+{{- end }}
+
+Sign in as "admin".
+{{- if not .Values.existingSecret }}{{ if not .Values.secrets.bootstrapAdminPassword }}
+The first pod printed a generated password once:
+  kubectl logs -l app.kubernetes.io/instance={{ .Release.Name }} --tail=-1 | grep -A3 "first system administrator"
+{{- end }}{{ end }}
+
+Keep the master key safe: secrets stored in OpenDBAPI cannot be read without it.
+Rate limits and result caches are counted per pod.

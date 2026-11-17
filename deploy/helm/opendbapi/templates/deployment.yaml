@@ -1,0 +1,121 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "opendbapi.fullname" . }}
+  labels:
+    {{- include "opendbapi.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "opendbapi.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        {{- if not .Values.existingSecret }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- end }}
+        {{- if .Values.metrics.podAnnotations }}
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /actuator/prometheus
+        prometheus.io/port: "8520"
+        {{- end }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "opendbapi.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      serviceAccountName: {{ include "opendbapi.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      # Lets in-flight requests finish (server.shutdown=graceful) after the endpoints drop the pod.
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: opendbapi
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: 8520
+          env:
+            - name: OPENDBAPI_DB_URL
+              value: {{ required "database.url is required" .Values.database.url | quote }}
+            - name: OPENDBAPI_DB_USER
+              value: {{ .Values.database.user | quote }}
+            - name: OPENDBAPI_DB_OWNER
+              value: {{ .Values.database.ownerUser | quote }}
+            - name: OPENDBAPI_DB_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ include "opendbapi.secretName" . }}, key: {{ .Values.secretKeys.dbPassword }}}
+            - name: OPENDBAPI_DB_OWNER_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ include "opendbapi.secretName" . }}, key: {{ .Values.secretKeys.dbOwnerPassword }}}
+            - name: OPENDBAPI_MASTER_KEY
+              valueFrom:
+                secretKeyRef: {name: {{ include "opendbapi.secretName" . }}, key: {{ .Values.secretKeys.masterKey }}}
+            - name: OPENDBAPI_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ include "opendbapi.secretName" . }}, key: {{ .Values.secretKeys.bootstrapAdminPassword }}, optional: true}
+            - name: OPENDBAPI_SECURE_COOKIES
+              value: {{ .Values.secureCookies | quote }}
+            - name: JAVA_TOOL_OPTIONS
+              value: {{ .Values.javaToolOptions | quote }}
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.envFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          startupProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+            periodSeconds: 5
+            failureThreshold: 60
+          livenessProbe:
+            httpGet: {path: /actuator/health/liveness, port: http}
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet: {path: /actuator/health/readiness, port: http}
+            periodSeconds: 5
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              # Give the load balancer time to stop sending traffic before shutdown starts.
+              sleep: {seconds: 10}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+      volumes:
+        - name: tmp
+          emptyDir: {}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

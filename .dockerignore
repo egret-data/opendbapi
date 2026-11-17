@@ -1,0 +1,13 @@
+**/node_modules
+**/target
+**/dist
+frontend/test-results
+frontend/playwright-report
+.git
+.github
+.playwright-mcp
+docs
+deploy
+*.tar.gz
+*.pdf
+**/*.tsbuildinfo
