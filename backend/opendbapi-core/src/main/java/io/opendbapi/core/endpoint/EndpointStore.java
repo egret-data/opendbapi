@@ -25,7 +25,19 @@ public class EndpointStore {
             left join endpoint_version v on v.id = e.live_version_id""";
 
     /** A live endpoint with its serving snapshot, for the registry. */
-    public record LiveRow(UUID endpointId, UUID versionId, int version, EndpointVersion.Snapshot snapshot) {
+    /**
+     * @param deprecatedAt  set when the endpoint is deprecated (spec §16)
+     * @param successorPath route of the newest live major of the same lineage above this one
+     */
+    public record LiveRow(UUID endpointId, UUID versionId, int version, EndpointVersion.Snapshot snapshot,
+                          OffsetDateTime deprecatedAt, OffsetDateTime sunsetAt, String successorPath) {
+    }
+
+    /** One endpoint of a lineage (spec §16). */
+    public record LineageMember(UUID id, String name, String method, String path, int major, String state,
+                                @io.swagger.v3.oas.annotations.media.Schema(nullable = true) Integer liveVersion,
+                                @io.swagger.v3.oas.annotations.media.Schema(nullable = true) OffsetDateTime deprecatedAt,
+                                @io.swagger.v3.oas.annotations.media.Schema(nullable = true) OffsetDateTime sunsetAt) {
     }
 
     public record Filter(String state, UUID groupId, UUID datasourceId, String query, boolean trashed) {
@@ -158,12 +170,57 @@ public class EndpointStore {
     /** Everything this workspace serves right now. */
     public List<LiveRow> live() {
         return jdbc.sql("""
-                select e.id as endpoint_id, v.id as version_id, v.version, v.definition
+                select e.id as endpoint_id, v.id as version_id, v.version, v.definition, e.deprecated_at, e.sunset_at,
+                       (select s.path from endpoint s
+                        where s.lineage_id = e.lineage_id and s.major > e.major and s.state = 'live' and s.deleted_at is null
+                        order by s.major desc limit 1) as successor_path
                 from endpoint e join endpoint_version v on v.id = e.live_version_id
                 where e.state = 'live' and e.deleted_at is null""")
                 .query((rs, i) -> new LiveRow(rs.getObject("endpoint_id", UUID.class), rs.getObject("version_id", UUID.class),
-                        rs.getInt("version"), read(rs.getString("definition"), EndpointVersion.Snapshot.class)))
+                        rs.getInt("version"), read(rs.getString("definition"), EndpointVersion.Snapshot.class),
+                        rs.getObject("deprecated_at", OffsetDateTime.class), rs.getObject("sunset_at", OffsetDateTime.class),
+                        rs.getString("successor_path")))
                 .list();
+    }
+
+    /** The endpoints sharing a lineage, oldest major first. */
+    public List<LineageMember> lineage(UUID lineageId) {
+        return jdbc.sql("""
+                select e.id, e.name, e.method, e.path, e.major, e.state, v.version as live_version, e.deprecated_at, e.sunset_at
+                from endpoint e left join endpoint_version v on v.id = e.live_version_id
+                where e.lineage_id = ? and e.deleted_at is null order by e.major""")
+                .param(lineageId)
+                .query((rs, i) -> {
+                    int live = rs.getInt("live_version");
+                    return new LineageMember(rs.getObject("id", UUID.class), rs.getString("name"), rs.getString("method"),
+                            rs.getString("path"), rs.getInt("major"), rs.getString("state"), rs.wasNull() ? null : live,
+                            rs.getObject("deprecated_at", OffsetDateTime.class), rs.getObject("sunset_at", OffsetDateTime.class));
+                })
+                .list();
+    }
+
+    public int highestMajor(UUID lineageId) {
+        return jdbc.sql("select coalesce(max(major), 1) from endpoint where lineage_id = ?").param(lineageId).query(Integer.class).single();
+    }
+
+    /** A new major of {@code source}: its draft at another route, in the same lineage. */
+    public Endpoint createMajor(Endpoint source, String name, String path, int major, UUID createdBy) {
+        if (routeTaken(source.method(), path)) {
+            throw routeTakenProblem(source.method(), path);
+        }
+        UUID id = jdbc.sql("""
+                insert into endpoint (workspace_id, group_id, name, description, method, path, access, definition, created_by,
+                                      lineage_id, major)
+                values (?, ?, ?, ?, ?, ?, ?, ?::jsonb, ?, ?, ?) returning id""")
+                .params(source.workspaceId(), source.groupId(), name, source.description(), source.method(), path, source.access(),
+                        write(source.definition()), createdBy, source.lineageId(), major)
+                .query(UUID.class).single();
+        return find(id).orElseThrow();
+    }
+
+    public void setDeprecation(UUID id, OffsetDateTime deprecatedAt, OffsetDateTime sunsetAt) {
+        jdbc.sql("update endpoint set deprecated_at = ?, sunset_at = ?, updated_at = now() where id = ?")
+                .params(deprecatedAt, sunsetAt, id).update();
     }
 
     private static ApiProblem routeTakenProblem(String method, String path) {
@@ -206,7 +263,9 @@ public class EndpointStore {
                 rs.getString("state"), rs.getObject("live_version_id", UUID.class), liveVersion,
                 rs.getString("access"), read(rs.getString("definition"), EndpointDefinition.class), rs.getBoolean("dirty"),
                 rs.getObject("deleted_at", OffsetDateTime.class), rs.getObject("created_by", UUID.class),
-                rs.getObject("created_at", OffsetDateTime.class), rs.getObject("updated_at", OffsetDateTime.class));
+                rs.getObject("created_at", OffsetDateTime.class), rs.getObject("updated_at", OffsetDateTime.class),
+                rs.getObject("lineage_id", UUID.class), rs.getInt("major"), rs.getObject("deprecated_at", OffsetDateTime.class),
+                rs.getObject("sunset_at", OffsetDateTime.class));
     }
 
     private EndpointVersion mapVersion(ResultSet rs, int row) throws SQLException {

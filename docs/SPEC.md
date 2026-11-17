@@ -925,11 +925,19 @@ Các `kind` khác: `Datasource` (không chứa bí mật, chỉ `passwordRef: se
 
 ---
 
-## 16. Quản lý phiên bản API (P3)
+## 16. Quản lý phiên bản API
 
-- **Minor** (không phá vỡ bên gọi): publish phiên bản mới của cùng endpoint. `meta.version` cho biết phiên bản nào đã phục vụ request.
-- **Major** (phá vỡ bên gọi): action "Tạo major mới" nhân bản endpoint sang path mới (`v1/…` → `v2/…`), ở trạng thái draft, gắn `lineage_id` chung. Hai bản chạy song song; bản cũ có thể được đánh dấu `deprecated` (thêm header `Deprecation` và `Sunset` vào response).
-- Validate khi publish so sánh `output_schema` mới với bản đang live. Nếu bỏ cột hoặc đổi kiểu thì cảnh báo "breaking change" và gợi ý tạo major mới.
+- **Minor** (không phá vỡ bên gọi): publish phiên bản mới của cùng endpoint. `meta.version` và header `X-OpenDBAPI-Version` cho biết phiên bản nào đã phục vụ request.
+- **Major** (phá vỡ bên gọi): `POST /endpoints/{id}:new-major` (author; menu **New major version…**) nhân bản draft sang route mới ở trạng thái draft, cùng `lineage_id`, `major` = major lớn nhất của lineage + 1.
+  - Path mặc định: `v1/orders` → `v2/orders`; path không có tiền tố `vN/` thì thêm vào (`orders` → `v2/orders`). Có thể chọn path khác; route đã có người dùng thì 409 `route_taken`. Tên được thêm hậu tố ` v2`.
+  - Hai bản là hai endpoint độc lập (grant, test, policy riêng) và chạy song song. `GET /endpoints/{id}/lineage` liệt kê các major của lineage; tab Versions hiện bảng **Major versions** khi có từ hai bản.
+- **Deprecated**: `POST /endpoints/{id}:deprecate` với `sunset` tuỳ chọn, `:undeprecate` để bỏ. Endpoint vẫn trả lời bình thường, nhưng mọi response (kể cả lỗi) có thêm:
+  - `Deprecation: @<epoch giây>` (RFC 9745), tính từ lúc deprecate;
+  - `Sunset: <HTTP-date>` (RFC 8594) nếu có ngày;
+  - `Link: <…/vN/orders>; rel="successor-version"` trỏ tới major cao nhất đang live của cùng lineage.
+  - OpenAPI của workspace đánh dấu operation đó `deprecated: true`.
+- **Breaking change**: validate (và hộp thoại publish) so sánh cột kết quả của draft với `output_schema` của bản đang live. Bỏ cột hoặc đổi kiểu sinh cảnh báo `breaking_change` kèm gợi ý tạo major mới; publish không bị chặn.
+- Lineage và trạng thái deprecated chưa nằm trong file YAML cấu hình (§15).
 
 ---
 
@@ -1127,7 +1135,7 @@ Quyền tối thiểu theo bảng §8.4.
 | Audit | `GET /audit` (admin workspace) |
 | Nhóm (thư mục) | `GET/POST /groups`, `PATCH/DELETE /groups/{id}` |
 | Datasource | `GET/POST /datasources`, `GET /datasources/dialects`, `GET/PATCH/DELETE /datasources/{id}` (xoá bị từ chối khi endpoint đang dùng), `POST /datasources/{id}:test` (author), `POST /datasources/test` (cấu hình chưa lưu, `existingId` để dùng lại mật khẩu đã lưu; admin), `GET /datasources/{id}/schemas`, `GET /datasources/{id}/tables?schema=`, `GET /datasources/{id}/columns?schema=&table=` (author). Hạn mức `quotas.datasources` của workspace được kiểm tra khi tạo |
-| Endpoint | `GET/POST /endpoints` (lọc `state`, `groupId`, `datasourceId`, `q`, `trashed`), `GET/PATCH /endpoints/{id}`, `POST /endpoints/{id}:validate`, `:publish`, `:disable`, `:enable`, `:trash`, `:restore`, `:duplicate`, `:new-major`, `DELETE /endpoints/{id}` (chỉ khi đã ở thùng rác) |
+| Endpoint | `GET/POST /endpoints` (lọc `state`, `groupId`, `datasourceId`, `q`, `trashed`), `GET/PATCH /endpoints/{id}`, `POST /endpoints/{id}:validate`, `:publish`, `:disable`, `:enable`, `:trash`, `:restore`, `:duplicate`, `:new-major`, `:deprecate`, `:undeprecate`, `GET /endpoints/{id}/lineage`, `DELETE /endpoints/{id}` (chỉ khi đã ở thùng rác) |
 | Phiên bản | `GET /endpoints/{id}/versions`, `GET /endpoints/{id}/versions/{v}`, `POST /endpoints/{id}/versions/{v}:rollback`, `GET /endpoints/{id}/versions/{a}/diff/{b}` |
 | Viết & kiểm thử | `POST /endpoints/{id}/preview`, `POST /endpoints/{id}/try`, `GET/POST /endpoints/{id}/tests`, `PATCH/DELETE /endpoints/{id}/tests/{tid}`, `POST /endpoints/{id}/tests:run` |
 | Tài liệu | `GET /endpoints/{id}/openapi` |

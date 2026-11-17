@@ -13,6 +13,8 @@ export interface EndpointSummary {
   /** @nullable */
   datasourceId?: string | null;
   /** @nullable */
+  deprecatedAt?: string | null;
+  /** @nullable */
   description?: string | null;
   dirty: boolean;
   /** @nullable */
@@ -20,10 +22,14 @@ export interface EndpointSummary {
   id: string;
   /** @nullable */
   liveVersion?: number | null;
+  /** Major version within its lineage (spec §16) */
+  major: number;
   method: string;
   name: string;
   path: string;
   state: EndpointSummaryState;
+  /** @nullable */
+  sunsetAt?: string | null;
   trashed: boolean;
   updatedAt: string;
 }
