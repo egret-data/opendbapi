@@ -333,5 +333,8 @@
   "Sunset date (optional)": "Ngày dừng phục vụ (không bắt buộc)",
   "Deprecate": "Ngừng khuyến nghị",
   "Major versions": "Các phiên bản major",
-  "Major": "Major"
+  "Major": "Major",
+  "Groovy script (full: db, any answer)": "Script Groovy (full: db, trả về tuỳ ý)",
+  "{{n}} queries (rolled back)": "{{n}} câu query (đã rollback)",
+  "Script answer": "Kết quả của script"
 }

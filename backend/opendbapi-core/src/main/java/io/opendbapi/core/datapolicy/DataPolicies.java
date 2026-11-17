@@ -230,7 +230,18 @@ public class DataPolicies {
     }
 
     /** One call's policies. Not thread-safe: a call runs on one thread. */
-    public static final class Plan {
+    public static final class Plan implements io.opendbapi.core.endpoint.QueryExecutor.Policy {
+
+        @Override
+        public BoundSql rewrite(BoundSql query) {
+            return rewriteMain(query);
+        }
+
+        @Override
+        public void mask(List<ResultColumn> columns, List<Map<String, Object>> rows) {
+            apply(masksFor(columns), columns, rows);
+        }
+
 
         public static final Plan NONE = new Plan(null, List.of(), null);
 

@@ -8,6 +8,7 @@
 import type { ExecutedSql } from './executedSql';
 import type { Finding } from './finding';
 import type { PreviewResponseRowsItem } from './previewResponseRowsItem';
+import type { PreviewResponseValue } from './previewResponseValue';
 import type { ResultColumn } from './resultColumn';
 
 export interface PreviewResponse {
@@ -23,4 +24,9 @@ export interface PreviewResponse {
   /** @nullable */
   total?: number | null;
   truncated: boolean;
+  /**
+     * Full-mode scripts: what the script returned
+     * @nullable
+     */
+  value?: PreviewResponseValue;
 }

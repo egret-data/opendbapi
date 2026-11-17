@@ -42,6 +42,26 @@ public final class SqlInspector {
         return findings.stream().anyMatch(f -> f.severity() == Severity.ERROR);
     }
 
+    /** Whether the SQL changes data: anything but a plain SELECT (SELECT … INTO counts as a write). */
+    public static boolean isWrite(String sql) {
+        try {
+            Statements parsed = CCJSqlParserUtil.parseStatements(sql);
+            for (Statement statement : parsed) {
+                if (!(statement instanceof Select select)) {
+                    return true;
+                }
+                SelectFacts facts = new SelectFacts();
+                facts.visit(select, true);
+                if (facts.into) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (JSQLParserException | RuntimeException e) {
+            return writeKeyword(sql) != null;
+        }
+    }
+
     public static List<SqlFinding> inspect(String sql, Context context) {
         List<SqlFinding> findings = new ArrayList<>();
         List<Statement> statements;

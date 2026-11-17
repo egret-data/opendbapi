@@ -14,4 +14,5 @@ export type TaskMode = typeof TaskMode[keyof typeof TaskMode] | null;
 
 export const TaskMode = {
   fragment: 'fragment',
+  full: 'full',
 } as const;

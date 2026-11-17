@@ -113,6 +113,7 @@ export * from './previewRequest';
 export * from './previewRequestParams';
 export * from './previewResponse';
 export * from './previewResponseRowsItem';
+export * from './previewResponseValue';
 export * from './providerRef';
 export * from './providerTestResult';
 export * from './providerView';

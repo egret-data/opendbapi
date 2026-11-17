@@ -84,18 +84,52 @@ public final class ScriptSandbox {
          * @throws ScriptRejected when the script fails, runs out of time or returns no fragment
          */
         public BoundSql render(Map<String, Object> params) {
+            Object result = execute(params, null);
+            if (!(result instanceof SqlFragment fragment)) {
+                throw new ScriptRejected("The script must return a fragment built with sql\"…\", not "
+                        + (result == null ? "nothing" : result.getClass().getSimpleName()) + ".");
+            }
+            return fragment.toBoundSql();
+        }
+
+        /**
+         * Runs a full-mode script with {@code db} (spec §7.4) and returns what it returned.
+         *
+         * @throws ScriptAnswer      when the script answered with notFound/badRequest
+         * @throws DbAccess.Failure  when its database work failed
+         * @throws ScriptRejected    when the script failed or ran out of time
+         */
+        public Object run(Map<String, Object> params, DbAccess db) {
+            return execute(params, db);
+        }
+
+        private Object execute(Map<String, Object> params, DbAccess db) {
             Binding binding = new Binding();
             binding.setVariable("params", Collections.unmodifiableMap(new LinkedHashMap<>(params)));
+            if (db != null) {
+                binding.setVariable("db", db);
+            }
             Script script = InvokerHelper.createScript(type, binding);
-            Object result;
             try {
-                result = script.run();
-            } catch (ScriptRejected e) {
+                return script.run();
+            } catch (ScriptRejected | ScriptAnswer | DbAccess.Failure e) {
                 throw e;
             } catch (Exception e) {
                 Throwable root = e;
                 while (root.getCause() != null && root.getCause() != root) {
+                    if (root instanceof ScriptAnswer || root instanceof DbAccess.Failure || root instanceof ScriptRejected) {
+                        break;
+                    }
                     root = root.getCause();
+                }
+                if (root instanceof ScriptAnswer a) {
+                    throw a;
+                }
+                if (root instanceof DbAccess.Failure f) {
+                    throw f;
+                }
+                if (root instanceof ScriptRejected r) {
+                    throw r;
                 }
                 if (root instanceof TimeoutException) {
                     throw new ScriptRejected("The script ran longer than %d ms.".formatted(timeoutMillis));
@@ -105,13 +139,16 @@ public final class ScriptSandbox {
             } catch (StackOverflowError e) {
                 throw new ScriptRejected("The script recursed too deeply.");
             }
-            if (!(result instanceof SqlFragment fragment)) {
-                throw new ScriptRejected("The script must return a fragment built with sql\"…\", not "
-                        + (result == null ? "nothing" : result.getClass().getSimpleName()) + ".");
-            }
-            return fragment.toBoundSql();
         }
     }
+
+    /** Fragment scripts return the query; full scripts run queries through {@code db} and return any value. */
+    public enum ScriptMode { FRAGMENT, FULL }
+
+    static final Set<String> RECEIVERLESS_FULL = Set.of("sql", "raw", "orderBy", "notFound", "badRequest");
+
+    /** The only methods a full script may call on {@code db}. */
+    static final Set<String> DB_METHODS = Set.of("one", "list", "value", "update");
 
     static final Set<String> RECEIVERLESS = Set.of("sql", "raw", "orderBy");
 
@@ -176,6 +213,11 @@ public final class ScriptSandbox {
 
     /** @throws ScriptRejected with the line of the first problem */
     public Compiled compile(String source) {
+        return compile(source, ScriptMode.FRAGMENT);
+    }
+
+    /** @throws ScriptRejected with the line of the first problem */
+    public Compiled compile(String source, ScriptMode mode) {
         if (source == null || source.isBlank()) {
             throw new ScriptRejected("The script is empty.");
         }
@@ -184,11 +226,11 @@ public final class ScriptSandbox {
         }
         Set<String> read = new LinkedHashSet<>();
         CompilerConfiguration config = new CompilerConfiguration();
-        config.setScriptBaseClass(FragmentScript.class.getName());
+        config.setScriptBaseClass((mode == ScriptMode.FULL ? FullScript.class : FragmentScript.class).getName());
         // @Grab would resolve and download dependencies while compiling, before any check runs.
         config.setDisabledGlobalASTTransformations(Set.of("groovy.grape.GrabAnnotationTransformation"));
         config.addCompilationCustomizers(
-                new Rules(read),
+                new Rules(read, mode == ScriptMode.FULL),
                 new ASTTransformationCustomizer(Map.of("value", Math.max(1, timeoutMillis), "unit",
                         new org.codehaus.groovy.ast.expr.PropertyExpression(new ClassExpression(ClassHelper.make(java.util.concurrent.TimeUnit.class)), "MILLISECONDS")),
                         TimedInterrupt.class),
@@ -221,10 +263,12 @@ public final class ScriptSandbox {
     private static final class Rules extends CompilationCustomizer {
 
         private final Set<String> read;
+        private final boolean full;
 
-        Rules(Set<String> read) {
+        Rules(Set<String> read, boolean full) {
             super(CompilePhase.CANONICALIZATION);
             this.read = read;
+            this.full = full;
         }
 
         @Override
@@ -247,7 +291,7 @@ public final class ScriptSandbox {
             if (!classNode.getFields().stream().allMatch(f -> f.isSynthetic() || f.getName().startsWith("$") || f.getName().startsWith("__"))) {
                 throw refuse(classNode, "Scripts cannot declare fields.");
             }
-            new Checker(source, read).visitClass(classNode);
+            new Checker(source, read, full).visitClass(classNode);
         }
 
         private static void refuseAnnotations(AnnotatedNode node) {
@@ -262,10 +306,16 @@ public final class ScriptSandbox {
     private static final class Checker extends ClassCodeVisitorSupport {
         private final SourceUnit source;
         private final Set<String> read;
+        private final boolean full;
 
-        Checker(SourceUnit source, Set<String> read) {
+        Checker(SourceUnit source, Set<String> read, boolean full) {
             this.source = source;
             this.read = read;
+            this.full = full;
+        }
+
+        private static boolean isVariable(Expression e, String name) {
+            return e instanceof VariableExpression v && name.equals(v.getName());
         }
 
         /** Nodes the interrupt transforms add have no position; script text always has one. */
@@ -288,8 +338,9 @@ public final class ScriptSandbox {
             }
             denyName(call, name);
             if (call.isImplicitThis()) {
-                if (!RECEIVERLESS.contains(name)) {
-                    throw refuse(call, "'%s' is not available in scripts; use sql, raw and orderBy.".formatted(name));
+                if (!(full ? RECEIVERLESS_FULL : RECEIVERLESS).contains(name)) {
+                    throw refuse(call, full ? "'%s' is not available in scripts; use db, sql, raw, orderBy, notFound and badRequest.".formatted(name)
+                            : "'%s' is not available in scripts; use sql, raw and orderBy.".formatted(name));
                 }
                 if ("raw".equals(name) && !literalArgument(call.getArguments())) {
                     throw refuse(call, "raw() only takes a string written in the script, never a value.");
@@ -302,6 +353,12 @@ public final class ScriptSandbox {
                 return;
             } else if (call.getObjectExpression() instanceof VariableExpression v && (v.isThisExpression() || v.isSuperExpression())) {
                 throw refuse(call, "this and super are not available in scripts.");
+            } else if (full && isVariable(call.getObjectExpression(), "db")) {
+                if (!DB_METHODS.contains(name) || call.isSafe() || call.isSpreadSafe()) {
+                    throw refuse(call, "db offers one, list, value and update.");
+                }
+                call.getArguments().visit(this);
+                return;
             } else if (!ALLOWED_METHODS.contains(name)) {
                 throw refuse(call, "Method '%s' is not available in scripts.".formatted(name));
             }
@@ -349,6 +406,9 @@ public final class ScriptSandbox {
                 throw refuse(e, "Property names must be written out, not computed.");
             }
             denyName(e, name);
+            if (isVariable(e.getObjectExpression(), "db")) {
+                throw refuse(e, "db has no properties; call db.one, db.list, db.value or db.update.");
+            }
             if (e.getObjectExpression() instanceof VariableExpression p && "params".equals(p.getName())) {
                 read.add(name);
             }
@@ -395,6 +455,9 @@ public final class ScriptSandbox {
                 return;
             }
             allowType(e, e.getLeftExpression().getType());
+            if (isVariable(e.getLeftExpression(), "db") || isVariable(e.getLeftExpression(), "params")) {
+                throw refuse(e, "db and params cannot be declared again.");
+            }
             super.visitDeclarationExpression(e);
         }
 
@@ -415,6 +478,10 @@ public final class ScriptSandbox {
         public void visitBinaryExpression(BinaryExpression e) {
             if (synthetic(e)) {
                 return;
+            }
+            if ("=".equals(e.getOperation().getText())
+                    && (isVariable(e.getLeftExpression(), "db") || isVariable(e.getLeftExpression(), "params"))) {
+                throw refuse(e, "db and params cannot be assigned.");
             }
             if ("[".equals(e.getOperation().getText())) {
                 if (!(e.getRightExpression() instanceof ConstantExpression c)) {

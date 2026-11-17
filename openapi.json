@@ -5715,6 +5715,11 @@
           },
           "truncated" : {
             "type" : "boolean"
+          },
+          "value" : {
+            "type" : "object",
+            "description" : "Full-mode scripts: what the script returned",
+            "nullable" : true
           }
         }
       },
@@ -6404,7 +6409,7 @@
           "mode" : {
             "type" : "string",
             "nullable" : true,
-            "enum" : [ "fragment" ]
+            "enum" : [ "fragment", "full" ]
           },
           "source" : {
             "type" : "string",

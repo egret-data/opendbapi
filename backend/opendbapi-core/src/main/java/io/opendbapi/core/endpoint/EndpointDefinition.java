@@ -144,12 +144,13 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
 
     /**
      * {@code type = "sql"}: statements run in order on one connection. {@code type = "script"}
-     * (spec §7.4): a Groovy {@code source} in {@code mode = "fragment"} that returns the main query.
+     * (spec §7.4): a Groovy {@code source}; {@code mode = "fragment"} returns the main query,
+     * {@code mode = "full"} runs queries through {@code db} and returns the answer itself.
      */
     public record Task(@Schema(allowableValues = {"sql", "script"}) String type, @Schema(nullable = true) UUID datasourceId,
                        boolean transaction, List<Statement> statements,
                        @Schema(nullable = true, allowableValues = {"groovy"}) String language,
-                       @Schema(nullable = true, allowableValues = {"fragment"}) String mode,
+                       @Schema(nullable = true, allowableValues = {"fragment", "full"}) String mode,
                        @Schema(nullable = true, description = "Script tasks: the Groovy source") String source) {
         public Task {
             type = type == null ? "sql" : type;
