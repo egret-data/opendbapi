@@ -27,7 +27,7 @@ import org.springframework.stereotype.Component;
 /**
  * Applies data policies on the serving path (spec §12, §9.1 steps 11 and 13): the row filter
  * rewrites the main statement before pagination, masks change values after execution.
- * Policies are cached per workspace for a few seconds; changes through this instance clear it.
+ * Policies are cached per workspace for a few seconds; changes on any instance clear it everywhere (ChangeBus).
  * Everything fails closed: a row filter that cannot be resolved stops the call.
  */
 @Component
@@ -68,10 +68,28 @@ public class DataPolicies {
 
     /** Policies or caller attributes changed: reload them, and drop cached answers built with the old ones. */
     public void invalidate(UUID workspaceId) {
-        cache.remove(workspaceId);
+        if (changes != null) {
+            changes.publish("policies", workspaceId);
+        } else {
+            cache.remove(workspaceId);
+        }
         if (results != null) {
             results.clearWorkspace(workspaceId);
         }
+    }
+
+    private io.opendbapi.core.cluster.ChangeBus changes;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setChanges(io.opendbapi.core.cluster.ChangeBus changes) {
+        this.changes = changes;
+        changes.on("policies", ws -> {
+            if (ws == null) {
+                cache.clear();
+            } else {
+                cache.remove(ws);
+            }
+        });
     }
 
     /** Checks a policy before it is saved; the message is for workspace admins. */

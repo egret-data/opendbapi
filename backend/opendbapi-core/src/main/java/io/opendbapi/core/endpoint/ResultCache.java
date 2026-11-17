@@ -96,11 +96,30 @@ public class ResultCache {
 
     /** Forgets every entry of a workspace, e.g. when its data policies or caller attributes change. */
     public void clearWorkspace(UUID workspaceId) {
-        generation0(workspaceId).incrementAndGet();
+        if (changes != null) {
+            changes.publish("results", workspaceId);
+        } else {
+            generation0(workspaceId).incrementAndGet();
+        }
     }
 
     public void clearEndpoint(UUID endpointId) {
-        generation0(endpointId).incrementAndGet();
+        clearWorkspace(endpointId);
+    }
+
+    private io.opendbapi.core.cluster.ChangeBus changes;
+
+    /** Clearing on one instance clears every instance (several pods). Ids of workspaces and endpoints never collide. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setChanges(io.opendbapi.core.cluster.ChangeBus changes) {
+        this.changes = changes;
+        changes.on("results", id -> {
+            if (id == null) {
+                cache.invalidateAll();
+            } else {
+                generation0(id).incrementAndGet();
+            }
+        });
     }
 
     private long generation(UUID id) {
