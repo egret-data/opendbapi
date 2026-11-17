@@ -16,7 +16,17 @@ import org.springframework.stereotype.Repository;
 public class ActivityStore {
 
     public record Summary(long requests, long errors, @Schema(nullable = true) Double p95Ms, long activeClients,
-                          List<Day> byDay, List<TopEndpoint> topEndpoints, List<TopError> topErrors) {
+                          List<Day> byDay, List<TopEndpoint> topEndpoints, List<TopError> topErrors,
+                          @Schema(description = "Endpoints with the highest p95 latency, at least 5 calls each") List<TopEndpoint> slowestEndpoints,
+                          List<TopClient> topClients, List<TopIp> topIps) {
+    }
+
+    /** @param serviceAccount name of the client's service account, when it still exists */
+    public record TopClient(String clientId, @Schema(nullable = true) String serviceAccount, long requests, long errors,
+                            @Schema(nullable = true) Double p95Ms) {
+    }
+
+    public record TopIp(String ip, long requests, long errors) {
     }
 
     public record Day(LocalDate day, long requests, long errors) {
@@ -49,8 +59,15 @@ public class ActivityStore {
     }
 
     public Summary summary(Instant from, Instant to, boolean includeTryIt) {
-        String where = " where l.ts >= ? and l.ts < ?" + (includeTryIt ? "" : " and l.actor_user_id is null");
-        Object[] range = {Timestamp.from(from), Timestamp.from(to)};
+        return summary(from, to, includeTryIt, null);
+    }
+
+    /** @param endpointId only this endpoint's calls; null for the whole workspace */
+    public Summary summary(Instant from, Instant to, boolean includeTryIt, UUID endpointId) {
+        String where = " where l.ts >= ? and l.ts < ?" + (includeTryIt ? "" : " and l.actor_user_id is null")
+                + (endpointId == null ? "" : " and l.endpoint_id = ?");
+        Object[] range = endpointId == null ? new Object[] {Timestamp.from(from), Timestamp.from(to)}
+                : new Object[] {Timestamp.from(from), Timestamp.from(to), endpointId};
         var totals = jdbc.sql("""
                 select count(*) as requests, count(*) filter (where l.status >= 400) as errors,
                        percentile_cont(0.95) within group (order by l.duration_ms) as p95,
@@ -74,7 +91,26 @@ public class ActivityStore {
         List<TopError> errors = jdbc.sql("select l.error_code, count(*) from access_log l" + where
                         + " and l.error_code is not null group by 1 order by 2 desc limit 10")
                 .params(range).query((rs, i) -> new TopError(rs.getString(1), rs.getLong(2))).list();
-        return new Summary((Long) totals[0], (Long) totals[1], (Double) totals[2], (Long) totals[3], days, top, errors);
+        List<TopEndpoint> slowest = jdbc.sql("""
+                select l.endpoint_id, e.name, coalesce(min(e.method), min(l.method)) as method,
+                       coalesce('/' || min(e.path), min(l.path)) as path, count(*) as requests,
+                       count(*) filter (where l.status >= 400) as errors,
+                       percentile_cont(0.95) within group (order by l.duration_ms) as p95
+                from access_log l left join endpoint e on e.id = l.endpoint_id""" + where
+                        + " and l.endpoint_id is not null group by l.endpoint_id, e.name having count(*) >= 5 order by p95 desc limit 10")
+                .params(range).query((rs, i) -> new TopEndpoint(rs.getObject(1, UUID.class), rs.getString(2), rs.getString(3),
+                        rs.getString(4), rs.getLong(5), rs.getLong(6), nullableDouble(rs, 7))).list();
+        List<TopClient> clients = jdbc.sql("""
+                select l.client_id, min(sa.name), count(*), count(*) filter (where l.status >= 400),
+                       percentile_cont(0.95) within group (order by l.duration_ms)
+                from access_log l left join service_account sa on sa.id = l.service_account_id""" + where
+                        + " and l.client_id is not null group by l.client_id order by 3 desc limit 10")
+                .params(range).query((rs, i) -> new TopClient(rs.getString(1), rs.getString(2), rs.getLong(3), rs.getLong(4),
+                        nullableDouble(rs, 5))).list();
+        List<TopIp> ips = jdbc.sql("select host(l.ip), count(*), count(*) filter (where l.status >= 400) from access_log l" + where
+                        + " and l.ip is not null group by l.ip order by 2 desc limit 10")
+                .params(range).query((rs, i) -> new TopIp(rs.getString(1), rs.getLong(2), rs.getLong(3))).list();
+        return new Summary((Long) totals[0], (Long) totals[1], (Double) totals[2], (Long) totals[3], days, top, errors, slowest, clients, ips);
     }
 
     public List<LogEntry> log(LogFilter f) {

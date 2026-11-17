@@ -7,6 +7,7 @@
  */
 import type { DatasourceViewDialect } from './datasourceViewDialect';
 import type { DatasourceViewProperties } from './datasourceViewProperties';
+import type { LastTest } from './lastTest';
 import type { PoolSettings } from './poolSettings';
 
 export interface DatasourceView {
@@ -18,6 +19,7 @@ export interface DatasourceView {
   hasPassword: boolean;
   host: string;
   id: string;
+  lastTest: LastTest | null;
   name: string;
   /**
      * The env: reference when the password comes from the environment

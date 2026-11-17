@@ -6,8 +6,10 @@
  * OpenAPI spec version: v1
  */
 import type { Day } from './day';
+import type { TopClient } from './topClient';
 import type { TopEndpoint } from './topEndpoint';
 import type { TopError } from './topError';
+import type { TopIp } from './topIp';
 
 export interface Summary {
   activeClients: number;
@@ -16,6 +18,10 @@ export interface Summary {
   /** @nullable */
   p95Ms?: number | null;
   requests: number;
+  /** Endpoints with the highest p95 latency, at least 5 calls each */
+  slowestEndpoints: TopEndpoint[];
+  topClients: TopClient[];
   topEndpoints: TopEndpoint[];
   topErrors: TopError[];
+  topIps: TopIp[];
 }

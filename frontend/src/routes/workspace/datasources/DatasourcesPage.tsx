@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate } from "@/lib/format";
+import { ConnectionBadge } from "./ConnectionBadge";
 import { DIALECT_LABEL } from "./datasourceForm";
 
 export default function DatasourcesPage() {
@@ -59,6 +60,7 @@ export default function DatasourcesPage() {
                     <TableHead>Database</TableHead>
                     <TableHead>Address</TableHead>
                     <TableHead>Access</TableHead>
+                    <TableHead>Connection</TableHead>
                     <TableHead className="text-right">Endpoints</TableHead>
                     <TableHead>Updated</TableHead>
                   </TableRow>
@@ -78,6 +80,9 @@ export default function DatasourcesPage() {
                       </TableCell>
                       <TableCell>
                         <StatusBadge tone={d.readOnly ? "neutral" : "highlight"}>{d.readOnly ? "Read only" : "Read & write"}</StatusBadge>
+                      </TableCell>
+                      <TableCell>
+                        <ConnectionBadge test={d.lastTest} />
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{usage.get(d.id) ?? 0}</TableCell>
                       <TableCell className="tabular-nums">{formatDate(d.updatedAt)}</TableCell>

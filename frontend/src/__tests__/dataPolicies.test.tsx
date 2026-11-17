@@ -13,7 +13,7 @@ const asAdmin = { ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sa
 const DS: DatasourceView = {
   id: "ds1", name: "crm", description: null, dialect: "POSTGRESQL", host: "db", port: 5432, database: "crm", username: "r",
   properties: {}, pool: { maximumPoolSize: 10, minimumIdle: 0, connectionTimeoutMs: 10000 }, readOnly: true, hasPassword: true,
-  passwordEnv: null, createdAt: "2026-11-17T00:00:00Z", updatedAt: "2026-11-17T00:00:00Z",
+  passwordEnv: null, createdAt: "2026-11-17T00:00:00Z", updatedAt: "2026-11-17T00:00:00Z", lastTest: null,
 };
 
 const EMAIL_MASK: DataPolicy = {

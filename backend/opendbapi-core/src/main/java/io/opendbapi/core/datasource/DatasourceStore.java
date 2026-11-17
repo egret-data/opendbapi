@@ -59,14 +59,36 @@ public class DatasourceStore {
         try {
             return jdbc.sql("""
                     update datasource set name = ?, description = ?, config = ?::jsonb,
-                           secret_ref = coalesce(?, secret_ref), read_only = ?, updated_at = now()
+                           secret_ref = coalesce(?, secret_ref), read_only = ?, updated_at = now(),
+                           last_test_at = case when config = ?::jsonb and ?::text is null then last_test_at end,
+                           last_test_ok = case when config = ?::jsonb and ?::text is null then last_test_ok end,
+                           last_test_message = case when config = ?::jsonb and ?::text is null then last_test_message end
                     where id = ? returning *""")
-                    .params(name, description, write(config), secretRef, readOnly, id)
+                    .params(name, description, write(config), secretRef, readOnly,
+                            write(config), secretRef, write(config), secretRef, write(config), secretRef, id)
                     .query(this::map)
                     .single();
         } catch (DuplicateKeyException e) {
             throw nameTaken(name);
         }
+    }
+
+    /** The last connection test of a saved datasource. */
+    public record LastTest(java.time.Instant at, boolean ok, String message) {
+    }
+
+    public void recordTest(UUID id, boolean ok, String message) {
+        jdbc.sql("update datasource set last_test_at = now(), last_test_ok = ?, last_test_message = ? where id = ?")
+                .params(ok, message == null ? null : message.substring(0, Math.min(message.length(), 1000)), id).update();
+    }
+
+    /** Last tests by datasource id; datasources never tested are absent. */
+    public java.util.Map<UUID, LastTest> lastTests() {
+        java.util.Map<UUID, LastTest> out = new java.util.HashMap<>();
+        jdbc.sql("select id, last_test_at, last_test_ok, last_test_message from datasource where last_test_at is not null")
+                .query((rs, i) -> out.put(rs.getObject(1, UUID.class), new LastTest(rs.getTimestamp(2).toInstant(), rs.getBoolean(3),
+                        rs.getString(4)))).list();
+        return out;
     }
 
     public boolean delete(UUID id) {

@@ -6,6 +6,9 @@
  * OpenAPI spec version: v1
  */
 
+/**
+ * Endpoints with the highest p95 latency, at least 5 calls each
+ */
 export interface TopEndpoint {
   /** @nullable */
   endpointId?: string | null;
