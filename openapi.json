@@ -6953,20 +6953,48 @@
         "required" : [ "id", "kind" ],
         "type" : "object",
         "properties" : {
+          "answer" : {
+            "type" : "string",
+            "description" : "end nodes: the expression whose value is the answer, e.g. add",
+            "nullable" : true
+          },
+          "condition" : {
+            "type" : "string",
+            "description" : "decision nodes: the expression choosing yes or no",
+            "nullable" : true
+          },
           "dependsOn" : {
             "type" : "array",
+            "description" : "Ids of earlier nodes; id:yes or id:no for a decision's branch",
             "nullable" : true,
             "items" : {
               "type" : "string",
+              "description" : "Ids of earlier nodes; id:yes or id:no for a decision's branch",
               "nullable" : true
             }
+          },
+          "endpointId" : {
+            "type" : "string",
+            "description" : "api nodes: the endpoint of this workspace to call (its live version)",
+            "format" : "uuid",
+            "nullable" : true
           },
           "id" : {
             "type" : "string"
           },
           "kind" : {
             "type" : "string",
-            "enum" : [ "sql", "script" ]
+            "enum" : [ "sql", "script", "api", "decision", "end" ]
+          },
+          "params" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string",
+              "description" : "api nodes: parameter name → expression, e.g. name → name or id → user.id",
+              "nullable" : true
+            },
+            "description" : "api nodes: parameter name → expression, e.g. name → name or id → user.id",
+            "nullable" : true
           },
           "result" : {
             "type" : "string",
@@ -6987,6 +7015,18 @@
           "when" : {
             "type" : "string",
             "description" : "Run only when this expression holds, e.g. user != null",
+            "nullable" : true
+          },
+          "x" : {
+            "type" : "integer",
+            "description" : "Position on the canvas",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "y" : {
+            "type" : "integer",
+            "description" : "Position on the canvas",
+            "format" : "int32",
             "nullable" : true
           }
         },

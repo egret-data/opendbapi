@@ -6,6 +6,7 @@
  * OpenAPI spec version: v1
  */
 import type { WorkflowNodeKind } from './workflowNodeKind';
+import type { WorkflowNodeParams } from './workflowNodeParams';
 import type { WorkflowNodeResult } from './workflowNodeResult';
 
 /**
@@ -13,10 +14,33 @@ import type { WorkflowNodeResult } from './workflowNodeResult';
  * @nullable
  */
 export type WorkflowNode = {
-  /** @nullable */
+  /**
+     * end nodes: the expression whose value is the answer, e.g. add
+     * @nullable
+     */
+  answer?: string | null;
+  /**
+     * decision nodes: the expression choosing yes or no
+     * @nullable
+     */
+  condition?: string | null;
+  /**
+     * Ids of earlier nodes; id:yes or id:no for a decision's branch
+     * @nullable
+     */
   dependsOn?: (string | null)[] | null;
+  /**
+     * api nodes: the endpoint of this workspace to call (its live version)
+     * @nullable
+     */
+  endpointId?: string | null;
   id: string;
   kind: WorkflowNodeKind;
+  /**
+     * api nodes: parameter name → expression, e.g. name → name or id → user.id
+     * @nullable
+     */
+  params?: WorkflowNodeParams;
   /**
      * sql nodes: what the node's result is; list by default
      * @nullable
@@ -37,4 +61,14 @@ export type WorkflowNode = {
      * @nullable
      */
   when?: string | null;
+  /**
+     * Position on the canvas
+     * @nullable
+     */
+  x?: number | null;
+  /**
+     * Position on the canvas
+     * @nullable
+     */
+  y?: number | null;
 } | null;

@@ -190,6 +190,7 @@ export * from './validationView';
 export * from './versionView';
 export * from './workflowNode';
 export * from './workflowNodeKind';
+export * from './workflowNodeParams';
 export * from './workflowNodeResult';
 export * from './workspaceOpenApi200';
 export * from './workspaceView';

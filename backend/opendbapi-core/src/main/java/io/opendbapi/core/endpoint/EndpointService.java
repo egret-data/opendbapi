@@ -57,6 +57,13 @@ public class EndpointService {
         this.json = json;
     }
 
+    private EndpointInvoker invoker;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setInvoker(EndpointInvoker invoker) {
+        this.invoker = invoker;
+    }
+
     public Endpoint create(UUID ws, Draft d, UUID userId) {
         return scope.call(ws, () -> store.create(ws, d.groupId(), d.name(), d.description(), d.method(), d.path(),
                 d.access(), d.definition(), userId));
@@ -84,8 +91,44 @@ public class EndpointService {
     public EndpointValidator.Validation validate(UUID ws, UUID id) {
         return scope.call(ws, () -> {
             Endpoint e = find(id);
-            return withBreakingChanges(e, validator.validate(e.method(), e.path(), e.definition(), datasourceOf(e.definition()), policies(e)));
+            return withWorkflowTargets(e, withBreakingChanges(e, validator.validate(e.method(), e.path(), e.definition(),
+                    datasourceOf(e.definition()), policies(e))));
         });
+    }
+
+    /** Spec §6.1: api nodes must call endpoints of this workspace; parameters must exist there. */
+    private EndpointValidator.Validation withWorkflowTargets(Endpoint e, EndpointValidator.Validation v) {
+        EndpointDefinition.Task task = e.definition().task();
+        if (!task.workflow()) {
+            return v;
+        }
+        List<EndpointValidator.Finding> findings = new java.util.ArrayList<>(v.findings());
+        for (EndpointDefinition.WorkflowNode n : task.nodes()) {
+            if (!"api".equals(n.kind()) || n.endpointId() == null) {
+                continue;
+            }
+            var target = store.find(n.endpointId()).filter(t -> !t.trashed());
+            if (target.isEmpty()) {
+                findings.add(new EndpointValidator.Finding("error", "workflow", "Node '%s' calls an endpoint that does not exist.".formatted(n.id())));
+                continue;
+            }
+            if (target.get().id().equals(e.id())) {
+                findings.add(new EndpointValidator.Finding("error", "workflow", "Node '%s' calls this endpoint itself.".formatted(n.id())));
+            }
+            if (!Endpoint.LIVE.equals(target.get().state())) {
+                findings.add(new EndpointValidator.Finding("warning", "workflow",
+                        "Node '%s' calls '%s', which is not live; the call fails until it is published.".formatted(n.id(), target.get().name())));
+            }
+            java.util.Set<String> known = new java.util.HashSet<>();
+            target.get().definition().params().forEach(p -> known.add(p.name()));
+            for (String name : n.params().keySet()) {
+                if (!known.contains(name)) {
+                    findings.add(new EndpointValidator.Finding("warning", "workflow",
+                            "Node '%s' passes '%s', which '%s' does not declare.".formatted(n.id(), name, target.get().name())));
+                }
+            }
+        }
+        return new EndpointValidator.Validation(findings, v.detectedParameters(), v.outputColumns());
     }
 
     /**
@@ -153,8 +196,8 @@ public class EndpointService {
         EndpointVersion v = scope.call(ws, () -> {
             Endpoint e = find(id);
             requireNotTrashed(e);
-            EndpointValidator.Validation validation = validator.validate(e.method(), e.path(), e.definition(), datasourceOf(e.definition()),
-                    policies(e));
+            EndpointValidator.Validation validation = withWorkflowTargets(e, validator.validate(e.method(), e.path(), e.definition(),
+                    datasourceOf(e.definition()), policies(e)));
             if (!validation.ok()) {
                 throw new ApiProblem(409, "validation_failed", "Fix the errors before publishing: " + validation.findings().stream()
                         .filter(f -> "error".equals(f.severity())).map(EndpointValidator.Finding::message)
@@ -330,7 +373,8 @@ public class EndpointService {
                             definition.pagination().count())
                     : null;
             QueryExecutor.QueryResult result = executor.run(ds, task, params, pageRequest,
-                    new EndpointDefinition.Limits(Math.min(definition.limits().timeoutSeconds(), 10), 100), QueryExecutor.RunMode.PREVIEW);
+                    new EndpointDefinition.Limits(Math.min(definition.limits().timeoutSeconds(), 10), 100), QueryExecutor.RunMode.PREVIEW,
+                    QueryExecutor.Policy.NONE, invoker == null ? null : invoker.caller(ws, null, QueryExecutor.RunMode.PREVIEW));
             return new Preview(result, validation.findings());
         });
     }

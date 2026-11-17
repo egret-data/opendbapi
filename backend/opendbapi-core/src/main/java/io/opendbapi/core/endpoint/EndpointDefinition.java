@@ -143,22 +143,35 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
     }
 
     /**
-     * One step of a workflow (spec §6.1). It runs once every node in {@code dependsOn} is done
-     * and its {@code when} expression (if any) holds; its result is then available to later nodes
-     * under its id, e.g. {@code #{user.id}} or {@code params.user.id} in a script.
+     * One step of a workflow (spec §6.1). It runs once the nodes in {@code dependsOn} are done;
+     * an entry {@code check:yes} or {@code check:no} ties it to a branch of the decision node
+     * {@code check}, and a node on a branch not taken does not run, nor does anything after it.
+     * {@code when} that does not hold skips the node but lets later nodes run (its result is null).
+     * Its result is available to later nodes under its id, e.g. {@code #{user.id}}.
      */
     public record WorkflowNode(String id,
-                               @Schema(allowableValues = {"sql", "script"}) String kind,
+                               @Schema(allowableValues = {"sql", "script", "api", "decision", "end"}) String kind,
                                @Schema(nullable = true, description = "sql nodes: the SQL template") String template,
                                @Schema(nullable = true, description = "script nodes: a full-mode Groovy script") String source,
-                               @Schema(nullable = true) List<String> dependsOn,
+                               @Schema(nullable = true, description = "Ids of earlier nodes; id:yes or id:no for a decision's branch")
+                               List<String> dependsOn,
                                @Schema(nullable = true, description = "Run only when this expression holds, e.g. user != null") String when,
                                @Schema(nullable = true, allowableValues = {"list", "one", "value", "update"},
-                                       description = "sql nodes: what the node's result is; list by default") String result) {
+                                       description = "sql nodes: what the node's result is; list by default") String result,
+                               @Schema(nullable = true, description = "decision nodes: the expression choosing yes or no") String condition,
+                               @Schema(nullable = true, description = "api nodes: the endpoint of this workspace to call (its live version)")
+                               UUID endpointId,
+                               @Schema(nullable = true, description = "api nodes: parameter name → expression, e.g. name → name or id → user.id")
+                               Map<String, String> params,
+                               @Schema(nullable = true, description = "end nodes: the expression whose value is the answer, e.g. add")
+                               String answer,
+                               @Schema(nullable = true, description = "Position on the canvas") Integer x,
+                               @Schema(nullable = true, description = "Position on the canvas") Integer y) {
         public WorkflowNode {
             kind = kind == null ? "sql" : kind;
             dependsOn = dependsOn == null ? List.of() : List.copyOf(dependsOn);
             result = result == null || result.isBlank() ? "list" : result;
+            params = params == null ? Map.of() : Map.copyOf(params);
         }
     }
 
