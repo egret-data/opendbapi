@@ -140,7 +140,11 @@ Serving **không** nhận session cookie. Nhờ vậy, việc người dùng đ�
 ### 3.2 Chế độ chạy
 
 - **Standalone:** một tiến trình phục vụ UI tĩnh, management và serving.
-- **Cluster (P3):** tách `admin` và `serving` (N bản sao); Redis lưu cache, rate limit, và pub/sub `endpoint.changed`. Gateway là tuỳ chọn; có thể dùng ingress có sẵn.
+- **Nhiều bản sao (scale ngang):** chạy N pod giống hệt nhau sau load balancer, không cần sticky session hay Redis.
+  - Dùng chung qua PostgreSQL: session của UI (Spring Session JDBC), nonce HMAC (`request_nonce`).
+  - Báo thay đổi giữa các pod bằng `LISTEN/NOTIFY` (kênh `opendbapi_changes`): route endpoint, cache kết quả, pool datasource, data policy và quyền của caller được xoá trên mọi pod ngay khi một pod thay đổi. Pod mất kết nối nghe thì khi nối lại sẽ xoá toàn bộ các cache này.
+  - Vẫn tính riêng từng pod: rate limit (giới hạn thực tế = giới hạn × số pod), cache kết quả, cửa sổ gộp cảnh báo.
+  - Chế độ cluster tách `admin`/`serving` và Redis không còn trong kế hoạch.
 
 ### 3.3 Registry
 

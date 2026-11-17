@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 /**
  * Checks, per call, that the token's client is still usable and its service account holds a
  * grant on the endpoint (spec §8.1 steps 5–6). Answers are cached briefly; changes made through
- * this instance's admin API clear the cache at once, other instances catch up within the TTL.
+ * any instance's admin API clear the cache on every instance at once (ChangeBus); the TTL is a backstop.
  */
 @Component
 public class CallerAuthorizer {
@@ -53,6 +53,27 @@ public class CallerAuthorizer {
     }
 
     public void invalidate(UUID workspaceId) {
-        cache.keySet().removeIf(k -> k.workspaceId().equals(workspaceId));
+        if (changes != null) {
+            changes.publish("callers", workspaceId);
+        } else {
+            drop(workspaceId);
+        }
+    }
+
+    private void drop(UUID workspaceId) {
+        if (workspaceId == null) {
+            cache.clear();
+        } else {
+            cache.keySet().removeIf(k -> k.workspaceId().equals(workspaceId));
+        }
+    }
+
+    private io.opendbapi.core.cluster.ChangeBus changes;
+
+    /** Grant and account changes on any instance reach this one at once instead of after the TTL. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setChanges(io.opendbapi.core.cluster.ChangeBus changes) {
+        this.changes = changes;
+        changes.on("callers", this::drop);
     }
 }

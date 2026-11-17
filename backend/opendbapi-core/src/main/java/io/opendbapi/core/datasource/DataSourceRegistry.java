@@ -83,8 +83,31 @@ public class DataSourceRegistry implements DisposableBean {
         return pools.containsKey(id);
     }
 
-    /** Closes the pool; the next use opens a fresh one with the current settings. */
+    private io.opendbapi.core.cluster.ChangeBus changes;
+
+    /** A datasource or its secret changed on any instance: every instance closes its pool. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setChanges(io.opendbapi.core.cluster.ChangeBus changes) {
+        this.changes = changes;
+        changes.on("datasource", id -> {
+            if (id == null) {
+                pools.keySet().forEach(this::close);
+            } else {
+                close(id);
+            }
+        });
+    }
+
+    /** Closes the pool on every instance; the next use opens a fresh one with the current settings. */
     public void evict(UUID id) {
+        if (changes != null) {
+            changes.publish("datasource", id);
+        } else {
+            close(id);
+        }
+    }
+
+    private void close(UUID id) {
         Entry entry = pools.remove(id);
         if (entry != null) {
             entry.pool().close();
@@ -171,7 +194,7 @@ public class DataSourceRegistry implements DisposableBean {
 
     @Override
     public void destroy() {
-        pools.keySet().forEach(this::evict);
+        pools.keySet().forEach(this::close);
     }
 
     // ------------------------------------------------------------------ internals

@@ -56,8 +56,28 @@ public class EndpointRegistry {
         return Optional.empty();
     }
 
+    private io.opendbapi.core.cluster.ChangeBus changes;
+
+    /** Endpoint changes on any instance reach this one (several pods). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setChanges(io.opendbapi.core.cluster.ChangeBus changes) {
+        this.changes = changes;
+        changes.on("endpoints", ws -> {
+            if (ws == null) {
+                routes.clear();
+            } else {
+                routes.remove(ws);
+            }
+        });
+    }
+
+    /** The workspace's live endpoints changed: every instance reloads its routes. */
     public void invalidate(UUID workspaceId) {
-        routes.remove(workspaceId);
+        if (changes != null) {
+            changes.publish("endpoints", workspaceId);
+        } else {
+            routes.remove(workspaceId);
+        }
     }
 
     private List<Route> load(UUID workspaceId) {
