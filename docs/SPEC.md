@@ -673,20 +673,26 @@ Cache dùng khoá `(endpointId, version, paramsHash, scope)`. `scope = client` s
 // endpoint_test_case
 {
   "name": "lọc theo status",
-  "serviceAccountId": null,           // null = chỉ chạy pipeline render + execute (như preview)
+  "serviceAccountId": null,           // null = chạy như preview; có giá trị = gọi với tư cách service account đó
   "params": { "status": "active", "page": 1 },
   "expect": {
-    "status": 200,
-    "rowCount": { "min": 1 },
-    "jsonPath": [ { "path": "$.data[0].status", "equals": "active" } ],
-    "schemaMatchesOutput": true,
+    "status": 200,                     // mặc định 200
+    "rowCount": { "min": 1, "max": 50 },
+    "jsonPath": [ { "path": "$.data[0].status", "equals": "active" }, { "path": "$.meta.total", "exists": true } ],
+    "schemaMatchesLive": true,
     "maxDurationMs": 500
   }
 }
 ```
 
-- Chạy từ UI (tab Tests), qua `POST /admin/api/endpoints/{id}/tests:run`, hoặc bằng CLI `opendbapi test --env staging` (trả exit code ≠ 0 nếu có test thất bại, dùng trong CI).
-- Tuỳ chọn `publish.requireTestsPass = true`: chỉ cho publish khi mọi test case đều đạt trên bản draft.
+- Test chạy trên **bản draft đã lưu** và luôn rollback, giống preview. Các bước chạy: ép kiểu tham số, rule tham số, thực thi với timeout và `maxRows` thật của endpoint. Kết quả được bọc thành `{data, meta}` giống lời gọi thật, còn lỗi thành `{code, detail}` kèm status tương ứng.
+- Test có `serviceAccountId` còn kiểm tra grant (403 `not_granted` nếu là endpoint private) và áp dụng data policy (§12) như một lời gọi của service account đó.
+- `jsonPath` dùng cú pháp Jayway JSONPath. `equals` so sánh theo JSON, riêng số so theo giá trị (`1` bằng `1.0`); `equals: null` nghĩa là bỏ qua phép so sánh. `exists` coi giá trị `null` là không có: json-path báo một chỉ số vượt quá độ dài mảng là một match có giá trị `null`, nên không phân biệt được hai trường hợp này.
+- `schemaMatchesLive` so **tên** các cột kết quả với output schema của phiên bản đang live. Không so kiểu, vì database có thể báo kiểu rộng hơn khi đã bind tham số (ví dụ `int4` thành `int8`).
+- Kết quả lần chạy gần nhất được lưu cùng test case; sửa test case thì kết quả cũ bị xoá.
+- API: `GET/POST /endpoints/{id}/tests`, `PATCH/DELETE /endpoints/{id}/tests/{tid}`, `POST /endpoints/{id}/tests:run[?testId=]`. Viewer xem được; author tạo, sửa và chạy. UI: tab **Tests** của endpoint.
+- `opendbapi.publish.require-tests-pass = true` (mặc định `false`): publish chạy mọi test case trên draft và trả 409 `tests_failed`, nêu tên các test hỏng, nếu có test không đạt. Endpoint chưa có test vẫn publish được.
+- Lệnh CLI `opendbapi test` cho CI thuộc `opendbapi-cli` (P3).
 
 ---
 
@@ -1154,7 +1160,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 12. ✅ (2026-11-17) Lộ trình P2 và test Playwright cho luồng chính (§24).
 13. ✅ (2026-11-17) Che cột và lọc dòng (§12): bảng `data_policy`, thuộc tính service account, áp dụng ở bước rewrite và post-process của pipeline (cả stream), kiểm tra khi validate/publish, admin API, tab Masking của datasource, phần Data policies trong tab Access, phần Attributes trên trang service account.
 14. ✅ (2026-11-17) Rule tham số (§13.1) và kênh cảnh báo lỗi qua webhook (§13.2).
-15. Bộ test case cho từng endpoint (§11.3): bảng `endpoint_test_case`, chạy bộ test trước khi publish, tab Tests.
+15. ✅ (2026-11-17) Bộ test case cho từng endpoint (§11.3): bảng `endpoint_test_case`, chạy trên draft (kể cả với tư cách service account), chặn publish khi `require-tests-pass`, tab Tests.
 16. Map kết quả (§9.2): `naming`, `shape`, `nest`, `types`; phân trang keyset.
 17. Cache kết quả (§9.5), metric `opendbapi_cache_hits_total`.
 18. Ký request HMAC (§8.2) và mã hoá response (§8.3).

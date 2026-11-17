@@ -34,6 +34,15 @@ public class EndpointService {
     private final QueryExecutor executor;
     private final ObjectMapper json;
     private final io.opendbapi.core.datapolicy.DataPolicyStore dataPolicies;
+    private io.opendbapi.core.endpoint.test.EndpointTests tests;
+    private boolean requireTestsPass;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setTests(io.opendbapi.core.endpoint.test.EndpointTests tests,
+                  @org.springframework.beans.factory.annotation.Value("${opendbapi.publish.require-tests-pass:false}") boolean requireTestsPass) {
+        this.tests = tests;
+        this.requireTestsPass = requireTestsPass;
+    }
 
     public EndpointService(WorkspaceScope scope, EndpointStore store, DatasourceStore datasources, EndpointValidator validator,
                            EndpointRegistry registry, QueryExecutor executor, ObjectMapper json,
@@ -100,6 +109,14 @@ public class EndpointService {
     }
 
     public EndpointVersion publish(UUID ws, UUID id, String note, UUID userId) {
+        if (requireTestsPass && tests != null) {
+            // Spec §11.3: every test case of the draft must pass first.
+            var summary = tests.run(ws, id, null);
+            if (!summary.ok()) {
+                throw ApiProblem.conflict("tests_failed", "Publishing needs every test to pass; failing: " + summary.results().stream()
+                        .filter(r -> !r.passed()).map(r -> "'" + r.name() + "'").reduce((a, b) -> a + ", " + b).orElse("") + ".");
+            }
+        }
         EndpointVersion v = scope.call(ws, () -> {
             Endpoint e = find(id);
             requireNotTrashed(e);
@@ -229,7 +246,7 @@ public class EndpointService {
             } catch (TemplateException e) {
                 throw ApiProblem.badRequest("template", e.getMessage());
             }
-            Map<String, Object> params = ParamBinder.bind(definition.params(), previewRequest(definition, rawParams), EndpointValidator.RESERVED);
+            Map<String, Object> params = ParamBinder.bind(definition.params(), ParamBinder.fromValues(definition.params(), rawParams), EndpointValidator.RESERVED);
             ParamRules.enforce(definition.rules(), params);
             QueryExecutor.PageRequest pageRequest = definition.pagination().enabled()
                     ? new QueryExecutor.PageRequest(page == null ? 1 : page,
@@ -243,26 +260,6 @@ public class EndpointService {
     }
 
     /** Preview values arrive as one JSON object; route each to where its parameter lives. */
-    private ParamBinder.Request previewRequest(EndpointDefinition def, Map<String, Object> raw) {
-        Map<String, String> path = new java.util.HashMap<>();
-        Map<String, List<String>> query = new java.util.HashMap<>();
-        Map<String, String> headers = new java.util.HashMap<>();
-        com.fasterxml.jackson.databind.node.ObjectNode body = RequestJson.MAPPER.createObjectNode();
-        for (EndpointDefinition.Param p : def.params()) {
-            Object v = raw == null ? null : raw.get(p.name());
-            if (v == null || (v instanceof String s && s.isEmpty())) {
-                continue;
-            }
-            switch (p.in()) {
-                case path -> path.put(p.name(), v.toString());
-                case header -> headers.put(p.name().toLowerCase(), v.toString());
-                case query -> query.put(p.name(), v instanceof List<?> l ? l.stream().map(String::valueOf).toList() : List.of(v.toString()));
-                case body -> body.set(p.name(), RequestJson.MAPPER.valueToTree(v));
-            }
-        }
-        return new ParamBinder.Request(path, query, headers, body);
-    }
-
     private Endpoint transition(UUID ws, UUID id, java.util.function.Consumer<Endpoint> change) {
         Endpoint result = scope.call(ws, () -> {
             change.accept(find(id));
