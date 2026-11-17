@@ -23,6 +23,8 @@ public abstract class AppTestSupport {
     @SuppressWarnings("resource")
     static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16.4-alpine")
             .withDatabaseName("opendbapi")
+            // Each cached Spring context holds its pool, a change listener and customer-datasource pools.
+            .withCommand("postgres", "-c", "max_connections=400")
             .withCopyFileToContainer(
                     MountableFile.forClasspathResource("db/init-roles.sql"),
                     "/docker-entrypoint-initdb.d/init-roles.sql");
