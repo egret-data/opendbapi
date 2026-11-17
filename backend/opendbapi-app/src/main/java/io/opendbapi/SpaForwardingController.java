@@ -13,6 +13,7 @@ public class SpaForwardingController {
 
     @GetMapping({
             "/login",
+            "/account/**",
             "/w/**",
             "/admin/workspaces/**",
             "/admin/users/**",
