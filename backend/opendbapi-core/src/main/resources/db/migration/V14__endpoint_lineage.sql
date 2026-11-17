@@ -7,7 +7,11 @@ ALTER TABLE endpoint
     ADD COLUMN deprecated_at timestamptz,
     ADD COLUMN sunset_at     timestamptz;
 
+-- endpoint has FORCE ROW LEVEL SECURITY, which applies to its owner too: without a workspace in
+-- the session this UPDATE would see no rows. Lift it for the backfill only.
+ALTER TABLE endpoint NO FORCE ROW LEVEL SECURITY;
 UPDATE endpoint SET lineage_id = id;
+ALTER TABLE endpoint FORCE ROW LEVEL SECURITY;
 ALTER TABLE endpoint ALTER COLUMN lineage_id SET NOT NULL;
 CREATE INDEX endpoint_lineage_idx ON endpoint (workspace_id, lineage_id);
 
