@@ -37,14 +37,16 @@ public class ActivityController {
     }
 
     @GetMapping("/summary")
-    @Operation(operationId = "activitySummary", summary = "Totals, calls per day, top endpoints and errors; Try-it calls hidden by default")
+    @Operation(operationId = "activitySummary", summary = "Totals, calls per day, top and slowest endpoints, clients, addresses and errors; "
+            + "optionally one endpoint; Try-it calls hidden by default")
     public ActivityStore.Summary summary(@PathVariable String ws,
                                         @RequestParam(required = false) Instant from,
                                         @RequestParam(required = false) Instant to,
-                                        @RequestParam(defaultValue = "false") boolean includeTryIt) {
+                                        @RequestParam(defaultValue = "false") boolean includeTryIt,
+                                        @RequestParam(required = false) UUID endpointId) {
         var granted = access.require(ws, WorkspaceRole.VIEWER);
         Instant[] range = range(from, to);
-        return scope.call(granted.workspace().id(), () -> store.summary(range[0], range[1], includeTryIt));
+        return scope.call(granted.workspace().id(), () -> store.summary(range[0], range[1], includeTryIt, endpointId));
     }
 
     @GetMapping("/log")

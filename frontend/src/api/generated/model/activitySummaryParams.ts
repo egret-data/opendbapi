@@ -10,4 +10,5 @@ export type ActivitySummaryParams = {
 from?: string;
 to?: string;
 includeTryIt?: boolean;
+endpointId?: string;
 };

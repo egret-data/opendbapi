@@ -828,6 +828,14 @@
             "type" : "boolean",
             "default" : false
           }
+        }, {
+          "in" : "query",
+          "name" : "endpointId",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
         } ],
         "responses" : {
           "200" : {
@@ -841,7 +849,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Totals, calls per day, top endpoints and errors; Try-it calls hidden by default",
+        "summary" : "Totals, calls per day, top and slowest endpoints, clients, addresses and errors; optionally one endpoint; Try-it calls hidden by default",
         "tags" : [ "activity" ]
       }
     },
@@ -3863,7 +3871,7 @@
         }
       },
       "DatasourceView" : {
-        "required" : [ "createdAt", "database", "dialect", "hasPassword", "host", "id", "name", "pool", "port", "properties", "readOnly", "updatedAt", "username" ],
+        "required" : [ "createdAt", "database", "dialect", "hasPassword", "host", "id", "lastTest", "name", "pool", "port", "properties", "readOnly", "updatedAt", "username" ],
         "type" : "object",
         "properties" : {
           "createdAt" : {
@@ -3890,6 +3898,9 @@
           "id" : {
             "type" : "string",
             "format" : "uuid"
+          },
+          "lastTest" : {
+            "$ref" : "#/components/schemas/LastTest"
           },
           "name" : {
             "type" : "string"
@@ -4235,6 +4246,24 @@
             "type" : "boolean"
           }
         },
+        "nullable" : true
+      },
+      "LastTest" : {
+        "required" : [ "at", "message", "ok" ],
+        "type" : "object",
+        "properties" : {
+          "at" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "ok" : {
+            "type" : "boolean"
+          }
+        },
+        "description" : "Last connection test; null when never tested since the settings changed",
         "nullable" : true
       },
       "Limits" : {
@@ -5252,7 +5281,7 @@
         }
       },
       "Summary" : {
-        "required" : [ "activeClients", "byDay", "errors", "requests", "topEndpoints", "topErrors" ],
+        "required" : [ "activeClients", "byDay", "errors", "requests", "slowestEndpoints", "topClients", "topEndpoints", "topErrors", "topIps" ],
         "type" : "object",
         "properties" : {
           "activeClients" : {
@@ -5278,6 +5307,19 @@
             "type" : "integer",
             "format" : "int64"
           },
+          "slowestEndpoints" : {
+            "type" : "array",
+            "description" : "Endpoints with the highest p95 latency, at least 5 calls each",
+            "items" : {
+              "$ref" : "#/components/schemas/TopEndpoint"
+            }
+          },
+          "topClients" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TopClient"
+            }
+          },
           "topEndpoints" : {
             "type" : "array",
             "items" : {
@@ -5288,6 +5330,12 @@
             "type" : "array",
             "items" : {
               "$ref" : "#/components/schemas/TopError"
+            }
+          },
+          "topIps" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/TopIp"
             }
           }
         }
@@ -5528,6 +5576,32 @@
           }
         }
       },
+      "TopClient" : {
+        "required" : [ "clientId", "errors", "requests" ],
+        "type" : "object",
+        "properties" : {
+          "clientId" : {
+            "type" : "string"
+          },
+          "errors" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "p95Ms" : {
+            "type" : "number",
+            "format" : "double",
+            "nullable" : true
+          },
+          "requests" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "serviceAccount" : {
+            "type" : "string",
+            "nullable" : true
+          }
+        }
+      },
       "TopEndpoint" : {
         "required" : [ "errors", "method", "path", "requests" ],
         "type" : "object",
@@ -5560,7 +5634,8 @@
             "type" : "integer",
             "format" : "int64"
           }
-        }
+        },
+        "description" : "Endpoints with the highest p95 latency, at least 5 calls each"
       },
       "TopError" : {
         "required" : [ "code", "count" ],
@@ -5570,6 +5645,23 @@
             "type" : "string"
           },
           "count" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        }
+      },
+      "TopIp" : {
+        "required" : [ "errors", "ip", "requests" ],
+        "type" : "object",
+        "properties" : {
+          "errors" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "ip" : {
+            "type" : "string"
+          },
+          "requests" : {
             "type" : "integer",
             "format" : "int64"
           }

@@ -2,6 +2,7 @@ package io.opendbapi;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.Statement;
@@ -144,6 +145,33 @@ class DatasourceIntegrationTest extends AppTestSupport {
         assertThat(author.post("/admin/api/ws/" + ws + "/datasources/" + id + ":test", null).json().path("ok").asBoolean()).isTrue();
         assertThat(admin.post("/admin/api/ws/" + ws + "/datasources/test",
                 Map.of("settings", settings("shop-renamed", null), "existingId", id)).json().path("ok").asBoolean()).isTrue();
+    }
+
+    @Test
+    void theLastConnectionTestIsShownUntilTheSettingsChange() {
+        // Arrange
+        String id = create("tested");
+        String base = "/admin/api/ws/" + ws + "/datasources/" + id;
+
+        // Act
+        JsonNode before = admin.get(base).expect(200).json();
+        author.post(base + ":test", null).expect(200);
+        JsonNode listed = admin.get("/admin/api/ws/" + ws + "/datasources").expect(200).json();
+        admin.patch(base, settings("tested-renamed", null)).expect(200);
+        JsonNode renamed = admin.get(base).expect(200).json();
+        Map<String, Object> moved = settings("tested-renamed", null);
+        moved.put("database", "postgres");
+        admin.patch(base, moved).expect(200);
+        JsonNode changed = admin.get(base).expect(200).json();
+
+        // Assert: a rename keeps the result, a connection change clears it
+        assertThat(before.path("lastTest").isNull()).isTrue();
+        JsonNode test = listed.findParents("id").stream().filter(d -> d.path("id").asText().equals(id)).findFirst().orElseThrow()
+                .path("lastTest");
+        assertThat(test.path("ok").asBoolean()).isTrue();
+        assertThat(test.path("message").asText()).startsWith("Connected to PostgreSQL");
+        assertThat(renamed.path("lastTest").path("ok").asBoolean()).isTrue();
+        assertThat(changed.path("lastTest").isNull()).isTrue();
     }
 
     @Test

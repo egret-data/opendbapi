@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -25,6 +25,7 @@ const DS: DatasourceView = {
   passwordEnv: null,
   createdAt: "2026-11-16T00:00:00Z",
   updatedAt: "2026-11-16T00:00:00Z",
+  lastTest: null,
 };
 
 const DIALECTS = [
@@ -101,6 +102,28 @@ describe("Datasources pages", () => {
       password: "env:DW_PASSWORD",
       readOnly: true,
     });
+  });
+
+  it("lists each datasource with its last connection test", async () => {
+    // Arrange
+    mockServer({
+      "GET /admin/api/me": () => json({ ...ME_ALICE, workspaces: [{ id: "w1", slug: "sales", name: "Sales", role: "admin" }] }),
+      "GET /admin/api/ws/sales/datasources": () => json([
+        { ...DS, lastTest: { at: "2026-11-17T00:00:00Z", ok: true, message: "Connected to PostgreSQL 16 in 4 ms." } },
+        { ...DS, id: "ds2", name: "legacy", lastTest: { at: "2026-11-17T00:00:00Z", ok: false, message: "Connection refused" } },
+        { ...DS, id: "ds3", name: "fresh" },
+      ]),
+      "GET /admin/api/ws/sales/endpoints": () => json([]),
+    });
+
+    // Act
+    renderApp("/w/sales/datasources");
+
+    // Assert
+    const legacy = (await screen.findByRole("link", { name: "legacy" })).closest("tr")!;
+    expect(within(legacy).getByText("Failed").closest("[title]")).toHaveAttribute("title", expect.stringContaining("Connection refused"));
+    expect(within(screen.getByRole("link", { name: "shop" }).closest("tr")!).getByText("Connected")).toBeInTheDocument();
+    expect(within(screen.getByRole("link", { name: "fresh" }).closest("tr")!).getByText("Not tested")).toBeInTheDocument();
   });
 
   it("authors cannot open the create page", async () => {

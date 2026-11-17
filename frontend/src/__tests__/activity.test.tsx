@@ -10,6 +10,9 @@ const SUMMARY = {
   byDay: [{ day: "2026-11-16", requests: 120, errors: 4 }, { day: "2026-11-17", requests: 80, errors: 6 }],
   topEndpoints: [{ endpointId: "e1", name: "Customers", method: "GET", path: "/customers", requests: 150, errors: 2, p95Ms: 30 }],
   topErrors: [{ code: "query_failed", count: 6 }],
+  slowestEndpoints: [{ endpointId: "e2", name: "Big report", method: "GET", path: "/report", requests: 9, errors: 0, p95Ms: 812 }],
+  topClients: [{ clientId: "odc_abc", serviceAccount: "billing", requests: 140, errors: 3, p95Ms: 25 }],
+  topIps: [{ ip: "10.0.0.1", requests: 190, errors: 9 }],
 };
 const LOG = [{ id: "l1", ts: "2026-11-17T01:00:00Z", endpointId: "e1", endpointName: "Customers", version: 2, method: "GET",
   path: "/customers", status: 500, durationMs: 12, rows: 0, clientId: "odc_abc", ip: "10.0.0.1", errorCode: "query_failed",
@@ -34,6 +37,12 @@ describe("Activity", () => {
     const day = screen.getByRole("table", { name: "Requests per day" });
     expect(within(day).getByText("120")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Customers" })).toHaveAttribute("href", "/w/sales/endpoints/e1");
+    const slowest = screen.getByRole("region", { name: "Slowest endpoints (p95, 5+ calls)" });
+    expect(within(slowest).getByText("812 ms")).toBeInTheDocument();
+    const clients = screen.getByRole("region", { name: "Top clients" });
+    expect(within(clients).getByText("billing")).toBeInTheDocument();
+    expect(within(clients).getByText("140 · 3 err")).toBeInTheDocument();
+    expect(within(screen.getByRole("region", { name: "Top addresses" })).getByText("10.0.0.1")).toBeInTheDocument();
     expect(await screen.findByText("division by zero")).toBeInTheDocument();
   });
 

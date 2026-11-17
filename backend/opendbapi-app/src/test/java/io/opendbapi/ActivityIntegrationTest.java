@@ -72,6 +72,12 @@ class ActivityIntegrationTest extends AppTestSupport {
         assertThat(errors).hasSize(1);
         assertThat(errors.get(0).path("error").asText()).contains("division by zero"); // authors see the DB error
         assertThat(byRequest.get(0).path("status").asInt()).isEqualTo(500);
+        assertThat(summary.path("topIps").get(0).path("requests").asLong()).isEqualTo(4);
+        assertThat(summary.path("topClients")).isEmpty(); // a public endpoint: no client ids
+        JsonNode filtered = admin.get(ws("/activity/summary?endpointId=" + UUID.randomUUID())).expect(200).json();
+        assertThat(filtered.path("requests").asLong()).isZero();
+        JsonNode own = admin.get(ws("/activity/summary?endpointId=" + endpointId)).expect(200).json();
+        assertThat(own.path("requests").asLong()).isEqualTo(4);
     }
 
     @Test

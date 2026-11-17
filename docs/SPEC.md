@@ -1095,7 +1095,7 @@ Quyền tối thiểu theo bảng §8.4.
 | Cảnh báo | `GET/POST /alert-channels`, `PATCH/DELETE /alert-channels/{id}`, `POST /alert-channels/{id}:test` |
 | Rate limit | `GET/PUT /rate-limits` |
 | Firewall | `GET/PUT /firewall` |
-| Activity | `GET /activity/logs`, `GET /activity/stats?metric=daily|success-ratio|top-endpoints|top-clients|top-latency|top-ips&from&to` |
+| Activity | `GET /activity/log` (lọc theo endpoint, client, status, request id; phân trang bằng `before`), `GET /activity/summary?from&to&includeTryIt&endpointId` (tổng số, tỷ lệ lỗi, p95, theo ngày, top endpoint, endpoint chậm nhất theo p95 với ít nhất 5 lời gọi, top client kèm tên service account, top địa chỉ IP, top mã lỗi; khoảng tối đa 93 ngày) |
 | Audit workspace | `GET /audit` |
 | Import/Export | `POST /import/dbapi`, `GET /export?format=yaml`, `POST /import?format=yaml&mode=plan|apply` |
 | Môi trường | `GET/POST /environments`, `PATCH /environments/{name}` |
@@ -1204,7 +1204,7 @@ management:
 9. ✅ (2026-11-17) Stream NDJSON/CSV trên virtual threads.
 10. ✅ (2026-11-17) Metric, tracing, log query chậm, access log ra file, trang Activity cơ bản.
 11. ✅ (2026-11-17) UI theo §17: login, shell + workspace switcher, Endpoints (list/new/detail 5 tab), Datasources, Clients, Activity, Settings, Admin.
-    Chỗ khác §17 trong bản P1: tạo service account và client dùng dialog trên trang Clients, không có route `/clients/new` hay `/new-client` riêng. Dialog hiện secret không đóng được bằng Escape hay click ra ngoài. Rotate secret giữ nguyên client id. Danh sách datasource chưa hiện trạng thái của lần test kết nối gần nhất, vì kết quả test chưa được lưu. Các tab Datasource dùng `?tab=`. Nhóm Output/Cache và data policy thuộc P2.
+    Chỗ khác §17 trong bản P1: tạo service account và client dùng dialog trên trang Clients, không có route `/clients/new` hay `/new-client` riêng. Dialog hiện secret không đóng được bằng Escape hay click ra ngoài. Rotate secret giữ nguyên client id. Các tab Datasource dùng `?tab=`. Nhóm Output/Cache và data policy thuộc P2.
 
 ### 25.2 P2
 
@@ -1219,7 +1219,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 18. ✅ (2026-11-17) Ký request HMAC với khoá ký riêng cho từng client (§8.2) và mã hoá response AES-GCM/RSA-OAEP (§8.3), cấu hình ở nút Security của client.
 19. ✅ (2026-11-17) Task Groovy `SqlFragment`, chế độ fragment (§7.4), trong sandbox nhiều lớp; chỉ `script_author` trở lên được viết hoặc preview. Chế độ `full` chuyển sang P3.
 20. ~~Executor Elasticsearch và HTTP (§6), driver ClickHouse.~~ Bỏ khỏi P2 (quyết định 2026-11-17): chưa cần. Chỉ làm khi có nhu cầu thật.
-21. Thống kê đầy đủ trên trang Activity (`/activity/stats`, §21.2); lưu và hiện trạng thái lần test kết nối datasource gần nhất.
+21. ✅ (2026-11-17) Thống kê đầy đủ trên trang Activity (`/activity/summary` thêm endpoint chậm nhất, top client, top IP, lọc theo endpoint; §21.2); lưu và hiện kết quả lần test kết nối datasource gần nhất (xoá khi đổi cấu hình kết nối).
 22. Export YAML (§15.1) và import từ DBAPI (§15.3).
 23. Giao diện tiếng Việt (`react-i18next`, §17).
 

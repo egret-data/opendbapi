@@ -32,6 +32,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { errorMessage } from "@/lib/errors";
 import { useUnsavedChangesWarning } from "@/lib/useUnsavedChangesWarning";
 import { DataPoliciesSection } from "../datapolicies/DataPoliciesSection";
+import { ConnectionBadge } from "./ConnectionBadge";
 import { DatasourceFields, TestConnection } from "./DatasourceFields";
 import { DIALECT_LABEL, formFrom, toRequest } from "./datasourceForm";
 
@@ -51,7 +52,12 @@ export default function DatasourceDetailPage() {
             <DetailHeader
               back={{ to: `/w/${ws}/datasources`, label: "Datasources" }}
               title={ds.name}
-              status={<StatusBadge tone={ds.readOnly ? "neutral" : "highlight"}>{ds.readOnly ? "Read only" : "Read & write"}</StatusBadge>}
+              status={
+                <span className="inline-flex gap-2">
+                  <StatusBadge tone={ds.readOnly ? "neutral" : "highlight"}>{ds.readOnly ? "Read only" : "Read & write"}</StatusBadge>
+                  <ConnectionBadge test={ds.lastTest} />
+                </span>
+              }
               description={`${DIALECT_LABEL[ds.dialect]} · ${ds.host}:${ds.port}/${ds.database}`}
             />
             <Tabs value={tab} onValueChange={(t) => setParams({ tab: t }, { replace: true })}>

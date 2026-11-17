@@ -124,6 +124,29 @@ export default function ActivityPage() {
                     )}
                   </section>
                 </div>
+                <div className="grid gap-6 lg:grid-cols-3">
+                  <RankList id="slowest" title="Slowest endpoints (p95, 5+ calls)" empty="Not enough calls yet."
+                    rows={s.slowestEndpoints.map((e) => ({
+                      key: e.endpointId ?? e.path,
+                      label: e.endpointId
+                        ? <Link className="hover:underline" to={`/w/${ws}/endpoints/${e.endpointId}`}>{e.name ?? `${e.method} ${e.path}`}</Link>
+                        : `${e.method} ${e.path}`,
+                      value: e.p95Ms == null ? "—" : `${Math.round(e.p95Ms)} ms`,
+                    }))} />
+                  <RankList id="top-clients" title="Top clients" empty="No calls with a client token."
+                    rows={s.topClients.map((c) => ({
+                      key: c.clientId,
+                      label: <span><span className="font-mono text-xs">{c.clientId}</span>
+                        {c.serviceAccount && <span className="ml-2 text-muted-foreground">{c.serviceAccount}</span>}</span>,
+                      value: `${c.requests.toLocaleString()}${c.errors ? ` · ${c.errors.toLocaleString()} err` : ""}`,
+                    }))} />
+                  <RankList id="top-ips" title="Top addresses" empty="No calls."
+                    rows={s.topIps.map((ip) => ({
+                      key: ip.ip,
+                      label: <span className="font-mono text-xs">{ip.ip}</span>,
+                      value: `${ip.requests.toLocaleString()}${ip.errors ? ` · ${ip.errors.toLocaleString()} err` : ""}`,
+                    }))} />
+                </div>
               </>
             )
           }
@@ -137,6 +160,28 @@ export default function ActivityPage() {
 function windowFor(range: Range) {
   const to = new Date();
   return { from: new Date(to.getTime() - RANGES[range] * 86_400_000).toISOString(), to: to.toISOString() };
+}
+
+function RankList({ id, title, empty, rows }: {
+  id: string; title: string; empty: string; rows: { key: string; label: React.ReactNode; value: string }[];
+}) {
+  return (
+    <section aria-labelledby={id} className="space-y-2">
+      <h2 id={id} className="text-sm font-semibold">{title}</h2>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{empty}</p>
+      ) : (
+        <ul className="divide-y rounded-md border text-sm">
+          {rows.map((r) => (
+            <li key={r.key} className="flex items-center justify-between gap-3 px-3 py-2">
+              <span className="min-w-0 truncate">{r.label}</span>
+              <span className="shrink-0 tabular-nums">{r.value}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
 }
 
 function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {

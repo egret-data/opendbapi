@@ -67,16 +67,22 @@ public class DatasourceController {
             boolean hasPassword,
             @Schema(nullable = true, description = "The env: reference when the password comes from the environment") String passwordEnv,
             OffsetDateTime createdAt,
-            OffsetDateTime updatedAt) {
+            OffsetDateTime updatedAt,
+            @Schema(nullable = true, description = "Last connection test; null when never tested since the settings changed")
+            DatasourceStore.LastTest lastTest) {
 
         static DatasourceView of(Datasource d) {
+            return of(d, null);
+        }
+
+        static DatasourceView of(Datasource d, DatasourceStore.LastTest lastTest) {
             JdbcConfig c = d.config();
             String ref = d.secretRef();
             return new DatasourceView(d.id(), d.name(), d.description(), c.dialect(), c.host(), c.effectivePort(),
                     c.database(), c.username(), c.properties(),
                     new PoolSettings(c.pool().maximumPoolSize(), c.pool().minimumIdle(), c.pool().connectionTimeoutMs()),
                     d.readOnly(), ref != null, ref != null && ref.startsWith("env:") ? ref : null,
-                    d.createdAt(), d.updatedAt());
+                    d.createdAt(), d.updatedAt(), lastTest);
         }
     }
 
@@ -139,7 +145,10 @@ public class DatasourceController {
     @Operation(operationId = "listDatasources", summary = "Datasources of the workspace (any member)")
     public List<DatasourceView> list(@PathVariable String ws) {
         var granted = access.require(ws, WorkspaceRole.VIEWER);
-        return scope.call(granted.workspace().id(), () -> store.list().stream().map(DatasourceView::of).toList());
+        return scope.call(granted.workspace().id(), () -> {
+            var tests = store.lastTests();
+            return store.list().stream().map(d -> DatasourceView.of(d, tests.get(d.id()))).toList();
+        });
     }
 
     @GetMapping("/dialects")
@@ -155,7 +164,12 @@ public class DatasourceController {
     @Operation(operationId = "getDatasource", summary = "One datasource (any member)")
     public DatasourceView get(@PathVariable String ws, @PathVariable UUID id) {
         var granted = access.require(ws, WorkspaceRole.VIEWER);
-        return DatasourceView.of(find(granted.workspace().id(), id));
+        UUID wsId = granted.workspace().id();
+        return scope.call(wsId, () -> {
+            Datasource d = store.find(id).orElseThrow(() -> ApiProblem.notFound("datasource_not_found",
+                    "That datasource does not exist in this workspace."));
+            return DatasourceView.of(d, store.lastTests().get(id));
+        });
     }
 
     @PostMapping
@@ -229,12 +243,20 @@ public class DatasourceController {
         var granted = access.require(ws, WorkspaceRole.ADMIN);
         JdbcConfig config = body.settings().config();
         String password = body.settings().password();
+        Datasource saved = null;
         if ((password == null || password.isEmpty()) && body.existingId() != null) {
-            password = secrets.resolve(find(granted.workspace().id(), body.existingId()).secretRef());
+            saved = find(granted.workspace().id(), body.existingId());
+            password = secrets.resolve(saved.secretRef());
         } else if (password != null && password.startsWith("env:")) {
             password = secrets.resolve(password);
         }
-        return run(config, password);
+        DatasourceTestResult result = run(config, password);
+        if (saved != null && saved.config().equals(config)) {
+            // The settings on screen are the saved ones: this was a test of the saved datasource.
+            UUID id = saved.id();
+            scope.run(granted.workspace().id(), () -> store.recordTest(id, result.ok(), result.message()));
+        }
+        return result;
     }
 
     @PostMapping("/{id}:test")
@@ -242,7 +264,9 @@ public class DatasourceController {
     public DatasourceTestResult test(@PathVariable String ws, @PathVariable UUID id) {
         var granted = access.require(ws, WorkspaceRole.AUTHOR);
         Datasource ds = find(granted.workspace().id(), id);
-        return run(ds.config(), secrets.resolve(ds.secretRef()));
+        DatasourceTestResult result = run(ds.config(), secrets.resolve(ds.secretRef()));
+        scope.run(granted.workspace().id(), () -> store.recordTest(id, result.ok(), result.message()));
+        return result;
     }
 
     @GetMapping("/{id}/schemas")

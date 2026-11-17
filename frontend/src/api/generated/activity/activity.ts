@@ -181,7 +181,7 @@ export const getActivitySummaryUrl = (ws: string,
 }
 
 /**
- * @summary Totals, calls per day, top endpoints and errors; Try-it calls hidden by default
+ * @summary Totals, calls per day, top and slowest endpoints, clients, addresses and errors; optionally one endpoint; Try-it calls hidden by default
  */
 export const activitySummary = async (ws: string,
     params?: ActivitySummaryParams, options?: Parameters<typeof customInstance>[1]): Promise<Summary> => {
@@ -258,7 +258,7 @@ export function useActivitySummary<TData = Awaited<ReturnType<typeof activitySum
  , queryClient?: QueryClient
   ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
- * @summary Totals, calls per day, top endpoints and errors; Try-it calls hidden by default
+ * @summary Totals, calls per day, top and slowest endpoints, clients, addresses and errors; optionally one endpoint; Try-it calls hidden by default
  */
 
 export function useActivitySummary<TData = Awaited<ReturnType<typeof activitySummary>>, TError = unknown>(
