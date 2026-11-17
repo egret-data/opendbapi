@@ -19,11 +19,11 @@ export const problem = (status: number, detail: string, code?: string) =>
 
 /** Stubs `fetch` with a table of `"METHOD /admin/api/path"` handlers; anything else is a 404. */
 export function mockServer(routes: Record<string, Handler>) {
-  const calls: { key: string; init?: RequestInit }[] = [];
+  const calls: { key: string; init?: RequestInit; url: string }[] = [];
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" ? input : input.toString();
     const key = `${(init?.method ?? "GET").toUpperCase()} ${url.split("?")[0]}`;
-    calls.push({ key, init });
+    calls.push({ key, init, url });
     const handler = routes[key];
     return handler ? handler(init, url) : problem(404, `No mock for ${key}`);
   });
