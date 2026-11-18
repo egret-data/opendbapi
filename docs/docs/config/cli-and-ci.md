@@ -5,7 +5,7 @@ sidebar_position: 3
 # Command line and CI
 
 The `opendbapi` command line exports, plans and applies from a terminal or a CI pipeline. It ships in the OpenDBAPI
-image: `docker run ghcr.io/egret-data/opendbapi:0.2.0 <command>` runs it instead of the server.
+image: `docker run ghcr.io/egret-data/opendbapi:0.3.0 <command>` runs it instead of the server.
 
 ## Create an API token
 
@@ -48,7 +48,7 @@ Exit codes: `0` success; `1` an error, or endpoints that failed to publish; `2` 
 ```bash
 export OPENDBAPI_URL=https://opendbapi.example.com OPENDBAPI_WORKSPACE=sales OPENDBAPI_TOKEN=odb_...
 docker run --rm -v "$PWD/api:/api" -e OPENDBAPI_URL -e OPENDBAPI_WORKSPACE -e OPENDBAPI_TOKEN \
-  ghcr.io/egret-data/opendbapi:0.2.0 plan --dir /api --env prod --publish --detailed-exitcode
+  ghcr.io/egret-data/opendbapi:0.3.0 plan --dir /api --env prod --publish --detailed-exitcode
 ```
 
 ## GitHub Actions
@@ -75,9 +75,9 @@ jobs:
       - name: plan
         if: github.event_name == 'pull_request'
         run: docker run --rm -v "$PWD/api:/api" -e OPENDBAPI_URL -e OPENDBAPI_WORKSPACE -e OPENDBAPI_TOKEN
-          ghcr.io/egret-data/opendbapi:0.2.0 plan --dir /api --env prod --publish
+          ghcr.io/egret-data/opendbapi:0.3.0 plan --dir /api --env prod --publish
       - name: apply
         if: github.event_name == 'push'
         run: docker run --rm -v "$PWD/api:/api" -e OPENDBAPI_URL -e OPENDBAPI_WORKSPACE -e OPENDBAPI_TOKEN
-          ghcr.io/egret-data/opendbapi:0.2.0 apply --dir /api --env prod --publish
+          ghcr.io/egret-data/opendbapi:0.3.0 apply --dir /api --env prod --publish
 ```

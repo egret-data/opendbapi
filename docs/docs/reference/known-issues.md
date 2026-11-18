@@ -4,7 +4,7 @@ sidebar_position: 4
 
 # Known issues
 
-Problems in the current release (0.2.0) and how to work around them.
+Problems in the current release (0.3.0) and how to work around them.
 
 ## `timestamptz` values lose their offset
 
@@ -20,9 +20,3 @@ When the saved draft equals the live version, **Publish** stays enabled and pres
 `409 nothing_to_publish` error.
 
 **Work around**: none needed; the live version is unchanged.
-
-## Reloading the API tokens page shows "not found"
-
-Opening `/account/tokens` directly, or reloading it, answers 404 in 0.2.0.
-
-**Work around**: open it from the user menu → **API tokens**. Fixed in the next release.

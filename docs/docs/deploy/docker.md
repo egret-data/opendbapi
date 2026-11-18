@@ -43,7 +43,7 @@ docker run -d --name opendbapi -p 8520:8520 \
   -e OPENDBAPI_DB_OWNER_PASSWORD=change-me-owner \
   -e OPENDBAPI_MASTER_KEY=... \
   -e OPENDBAPI_BOOTSTRAP_ADMIN_PASSWORD=... \
-  ghcr.io/egret-data/opendbapi:0.2.0
+  ghcr.io/egret-data/opendbapi:0.3.0
 ```
 
 | Variable | Meaning |
