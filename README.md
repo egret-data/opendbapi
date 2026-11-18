@@ -4,6 +4,11 @@ Publish SQL as versioned, access-controlled REST APIs, with workspaces for multi
 sign-in through local accounts, LDAP or SSO. A clean-room rewrite of the ideas behind DBAPI;
 the full design is in [`docs/SPEC.md`](docs/SPEC.md).
 
+**Documentation:** [egret-data.github.io/opendbapi](https://egret-data.github.io/opendbapi/), with a
+[quick start](https://egret-data.github.io/opendbapi/get-started/quick-start) that runs OpenDBAPI and a sample
+database with Docker Compose (`deploy/quickstart`). The site's source is in [`docs/`](docs/); see
+[`docs/STYLE.md`](docs/STYLE.md) before writing pages.
+
 > **Status:** P1 roadmap (steps 1–11) done: schema with per-workspace row-level security,
 > sign-in (local, LDAP, SSO/OIDC) with group → role mapping, workspaces, members, users,
 > identity providers and audit log; the SQL template engine with static checks and
