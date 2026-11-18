@@ -20,7 +20,7 @@ services:
       retries: 20
 
   opendbapi:
-    image: ghcr.io/egret-data/opendbapi:0.2.0
+    image: ghcr.io/egret-data/opendbapi:0.3.0
     depends_on:
       postgres:
         condition: service_healthy

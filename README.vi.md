@@ -91,7 +91,7 @@ docker compose -f deploy/quickstart/docker-compose.yml exec -T postgres \
 
 Sau đó mở <http://localhost:8520> và đăng nhập bằng `admin` / `admin-change-me`.
 
-- **Cần** Docker có Compose v2. Stack sẽ pull `ghcr.io/egret-data/opendbapi:0.2.0` và PostgreSQL 16.
+- **Cần** Docker có Compose v2. Stack sẽ pull `ghcr.io/egret-data/opendbapi:0.3.0` và PostgreSQL 16.
 - **Tiếp theo:** [publish endpoint đầu tiên](https://egret-data.github.io/opendbapi/vi/get-started/first-endpoint) trên
   cửa hàng mẫu.
 - **Chỉ để thử.** Quick start dùng mật khẩu và master key cố định, công khai. Để chạy thật, làm theo
@@ -151,7 +151,7 @@ Dockerfile          một image: API và giao diện
 
 ## Trạng thái
 
-Bản phát hành hiện tại là [0.2.0](https://github.com/egret-data/opendbapi/releases/tag/v0.2.0). Mọi thứ trong phần điểm
+Bản phát hành hiện tại là [0.3.0](https://github.com/egret-data/opendbapi/releases/tag/v0.3.0). Mọi thứ trong phần điểm
 nổi bật ở trên đã được xây dựng và có test. Datasource Elasticsearch được hoãn đến khi có nhu cầu.
 Lỗi trong bản hiện tại được liệt kê ở [Vấn đề đã biết](https://egret-data.github.io/opendbapi/vi/reference/known-issues).
 

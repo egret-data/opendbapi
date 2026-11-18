@@ -22,7 +22,7 @@ docker compose -f deploy/quickstart/docker-compose.yml up -d
 This starts two containers:
 
 - **postgres**: PostgreSQL 16 that holds OpenDBAPI's own data (users, workspaces, endpoints, activity).
-- **opendbapi**: the `ghcr.io/egret-data/opendbapi:0.2.0` image, which serves the management UI and the published
+- **opendbapi**: the `ghcr.io/egret-data/opendbapi:0.3.0` image, which serves the management UI and the published
   endpoints on port 8520.
 
 OpenDBAPI creates its schema on first start. Wait until it reports ready:
