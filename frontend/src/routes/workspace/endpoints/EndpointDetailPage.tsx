@@ -134,7 +134,10 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
       },
     );
 
-  const publishBlockedReason = dirty ? t("Save the draft first: publish freezes what is saved") : !canAuthor ? t("Authors publish") : undefined;
+  const publishBlockedReason = dirty ? t("Save the draft first: publish freezes what is saved")
+    : !canAuthor ? t("Authors publish")
+    : !s.dirty && s.state === "live" ? t("Nothing to publish: the live version matches the saved draft")
+    : undefined;
 
   return (
     <>

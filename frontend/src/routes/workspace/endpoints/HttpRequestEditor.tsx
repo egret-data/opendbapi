@@ -43,7 +43,7 @@ export function HttpRequestEditor({ request, baseUrl, disabled, onChange }: {
           {t("Put a parameter in the path with {name}. Values here and below are expressions, as in <if test>: a parameter name, customer.id, or 'text'.")}
         </p>
       </div>
-      <Fields label={t("Query")} rows={query} disabled={disabled} onChange={(rows) => set({ query: rows })}
+      <Fields label={t("Query string")} rows={query} disabled={disabled} onChange={(rows) => set({ query: rows })}
         empty={t("No query string. Add a row to pass a parameter on, e.g. status → status.")} />
       {request.method !== "GET" && (
         <Fields label={t("JSON body")} rows={body} disabled={disabled} onChange={(rows) => set({ body: rows })}

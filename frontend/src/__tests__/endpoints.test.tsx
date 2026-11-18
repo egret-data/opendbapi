@@ -151,6 +151,23 @@ describe("Endpoints", () => {
     expect(within(dialog).getByRole("button", { name: "Publish" })).toBeDisabled();
   });
 
+  it("publish is disabled when the live version already matches the saved draft", async () => {
+    // Arrange
+    mockServer({
+      ...common,
+      "GET /admin/api/me": () => json(meAs("author")),
+      "GET /admin/api/ws/sales/endpoints/e1": () => json({ ...DETAIL, summary: { ...SUMMARY, dirty: false } }),
+    });
+
+    // Act
+    renderApp("/w/sales/endpoints/e1");
+
+    // Assert
+    const publish = await screen.findByRole("button", { name: "Publish" });
+    expect(publish).toBeDisabled();
+    expect(publish).toHaveAttribute("title", "Nothing to publish: the live version matches the saved draft");
+  });
+
   it("preview sends the on-screen draft and test values, and shows rows", async () => {
     // Arrange
     const server = mockServer({
@@ -286,8 +303,8 @@ describe("Endpoints", () => {
     // Act
     expect(await screen.findByText("https://api.example.com/v1")).toBeInTheDocument();
     await user.click(screen.getAllByRole("button", { name: "Add field" })[0]);
-    await user.type(screen.getByLabelText("Query field 1 name"), "status");
-    await user.type(screen.getByLabelText("Query field 1 value"), "status");
+    await user.type(screen.getByLabelText("Query string field 1 name"), "status");
+    await user.type(screen.getByLabelText("Query string field 1 value"), "status");
     await user.type(screen.getByLabelText("Rows at"), "/data");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
