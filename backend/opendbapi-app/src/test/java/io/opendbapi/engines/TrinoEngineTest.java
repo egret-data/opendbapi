@@ -26,10 +26,33 @@ class TrinoEngineTest extends EngineContract {
         trino.start();
         Properties p = new Properties();
         p.setProperty("user", "seed");
-        try (Connection c = DriverManager.getConnection("jdbc:trino://" + host() + ":" + port() + "/memory/default", p);
-             Statement s = c.createStatement()) {
+        String url = "jdbc:trino://" + host() + ":" + port() + "/memory/default";
+        // /v1/info says started before the coordinator's worker has announced itself; queries until
+        // then fail with "No nodes available to run query".
+        long deadline = System.nanoTime() + Duration.ofMinutes(2).toNanos();
+        while (true) {
+            try (Connection c = DriverManager.getConnection(url, p); Statement s = c.createStatement();
+                 java.sql.ResultSet rs = s.executeQuery("select count(*) from system.runtime.nodes where state = 'active'")) {
+                if (rs.next() && rs.getLong(1) > 0) {
+                    break;
+                }
+            } catch (java.sql.SQLException e) {
+                if (System.nanoTime() > deadline) {
+                    throw e;
+                }
+            }
+            if (System.nanoTime() > deadline) {
+                throw new IllegalStateException("Trino has no active node after 2 minutes");
+            }
+            Thread.sleep(1000);
+        }
+        try (Connection c = DriverManager.getConnection(url, p); Statement s = c.createStatement()) {
             s.execute("create table orders (id bigint, customer varchar, total decimal(10, 2))");
             s.execute("insert into orders values (1, 'ana', 10), (2, 'bo', 20), (3, 'cy', 30), (4, 'di', 40), (5, 'ed', 50)");
+            // The memory connector keeps data on the worker; read it back before the tests run.
+            try (java.sql.ResultSet rs = s.executeQuery("select count(*) from orders")) {
+                rs.next();
+            }
         }
     }
 
