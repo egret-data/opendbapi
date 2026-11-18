@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -282,6 +283,21 @@ public class EndpointController {
     @Operation(operationId = "undeprecateEndpoint", summary = "Stop announcing deprecation (author)")
     public EndpointSummary undeprecate(@PathVariable String ws, @PathVariable UUID id) {
         return lifecycle(ws, id, "endpoint.undeprecate", endpoints::undeprecate);
+    }
+
+    @Schema(name = "MoveEndpoint")
+    public record MoveEndpoint(@Schema(nullable = true, description = "The group to put the endpoint in; null for no group") UUID groupId) {
+    }
+
+    @PutMapping("/{id}/group")
+    @Operation(operationId = "moveEndpoint",
+            summary = "Put the endpoint in a group, or in none; grants on the group apply at once, nothing is republished (author)")
+    public EndpointSummary move(@PathVariable String ws, @PathVariable UUID id, @RequestBody MoveEndpoint body) {
+        var granted = access.require(ws, WorkspaceRole.AUTHOR);
+        UUID groupId = body == null ? null : body.groupId();
+        Endpoint e = endpoints.move(granted.workspace().id(), id, groupId);
+        audit(granted, "endpoint.move", e, groupId == null ? Map.of() : Map.of("groupId", groupId.toString()));
+        return EndpointSummary.of(e);
     }
 
     @GetMapping("/{id}/lineage")

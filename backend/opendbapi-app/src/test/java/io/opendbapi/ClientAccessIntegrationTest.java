@@ -105,6 +105,60 @@ class ClientAccessIntegrationTest extends AppTestSupport {
     }
 
     @Test
+    void movingAnEndpointBetweenGroupsChangesGroupAccessAtOnceWithoutTouchingTheDraft() {
+        // Arrange
+        Credentials c = newClient("mover");
+        admin.put(ws("/service-accounts/" + c.saId() + "/grants"), Map.of("resourceType", "group", "resourceId", groupId)).expect(204);
+        String token = token(c).json().path("access_token").asText();
+        String other = admin.post(ws("/groups"), Map.of("name", "other")).expect(201).json().path("id").asText();
+        call("whoami", token).expect(200);
+        Map<String, Object> noGroup = new HashMap<>();
+        noGroup.put("groupId", null);
+
+        // Act + Assert: out of the granted group, the call is refused
+        JsonNode moved = admin.put(ws("/endpoints/" + endpointId + "/group"), Map.of("groupId", other)).expect(200).json();
+        assertThat(moved.path("groupId").asText()).isEqualTo(other);
+        assertThat(moved.path("dirty").asBoolean()).isFalse();
+        assertThat(moved.path("state").asText()).isEqualTo("live");
+        call("whoami", token).expectProblem(403, "not_granted");
+
+        admin.put(ws("/endpoints/" + endpointId + "/group"), noGroup).expect(200);
+        assertThat(admin.get(ws("/endpoints/" + endpointId)).json().path("summary").path("groupId").isNull()).isTrue();
+
+        admin.put(ws("/endpoints/" + endpointId + "/group"), Map.of("groupId", groupId)).expect(200);
+        call("whoami", token).expect(200);
+        assertThat(admin.get(ws("/audit")).json().toString()).contains("endpoint.move");
+    }
+
+    @Test
+    void movingIntoAnUnknownGroupIsRefused() {
+        // Act + Assert
+        admin.put(ws("/endpoints/" + endpointId + "/group"), Map.of("groupId", UUID.randomUUID().toString()))
+                .expectProblem(404, "group_not_found");
+    }
+
+    @Test
+    void deletingAGroupUngroupsItsEndpointsAndRevokesGrantsOnIt() {
+        // Arrange
+        Credentials c = newClient("folder-reader");
+        admin.put(ws("/service-accounts/" + c.saId() + "/grants"), Map.of("resourceType", "group", "resourceId", groupId)).expect(204);
+        JsonNode before = admin.get(ws("/groups")).json().get(0);
+        assertThat(before.path("endpointCount").asInt()).isEqualTo(1);
+        assertThat(before.path("grantCount").asInt()).isEqualTo(1);
+        String token = token(c).json().path("access_token").asText();
+        call("whoami", token).expect(200);
+
+        // Act
+        admin.delete(ws("/groups/" + groupId)).expect(204);
+
+        // Assert
+        assertThat(admin.get(ws("/groups")).json()).isEmpty();
+        assertThat(admin.get(ws("/endpoints/" + endpointId)).json().path("summary").path("groupId").isNull()).isTrue();
+        assertThat(admin.get(ws("/service-accounts/" + c.saId())).json().path("grants")).isEmpty();
+        call("whoami", token).expectProblem(403, "not_granted");
+    }
+
+    @Test
     void clientCredentialsAlsoWorkAsFormFieldsAndWrongOnesAreRefused() {
         // Arrange
         Credentials c = newClient("form-auth");

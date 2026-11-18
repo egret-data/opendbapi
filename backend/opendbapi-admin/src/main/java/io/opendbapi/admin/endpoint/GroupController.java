@@ -1,6 +1,8 @@
 package io.opendbapi.admin.endpoint;
 
 import io.opendbapi.admin.security.WorkspaceAccess;
+import io.opendbapi.core.audit.AuditLog;
+import io.opendbapi.core.client.CallerAuthorizer;
 import io.opendbapi.core.endpoint.ApiGroupStore;
 import io.opendbapi.core.error.ApiProblem;
 import io.opendbapi.core.workspace.WorkspaceRole;
@@ -11,6 +13,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -37,11 +40,15 @@ public class GroupController {
     private final WorkspaceAccess access;
     private final WorkspaceScope scope;
     private final ApiGroupStore groups;
+    private final AuditLog audit;
+    private final CallerAuthorizer callers;
 
-    public GroupController(WorkspaceAccess access, WorkspaceScope scope, ApiGroupStore groups) {
+    public GroupController(WorkspaceAccess access, WorkspaceScope scope, ApiGroupStore groups, AuditLog audit, CallerAuthorizer callers) {
         this.access = access;
         this.scope = scope;
         this.groups = groups;
+        this.audit = audit;
+        this.callers = callers;
     }
 
     @GetMapping
@@ -57,7 +64,9 @@ public class GroupController {
     public ApiGroupStore.ApiGroup create(@PathVariable String ws, @Valid @RequestBody SaveGroup body) {
         var granted = access.require(ws, WorkspaceRole.AUTHOR);
         UUID wsId = granted.workspace().id();
-        return scope.call(wsId, () -> groups.create(wsId, body.name().strip()));
+        ApiGroupStore.ApiGroup created = scope.call(wsId, () -> groups.create(wsId, body.name().strip()));
+        audit.record(wsId, granted.user().id(), "group.create", "group", created.id().toString(), Map.of("name", created.name()));
+        return created;
     }
 
     @PatchMapping("/{id}")
@@ -67,16 +76,19 @@ public class GroupController {
         if (!scope.call(granted.workspace().id(), () -> groups.rename(id, body.name().strip()))) {
             throw ApiProblem.notFound("group_not_found", "That group does not exist.");
         }
+        audit.record(granted.workspace().id(), granted.user().id(), "group.rename", "group", id.toString(), Map.of("name", body.name().strip()));
         return ResponseEntity.noContent().build();
     }
 
     @DeleteMapping("/{id}")
-    @Operation(operationId = "deleteGroup", summary = "Delete a group; its endpoints become ungrouped (author)")
+    @Operation(operationId = "deleteGroup", summary = "Delete a group; its endpoints become ungrouped and grants on it are revoked (author)")
     public ResponseEntity<Void> delete(@PathVariable String ws, @PathVariable UUID id) {
         var granted = access.require(ws, WorkspaceRole.AUTHOR);
         if (!scope.call(granted.workspace().id(), () -> groups.delete(id))) {
             throw ApiProblem.notFound("group_not_found", "That group does not exist.");
         }
+        callers.invalidate(granted.workspace().id());
+        audit.record(granted.workspace().id(), granted.user().id(), "group.delete", "group", id.toString(), Map.of());
         return ResponseEntity.noContent().build();
     }
 }

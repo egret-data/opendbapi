@@ -232,7 +232,7 @@ export const useCreateGroup = <TError = unknown,
 }
 
 /**
- * @summary Delete a group; its endpoints become ungrouped (author)
+ * @summary Delete a group; its endpoints become ungrouped and grants on it are revoked (author)
  */
 export const deleteGroup = async (ws: string,
     id: string, options?: Parameters<typeof customInstance>[1]): Promise<void> => {
@@ -282,7 +282,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DeleteGroupMutationError = unknown
 
     /**
- * @summary Delete a group; its endpoints become ungrouped (author)
+ * @summary Delete a group; its endpoints become ungrouped and grants on it are revoked (author)
  */
 export const useDeleteGroup = <TError = unknown,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteGroup>>, TError,{ws: string;id: string}, TContext>, request?: SecondParameter<typeof customInstance>}

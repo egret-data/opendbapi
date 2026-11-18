@@ -26,7 +26,8 @@ On the service account's page, under **Grants**, press **Grant access**, choose 
 **Grant**:
 
 - **Endpoint**: one endpoint.
-- **Group (all its endpoints)**: every endpoint in the group, including ones added later.
+- **Group (all its endpoints)**: every endpoint in the group, including ones added later. Moving an endpoint out of the
+  group, or deleting the group, takes the access away; see [Groups](../endpoints/groups.md).
 
 Without a grant, calls get `403 not_granted`. An endpoint's **Access** tab shows every service account that may call it,
 directly or **Through** its group, and can grant from there too.

@@ -17,7 +17,7 @@ Everything the UI does goes through it, so scripts can do the same.
 - Errors are RFC 9457 problems; see [Errors](./errors.md#management-api).
 - Published endpoints are not part of this API: each workspace documents its own at `/api/{workspace}/openapi.json`.
 
-83 paths, grouped by area.
+84 paths, grouped by area.
 
 ## activity
 
@@ -664,6 +664,19 @@ Check the saved draft as publish would (author)
 
 **Response 200**: `ValidationView` (application/json)
 
+### `PUT /admin/api/ws/{ws}/endpoints/{id}/group`
+
+Put the endpoint in a group, or in none; grants on the group apply at once, nothing is republished (author)
+
+| Parameter | In | Type | Required | Description |
+|---|---|---|---|---|
+| `ws` | path | `string` | yes |  |
+| `id` | path | `string (uuid)` | yes |  |
+
+**Body**: `MoveEndpoint` (application/json)
+
+**Response 200**: `EndpointSummary` (application/json)
+
 ### `GET /admin/api/ws/{ws}/endpoints/{id}/lineage`
 
 The major versions of this endpoint, oldest first
@@ -796,7 +809,7 @@ Rename a group (author)
 
 ### `DELETE /admin/api/ws/{ws}/groups/{id}`
 
-Delete a group; its endpoints become ungrouped (author)
+Delete a group; its endpoints become ungrouped and grants on it are revoked (author)
 
 | Parameter | In | Type | Required | Description |
 |---|---|---|---|---|
@@ -1380,6 +1393,7 @@ Bring an archived workspace back (system admin)
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `endpointCount` | `integer (int32)` | yes |  |
+| `grantCount` | `integer (int32)` | yes |  |
 | `id` | `string (uuid)` | yes |  |
 | `name` | `string` | yes |  |
 
@@ -1878,6 +1892,12 @@ Last connection test; null when never tested since the settings changed
 | `source` | `string` | yes |  |
 | `userId` | `string (uuid)` | yes |  |
 | `username` | `string` | yes |  |
+
+### MoveEndpoint
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `groupId` | `string (uuid)` | no | The group to put the endpoint in; null for no group |
 
 ### MyWorkspace
 
