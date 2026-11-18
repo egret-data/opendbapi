@@ -4,8 +4,8 @@ sidebar_position: 1
 
 # The YAML format
 
-A workspace exports as a stream of YAML documents, one per object, that refer to each other by **name**, never by
-internal id. The same file can therefore be applied to another workspace or another installation.
+A workspace exports as a stream of YAML documents, one per object, that refer to each other by name instead of by
+internal id. That lets you apply the same file to another workspace or another installation.
 
 Export a workspace with **Settings → Import & export → Download YAML**, or with
 [`opendbapi export`](./cli-and-ci.md). Passwords, client secrets, signing keys and webhook URLs are never included.

@@ -18,7 +18,7 @@ and the `requestId` of the call:
 }
 ```
 
-Program against `status` and `code`; `detail` is for people and may change. Server errors (5xx) keep their details in the
+Program against `status` and `code`. The `detail` text is for people and may change. Server errors (5xx) keep their details in the
 server log and in **Activity**, found by `requestId`.
 
 ## Calling endpoints

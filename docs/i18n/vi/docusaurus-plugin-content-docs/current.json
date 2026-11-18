@@ -1,0 +1,70 @@
+{
+  "version.label": {
+    "message": "Next",
+    "description": "The label for version current"
+  },
+  "sidebar.docs.category.Get started": {
+    "message": "Bắt đầu",
+    "description": "The label for category Get started in sidebar docs"
+  },
+  "sidebar.docs.category.Get started.link.generated-index.description": {
+    "message": "Cài OpenDBAPI và publish endpoint đầu tiên.",
+    "description": "The generated-index page description for category Get started in sidebar docs"
+  },
+  "sidebar.docs.category.Endpoints": {
+    "message": "Endpoint",
+    "description": "The label for category Endpoints in sidebar docs"
+  },
+  "sidebar.docs.category.Endpoints.link.generated-index.description": {
+    "message": "Viết, test, quản lý phiên bản và publish endpoint.",
+    "description": "The generated-index page description for category Endpoints in sidebar docs"
+  },
+  "sidebar.docs.category.Access and data policies": {
+    "message": "Truy cập và data policy",
+    "description": "The label for category Access and data policies in sidebar docs"
+  },
+  "sidebar.docs.category.Access and data policies.link.generated-index.description": {
+    "message": "Ai được gọi endpoint và được xem dữ liệu nào.",
+    "description": "The generated-index page description for category Access and data policies in sidebar docs"
+  },
+  "sidebar.docs.category.Datasources": {
+    "message": "Datasource",
+    "description": "The label for category Datasources in sidebar docs"
+  },
+  "sidebar.docs.category.Datasources.link.generated-index.description": {
+    "message": "Kết nối database và HTTP API mà endpoint đọc dữ liệu.",
+    "description": "The generated-index page description for category Datasources in sidebar docs"
+  },
+  "sidebar.docs.category.Workspace settings": {
+    "message": "Cài đặt workspace",
+    "description": "The label for category Workspace settings in sidebar docs"
+  },
+  "sidebar.docs.category.Workspace settings.link.generated-index.description": {
+    "message": "Thành viên, secret, cảnh báo, bảo mật và activity.",
+    "description": "The generated-index page description for category Workspace settings in sidebar docs"
+  },
+  "sidebar.docs.category.Configuration as code": {
+    "message": "Cấu hình dạng code",
+    "description": "The label for category Configuration as code in sidebar docs"
+  },
+  "sidebar.docs.category.Configuration as code.link.generated-index.description": {
+    "message": "Giữ workspace trong Git và áp dụng sang môi trường khác.",
+    "description": "The generated-index page description for category Configuration as code in sidebar docs"
+  },
+  "sidebar.docs.category.Deploy and operate": {
+    "message": "Triển khai và vận hành",
+    "description": "The label for category Deploy and operate in sidebar docs"
+  },
+  "sidebar.docs.category.Deploy and operate.link.generated-index.description": {
+    "message": "Chạy OpenDBAPI bằng Docker hoặc Kubernetes.",
+    "description": "The generated-index page description for category Deploy and operate in sidebar docs"
+  },
+  "sidebar.docs.category.Reference": {
+    "message": "Tham chiếu",
+    "description": "The label for category Reference in sidebar docs"
+  },
+  "sidebar.docs.category.Reference.link.generated-index.description": {
+    "message": "API, mã lỗi, cấu hình và vấn đề đã biết.",
+    "description": "The generated-index page description for category Reference in sidebar docs"
+  }
+}

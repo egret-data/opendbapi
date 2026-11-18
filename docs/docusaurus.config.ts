@@ -17,6 +17,7 @@ const config: Config = {
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'throw',
+  onBrokenAnchors: 'throw',
 
   // English is canonical; Vietnamese is a reference translation (npm run write-translations -- -l vi).
   i18n: {

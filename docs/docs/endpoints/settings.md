@@ -4,8 +4,8 @@ sidebar_position: 2
 
 # Endpoint settings
 
-The **Settings** tab of an endpoint: how it is listed, how results are paged and shaped, caching, streaming, limits,
-parameter rules and alerts. Changes take effect when you publish.
+The **Settings** tab of an endpoint controls how it is listed, how results are paged and shaped, caching, streaming,
+limits, parameter rules and alerts. Changes take effect when you publish.
 
 ![The Settings tab of the Customers endpoint with the Endpoint and Pagination groups](/img/endpoints/settings.png)
 
