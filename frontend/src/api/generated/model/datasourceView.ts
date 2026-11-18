@@ -7,17 +7,28 @@
  */
 import type { DatasourceViewDialect } from './datasourceViewDialect';
 import type { DatasourceViewProperties } from './datasourceViewProperties';
+import type { DatasourceViewType } from './datasourceViewType';
+import type { HttpConfig } from './httpConfig';
 import type { LastTest } from './lastTest';
 import type { PoolSettings } from './poolSettings';
 
 export interface DatasourceView {
   createdAt: string;
-  database: string;
+  /**
+     * Databases only
+     * @nullable
+     */
+  database?: string | null;
   /** @nullable */
   description?: string | null;
-  dialect: DatasourceViewDialect;
+  /**
+     * Databases only
+     * @nullable
+     */
+  dialect?: DatasourceViewDialect;
   hasPassword: boolean;
   host: string;
+  http: HttpConfig | null;
   id: string;
   lastTest: LastTest | null;
   name: string;
@@ -31,10 +42,15 @@ export interface DatasourceView {
      * @nullable
      */
   passwordSecret?: string | null;
-  pool: PoolSettings;
+  pool: PoolSettings | null;
   port: number;
   properties: DatasourceViewProperties;
   readOnly: boolean;
+  type: DatasourceViewType;
   updatedAt: string;
-  username: string;
+  /**
+     * Databases only
+     * @nullable
+     */
+  username?: string | null;
 }

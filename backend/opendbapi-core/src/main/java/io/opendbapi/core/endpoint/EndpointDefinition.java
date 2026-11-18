@@ -72,8 +72,16 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
     }
 
     public static EndpointDefinition starter(UUID datasourceId) {
-        return new EndpointDefinition(List.of(), new Task("sql", datasourceId, false,
-                List.of(new Statement("main", "select 1 as ok"))), Pagination.off(), Limits.defaults(), Streaming.off(),
+        return starter(datasourceId, false);
+    }
+
+    /** A new draft: {@code select 1 as ok} on a database, {@code GET /} on an HTTP API. */
+    public static EndpointDefinition starter(UUID datasourceId, boolean http) {
+        Task task = http
+                ? new Task("http", datasourceId, false, List.of(), null, null, null, null, null,
+                        new HttpCall("GET", "/", List.of(), List.of(), ""))
+                : new Task("sql", datasourceId, false, List.of(new Statement("main", "select 1 as ok")));
+        return new EndpointDefinition(List.of(), task, Pagination.off(), Limits.defaults(), Streaming.off(),
                 List.of(), Alerts.off(), Output.defaults(), Cache.off());
     }
 
@@ -180,15 +188,17 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
      * (spec §7.4): a Groovy {@code source}; {@code mode = "fragment"} returns the main query,
      * {@code mode = "full"} runs queries through {@code db} and returns the answer itself.
      * {@code type = "workflow"}: a graph of SQL and script nodes; independent nodes run in parallel.
+     * {@code type = "http"}: one request to an HTTP datasource ({@code request}).
      */
-    public record Task(@Schema(allowableValues = {"sql", "script", "workflow"}) String type, @Schema(nullable = true) UUID datasourceId,
+    public record Task(@Schema(allowableValues = {"sql", "script", "workflow", "http"}) String type, @Schema(nullable = true) UUID datasourceId,
                        boolean transaction, List<Statement> statements,
                        @Schema(nullable = true, allowableValues = {"groovy"}) String language,
                        @Schema(nullable = true, allowableValues = {"fragment", "full"}) String mode,
                        @Schema(nullable = true, description = "Script tasks: the Groovy source") String source,
                        @Schema(nullable = true, description = "Workflow tasks: the nodes of the graph (spec §6.1)") List<WorkflowNode> nodes,
                        @Schema(nullable = true, description = "Workflow tasks: the node whose result is the answer; the last node when empty")
-                       String output) {
+                       String output,
+                       @Schema(nullable = true, description = "HTTP tasks: the request to the HTTP datasource") HttpCall request) {
         public Task {
             type = type == null ? "sql" : type;
             statements = statements == null ? List.of() : List.copyOf(statements);
@@ -196,12 +206,12 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
         }
 
         public Task(String type, UUID datasourceId, boolean transaction, List<Statement> statements) {
-            this(type, datasourceId, transaction, statements, null, null, null, null, null);
+            this(type, datasourceId, transaction, statements, null, null, null, null, null, null);
         }
 
         public Task(String type, UUID datasourceId, boolean transaction, List<Statement> statements, String language, String mode,
                     String source) {
-            this(type, datasourceId, transaction, statements, language, mode, source, null, null);
+            this(type, datasourceId, transaction, statements, language, mode, source, null, null, null);
         }
 
         public boolean script() {
@@ -210,6 +220,10 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
 
         public boolean workflow() {
             return "workflow".equals(type);
+        }
+
+        public boolean http() {
+            return "http".equals(type);
         }
 
         static Task empty() {
@@ -224,6 +238,30 @@ public record EndpointDefinition(List<Param> params, Task task, Pagination pagin
     }
 
     public record Statement(String id, String template) {
+    }
+
+    /**
+     * An HTTP task's request (spec §6). {@code path} is appended to the datasource's base URL;
+     * {@code {expression}} placeholders in it, and the values of {@code query} and {@code body},
+     * are expressions over the parameters, as in {@code <if test>}. {@code resultPath} is a JSON
+     * Pointer to the rows in the response; empty means the whole body.
+     */
+    public record HttpCall(
+            @Schema(allowableValues = {"GET", "POST", "PUT", "PATCH", "DELETE"}) String method,
+            String path,
+            @Schema(nullable = true, description = "Query string: name and expression; null values are left out") List<HttpField> query,
+            @Schema(nullable = true, description = "JSON body fields: name and expression; none sends no body") List<HttpField> body,
+            @Schema(nullable = true, description = "JSON Pointer to the rows, e.g. /data/items") String resultPath) {
+        public HttpCall {
+            method = method == null ? "GET" : method.toUpperCase(java.util.Locale.ROOT);
+            path = path == null ? "" : path.strip();
+            query = query == null ? List.of() : List.copyOf(query);
+            body = body == null ? List.of() : List.copyOf(body);
+            resultPath = resultPath == null ? "" : resultPath.strip();
+        }
+    }
+
+    public record HttpField(String name, String value) {
     }
 
     /**

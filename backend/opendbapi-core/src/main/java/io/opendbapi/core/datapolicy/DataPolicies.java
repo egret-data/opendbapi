@@ -260,6 +260,11 @@ public class DataPolicies {
             return filter != null || !masks.isEmpty();
         }
 
+        @Override
+        public boolean filtersRows() {
+            return filter != null;
+        }
+
         /** Applies the row filter to the main statement, before pagination. */
         public BoundSql rewriteMain(BoundSql main) {
             mainSql = main.sql();

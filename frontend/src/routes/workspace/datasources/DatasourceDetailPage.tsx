@@ -36,7 +36,7 @@ import { DataPoliciesSection } from "../datapolicies/DataPoliciesSection";
 import { STATE_LABEL } from "../endpoints/endpointForm";
 import { ConnectionBadge } from "./ConnectionBadge";
 import { DatasourceFields, TestConnection } from "./DatasourceFields";
-import { DIALECT_LABEL, formFrom, toRequest } from "./datasourceForm";
+import { formFrom, toRequest, typeLabel } from "./datasourceForm";
 
 export default function DatasourceDetailPage() {
   const { ws = "", id = "" } = useParams();
@@ -61,12 +61,13 @@ export default function DatasourceDetailPage() {
                   <ConnectionBadge test={ds.lastTest} />
                 </span>
               }
-              description={`${DIALECT_LABEL[ds.dialect]} · ${ds.host}:${ds.port}/${ds.database}`}
+              description={ds.type === "http" ? `${typeLabel(ds)} · ${ds.http?.baseUrl ?? ""}`
+                : `${typeLabel(ds)} · ${ds.host}:${ds.port}/${ds.database}`}
             />
             <Tabs value={tab} onValueChange={(value) => setParams({ tab: value }, { replace: true })}>
               <TabsList>
                 <TabsTrigger value="settings">{t("Settings")}</TabsTrigger>
-                <TabsTrigger value="tables">{t("Tables")}</TabsTrigger>
+                {ds.type !== "http" && <TabsTrigger value="tables">{t("Tables")}</TabsTrigger>}
                 <TabsTrigger value="usage">{t("Usage")}</TabsTrigger>
                 <TabsTrigger value="policies">{t("Masking")}</TabsTrigger>
               </TabsList>
@@ -129,7 +130,7 @@ function SettingsTab({ ws, ds, canManage }: { ws: string; ds: DatasourceView; ca
         <p className="text-sm text-muted-foreground">{t("Only workspace admins can change datasources.")}</p>
       )}
       <DatasourceFields ws={ws} form={form} onChange={setForm} disabled={!canManage} hasPassword={ds.hasPassword}
-        passwordEnv={ds.passwordEnv} passwordSecret={ds.passwordSecret} />
+        passwordEnv={ds.passwordEnv} passwordSecret={ds.passwordSecret} typeLocked />
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}
@@ -179,7 +180,7 @@ function SettingsTab({ ws, ds, canManage }: { ws: string; ds: DatasourceView; ca
 /** The schema endpoints will most likely query: the configured one, then the usual defaults. */
 export function defaultSchema(schemas: string[], ds: DatasourceView): string {
   // Trino's catalog.schema and StarRocks' or Doris' catalog.database name the schema last; ClickHouse calls it "default".
-  const preferred = [ds.properties.currentSchema, "public", "dbo", ds.database, ds.database.split(".").pop(), "default", ds.username];
+  const preferred = [ds.properties.currentSchema, "public", "dbo", ds.database, ds.database?.split(".").pop(), "default", ds.username];
   for (const candidate of preferred) {
     const match = schemas.find((s) => candidate && s.toLowerCase() === candidate.toLowerCase());
     if (match) return match;

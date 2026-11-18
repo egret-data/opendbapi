@@ -56,7 +56,7 @@ Cho phép người dùng viết SQL / script / Elasticsearch DSL / HTTP proxy tr
 |---|---|
 | **P1 – MVP** | **Workspace (đa tenant)**; đăng nhập **nội bộ + LDAP + OIDC**; datasource JDBC; task SQL template; draft/publish/rollback; nhóm API; service account + OAuth2; Try-it; **OpenAPI**; **phân trang**; **kiểm tra SQL tĩnh**; **quan sát hệ thống**; **virtual threads + stream**; access log ra file + bảng Activity cơ bản; UI React |
 | **P2 – Đầy đủ** | **Task Groovy `SqlFragment`**; **map kết quả**; **ký HMAC**; **bộ test cho từng API**; **che/lọc dữ liệu**; rule tham số; cảnh báo lỗi qua webhook; cache kết quả; QPS; firewall; mã hoá response; thống kê đầy đủ; import từ DBAPI |
-| **P3 – Mở rộng** | **Cấu hình dưới dạng code và đa môi trường**; **phiên bản major song song**; **MCP**; Vault; workflow DAG; chế độ cluster (gateway, Redis); script Groovy chế độ `full`; executor Elasticsearch và HTTP (hoãn, chỉ làm khi có nhu cầu); datasource Trino, StarRocks, Doris, ClickHouse (đã có) |
+| **P3 – Mở rộng** | **Cấu hình dưới dạng code và đa môi trường**; **phiên bản major song song**; **MCP**; Vault; workflow DAG; chế độ cluster (gateway, Redis); script Groovy chế độ `full`; executor Elasticsearch (hoãn, chỉ làm khi có nhu cầu); datasource Trino, StarRocks, Doris, ClickHouse và HTTP (đã có) |
 
 ### 1.4 Ngoài phạm vi
 
@@ -262,8 +262,9 @@ Schema mới trong PostgreSQL, schema `opendbapi`. Dữ liệu DBAPI được nh
 }
 // type = elasticsearch (hoãn, xem §25.2)
 { "hosts": ["http://es1:9200"], "username": "elastic" }
-// type = http (P2)
-{ "baseUrl": "https://upstream.example.com", "headers": { "X-Source": "opendbapi" } }
+// type = http (đã có, 2026-11-18)
+{ "baseUrl": "https://upstream.example.com/v1", "auth": "bearer",   // none | bearer | basic (+ username) | header (+ headerName)
+  "headers": { "X-Source": "opendbapi" }, "connectTimeoutMs": 10000 }  // token/mật khẩu/API key nằm ở secret_ref
 ```
 
 Mật khẩu không nằm trong `config` mà ở `secret_ref`. API không bao giờ trả mật khẩu về UI.
@@ -351,7 +352,7 @@ Request tạo/sửa endpoint gửi trường lạ (kể cả trong object lồng
 | `sql` | Một hoặc nhiều câu SQL template (XML) | P1 |
 | `script` | Groovy trả `SqlFragment` (P2), hoặc script đầy đủ dùng `db.*` (chế độ `full`) | P2/P3 |
 | `elasticsearch` | DSL template | Hoãn |
-| `http` | Proxy sang upstream | Hoãn |
+| `http` | Một request tới datasource HTTP | Đã có (2026-11-18) |
 | `workflow` | DAG nhiều node SQL/script, node độc lập chạy song song (§6.1) | P3 |
 
 ```jsonc
@@ -364,12 +365,24 @@ Request tạo/sửa endpoint gửi trường lạ (kể cả trong object lồng
 // elasticsearch
 { "type": "elasticsearch", "datasourceId": "…", "method": "POST",
   "endpoint": "/orders/_search", "template": "{ \"query\": … }" }
-// http
-{ "type": "http", "datasourceId": "…", "method": "GET", "path": "/v1/orders",
-  "forwardParams": ["status", "from"] }
+// http: path ghép sau baseUrl; {expr} trong path, value của query/body là biểu thức như test của template
+{ "type": "http", "datasourceId": "…",
+  "request": { "method": "GET", "path": "/orders/{id}",
+               "query": [ { "name": "status", "value": "status" } ],
+               "body": [],                       // trường của một object JSON; không dùng cho GET
+               "resultPath": "/data/items" } }   // JSON Pointer tới các dòng; trống = cả response
 ```
 
 Nhiều câu SQL chạy tuần tự trên cùng một connection. Với `transaction: true`, chúng nằm trong một transaction. Kết quả trả về là của câu có `id = "main"`, hoặc của câu cuối cùng.
+
+**Task `http`** (datasource `type = http`, §4.6):
+
+- Giá trị trong path được percent-encode (kể cả `/ ? # &`; `.`/`..` thành `%2E`), nên không thoát ra khỏi segment của nó. Giá trị query là list thì lặp lại tên trường; null thì bỏ.
+- Mỗi lần gọi kiểm tra host theo `HostPolicy`; không theo redirect (3xx là lỗi), để request không bị dẫn qua host khác; đọc tối đa 10 MB; credential chỉ gửi tới baseUrl. Header tĩnh không được là `Authorization`, `Cookie`, `Host`… (credential phải nằm ở `auth`, được niêm phong).
+- Response: JSON tại `resultPath`; mảng → mỗi phần tử một dòng (object thành cột, giá trị khác thành cột `value`), object → một dòng. Dòng đi tiếp qua masking, map kết quả, `maxRows`, cache như kết quả SQL.
+- Upstream 404 → 404 `not_found`; status khác 2xx, redirect hay body không phải JSON → 502 `upstream_failed`; quá timeout của endpoint → 504 `query_timeout`.
+- Preview chỉ gửi GET (POST/PUT/PATCH/DELETE không rollback được: 400 `preview_cannot_roll_back`). Datasource read-only và endpoint GET chỉ được gửi GET. Không có phân trang, streaming, transaction; row filter cần SQL nên endpoint có row filter bị từ chối. Validate báo `datasource_mismatch` khi task và loại datasource không khớp.
+- Endpoint mới trên datasource HTTP bắt đầu bằng `GET /`. Node `api` của workflow gọi được endpoint HTTP.
 
 
 ### 6.1 Workflow
@@ -1326,7 +1339,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 17. ✅ (2026-11-17) Cache kết quả (§9.5) theo client hoặc dùng chung, xoá khi đổi policy/thuộc tính, nút Clear cache, metric hit/miss.
 18. ✅ (2026-11-17) Ký request HMAC với khoá ký riêng cho từng client (§8.2) và mã hoá response AES-GCM/RSA-OAEP (§8.3), cấu hình ở nút Security của client.
 19. ✅ (2026-11-17) Task Groovy `SqlFragment`, chế độ fragment (§7.4), trong sandbox nhiều lớp; chỉ `script_author` trở lên được viết hoặc preview. Chế độ `full` chuyển sang P3.
-20. Executor Elasticsearch và HTTP (§6): bỏ khỏi P2 (quyết định 2026-11-17), chỉ làm khi có nhu cầu thật. ✅ (2026-11-18) Datasource Trino, StarRocks, Apache Doris và ClickHouse (§4.6): URL, thuộc tính an toàn, phân trang, read-only, trình duyệt bảng, DB không có transaction; test trên engine thật ở job CI `engines`.
+20. Executor Elasticsearch (§6): bỏ khỏi P2 (quyết định 2026-11-17), chỉ làm khi có nhu cầu thật. ✅ (2026-11-18) Datasource và task HTTP (§4.6, §6). ✅ (2026-11-18) Datasource Trino, StarRocks, Apache Doris và ClickHouse (§4.6): URL, thuộc tính an toàn, phân trang, read-only, trình duyệt bảng, DB không có transaction; test trên engine thật ở job CI `engines`.
 21. ✅ (2026-11-17) Thống kê đầy đủ trên trang Activity (`/activity/summary` thêm endpoint chậm nhất, top client, top IP, lọc theo endpoint; §21.2); lưu và hiện kết quả lần test kết nối datasource gần nhất (xoá khi đổi cấu hình kết nối).
 22. ✅ (2026-11-17) Export YAML (§15.1) và import từ DBAPI có chạy thử và báo cáo (§15.3), ở Settings → Import & export.
 23. ✅ (2026-11-17) Giao diện tiếng Việt (`react-i18next`, FE-COPY ở §17): chọn ở menu người dùng; thông báo lỗi từ server vẫn bằng tiếng Anh.
@@ -1346,7 +1359,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 | 5 | Đa tenant | Có, theo workspace, từ P1 |
 | 6 | Mức dùng lại Egret | Chỉ lấy khung (§17.1); UI thiết kế lại gọn cho tính năng DBAPI |
 | 7 | Plugin SPI (2026-11-17) | Bỏ hẳn. Cần gì thì viết thẳng thành tính năng (§13) |
-| 8 | Executor Elasticsearch/HTTP, driver ClickHouse (2026-11-17) | Elasticsearch/HTTP hoãn, chỉ làm khi có nhu cầu. ClickHouse làm cùng Trino, StarRocks, Doris (2026-11-18) |
+| 8 | Executor Elasticsearch/HTTP, driver ClickHouse (2026-11-17) | Elasticsearch hoãn, chỉ làm khi có nhu cầu. ClickHouse làm cùng Trino, StarRocks, Doris; HTTP làm sau đó (2026-11-18) |
 
 ### Còn mở
 

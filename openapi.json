@@ -4806,7 +4806,7 @@
         }
       },
       "DatasourceView" : {
-        "required" : [ "createdAt", "database", "dialect", "hasPassword", "host", "id", "lastTest", "name", "pool", "port", "properties", "readOnly", "updatedAt", "username" ],
+        "required" : [ "createdAt", "hasPassword", "host", "http", "id", "lastTest", "name", "pool", "port", "properties", "readOnly", "type", "updatedAt" ],
         "type" : "object",
         "properties" : {
           "createdAt" : {
@@ -4814,7 +4814,9 @@
             "format" : "date-time"
           },
           "database" : {
-            "type" : "string"
+            "type" : "string",
+            "description" : "Databases only",
+            "nullable" : true
           },
           "description" : {
             "type" : "string",
@@ -4822,6 +4824,8 @@
           },
           "dialect" : {
             "type" : "string",
+            "description" : "Databases only",
+            "nullable" : true,
             "enum" : [ "POSTGRESQL", "MYSQL", "MARIADB", "SQLSERVER", "ORACLE", "TRINO", "STARROCKS", "DORIS", "CLICKHOUSE" ]
           },
           "hasPassword" : {
@@ -4829,6 +4833,9 @@
           },
           "host" : {
             "type" : "string"
+          },
+          "http" : {
+            "$ref" : "#/components/schemas/HttpConfig"
           },
           "id" : {
             "type" : "string",
@@ -4866,12 +4873,18 @@
           "readOnly" : {
             "type" : "boolean"
           },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "jdbc", "http" ]
+          },
           "updatedAt" : {
             "type" : "string",
             "format" : "date-time"
           },
           "username" : {
-            "type" : "string"
+            "type" : "string",
+            "description" : "Databases only",
+            "nullable" : true
           }
         }
       },
@@ -5201,6 +5214,95 @@
             "type" : "string"
           }
         }
+      },
+      "HttpCall" : {
+        "required" : [ "method", "path" ],
+        "type" : "object",
+        "properties" : {
+          "body" : {
+            "type" : "array",
+            "description" : "JSON body fields: name and expression; none sends no body",
+            "nullable" : true,
+            "items" : {
+              "$ref" : "#/components/schemas/HttpField"
+            }
+          },
+          "method" : {
+            "type" : "string",
+            "enum" : [ "GET", "POST", "PUT", "PATCH", "DELETE" ]
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "query" : {
+            "type" : "array",
+            "description" : "Query string: name and expression; null values are left out",
+            "nullable" : true,
+            "items" : {
+              "$ref" : "#/components/schemas/HttpField"
+            }
+          },
+          "resultPath" : {
+            "type" : "string",
+            "description" : "JSON Pointer to the rows, e.g. /data/items",
+            "nullable" : true
+          }
+        },
+        "description" : "HTTP tasks: the request to the HTTP datasource",
+        "nullable" : true
+      },
+      "HttpConfig" : {
+        "required" : [ "auth", "baseUrl" ],
+        "type" : "object",
+        "properties" : {
+          "auth" : {
+            "type" : "string",
+            "enum" : [ "none", "bearer", "basic", "header" ]
+          },
+          "baseUrl" : {
+            "type" : "string"
+          },
+          "connectTimeoutMs" : {
+            "type" : "integer",
+            "description" : "250–60000 ms, default 10000",
+            "format" : "int32",
+            "nullable" : true
+          },
+          "headerName" : {
+            "type" : "string",
+            "description" : "API key authentication only",
+            "nullable" : true
+          },
+          "headers" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "string",
+              "nullable" : true
+            },
+            "nullable" : true
+          },
+          "username" : {
+            "type" : "string",
+            "description" : "Basic authentication only",
+            "nullable" : true
+          }
+        },
+        "description" : "HTTP APIs: required",
+        "nullable" : true
+      },
+      "HttpField" : {
+        "required" : [ "name", "value" ],
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "value" : {
+            "type" : "string"
+          }
+        },
+        "description" : "JSON body fields: name and expression; none sends no body",
+        "nullable" : true
       },
       "ImportReport" : {
         "required" : [ "created", "dryRun", "items", "skipped" ],
@@ -5841,7 +5943,8 @@
             "format" : "int32",
             "nullable" : true
           }
-        }
+        },
+        "nullable" : true
       },
       "PreviewRequest" : {
         "required" : [ "definition", "method", "path" ],
@@ -6194,11 +6297,13 @@
         }
       },
       "SaveDatasource" : {
-        "required" : [ "database", "dialect", "host", "name", "pool", "readOnly", "username" ],
+        "required" : [ "name", "readOnly" ],
         "type" : "object",
         "properties" : {
           "database" : {
-            "type" : "string"
+            "type" : "string",
+            "description" : "Databases: required",
+            "nullable" : true
           },
           "description" : {
             "maxLength" : 1000,
@@ -6208,10 +6313,17 @@
           },
           "dialect" : {
             "type" : "string",
+            "description" : "Databases: required",
+            "nullable" : true,
             "enum" : [ "POSTGRESQL", "MYSQL", "MARIADB", "SQLSERVER", "ORACLE", "TRINO", "STARROCKS", "DORIS", "CLICKHOUSE" ]
           },
           "host" : {
-            "type" : "string"
+            "type" : "string",
+            "description" : "Databases: required",
+            "nullable" : true
+          },
+          "http" : {
+            "$ref" : "#/components/schemas/HttpConfig"
           },
           "name" : {
             "maxLength" : 120,
@@ -6220,7 +6332,7 @@
           },
           "password" : {
             "type" : "string",
-            "description" : "Plain password (stored encrypted) or env:NAME; omit to keep the stored one",
+            "description" : "Plain password, token or API key (stored encrypted), or a secret:, env: or vault: reference; omit to keep the stored one",
             "nullable" : true
           },
           "pool" : {
@@ -6243,8 +6355,16 @@
           "readOnly" : {
             "type" : "boolean"
           },
+          "type" : {
+            "type" : "string",
+            "description" : "Default jdbc",
+            "nullable" : true,
+            "enum" : [ "jdbc", "http" ]
+          },
           "username" : {
-            "type" : "string"
+            "type" : "string",
+            "description" : "Databases: required",
+            "nullable" : true
           }
         }
       },
@@ -6635,6 +6755,9 @@
             "description" : "Workflow tasks: the node whose result is the answer; the last node when empty",
             "nullable" : true
           },
+          "request" : {
+            "$ref" : "#/components/schemas/HttpCall"
+          },
           "source" : {
             "type" : "string",
             "description" : "Script tasks: the Groovy source",
@@ -6651,7 +6774,7 @@
           },
           "type" : {
             "type" : "string",
-            "enum" : [ "sql", "script", "workflow" ]
+            "enum" : [ "sql", "script", "workflow", "http" ]
           }
         }
       },

@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { errorMessage } from "@/lib/errors";
-import { DATABASE_HELP, DATABASE_LABEL, DIALECT_LABEL, toRequest, type DatasourceForm, type Dialect } from "./datasourceForm";
+import { DATABASE_HELP, DATABASE_LABEL, DIALECT_LABEL, toRequest, type DatasourceForm, type Dialect, type SourceType } from "./datasourceForm";
+import { HttpSourceFields } from "./HttpSourceFields";
 
 /**
  * The datasource settings as one `Setting | Details | Value` table (FE-PAGE-5). `disabled`
@@ -26,6 +27,7 @@ export function DatasourceFields({
   hasPassword = false,
   passwordEnv,
   passwordSecret,
+  typeLocked = false,
 }: {
   ws: string;
   form: DatasourceForm;
@@ -34,6 +36,8 @@ export function DatasourceFields({
   hasPassword?: boolean;
   passwordEnv?: string | null;
   passwordSecret?: string | null;
+  /** A saved datasource keeps its type. */
+  typeLocked?: boolean;
 }) {
   const { t } = useTranslation();
   const dialects = useListDialects(ws);
@@ -64,6 +68,21 @@ export function DatasourceFields({
             onChange={(e) => set({ description: e.target.value })} />
         </ConfigTableRow>
 
+        <ConfigTableRow label={t("Type")} htmlFor="ds-type"
+          details={typeLocked ? t("A datasource keeps its type") : t("A database queried with SQL, or an HTTP API endpoints send requests to")}>
+          <Select value={form.type} onValueChange={(v) => set({ type: v as SourceType, password: "" })} disabled={disabled || typeLocked}>
+            <SelectTrigger id="ds-type" className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="jdbc">{t("Database")}</SelectItem>
+              <SelectItem value="http">{t("HTTP API")}</SelectItem>
+            </SelectContent>
+          </Select>
+        </ConfigTableRow>
+
+        {form.type === "http" ? (
+          <HttpSourceFields form={form} set={set} disabled={disabled} hasPassword={hasPassword} passwordHelp={passwordHelp} />
+        ) : (
+        <>
         <ConfigTableGroup label={t("Connection")} />
         <ConfigTableRow label={t("Database type")} htmlFor="ds-dialect"
           details={info && !info.transactional
@@ -156,10 +175,14 @@ export function DatasourceFields({
           <Input id="ds-timeout" type="number" min={250} max={60000} className="w-32 tabular-nums" value={form.connectionTimeoutMs}
             onChange={(e) => set({ connectionTimeoutMs: e.target.value })} />
         </ConfigTableRow>
+        </>
+        )}
 
         <ConfigTableGroup label={t("Safety")} />
         <ConfigTableRow label={t("Read only")} htmlFor="ds-readonly"
-          details={t("Endpoints cannot publish SQL that writes, and the connection is opened read-only where the database or driver supports it (all but SQL Server and Oracle). A read-only database account is still the stronger guarantee.")}>
+          details={form.type === "http"
+            ? t("Endpoints may send GET requests only. An API credential that can only read is still the stronger guarantee.")
+            : t("Endpoints cannot publish SQL that writes, and the connection is opened read-only where the database or driver supports it (all but SQL Server and Oracle). A read-only database account is still the stronger guarantee.")}>
           <Switch id="ds-readonly" checked={form.readOnly} onCheckedChange={(v) => set({ readOnly: v })} />
         </ConfigTableRow>
       </ConfigTable>

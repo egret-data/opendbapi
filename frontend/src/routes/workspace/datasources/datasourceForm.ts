@@ -1,6 +1,8 @@
 import type { DatasourceView, SaveDatasource, SaveDatasourceDialect } from "@/api/generated/model";
 
-export type Dialect = SaveDatasourceDialect;
+export type Dialect = NonNullable<SaveDatasourceDialect>;
+export type SourceType = "jdbc" | "http";
+export type HttpAuth = "none" | "bearer" | "basic" | "header";
 
 export const DIALECT_LABEL: Record<Dialect, string> = {
   POSTGRESQL: "PostgreSQL",
@@ -13,6 +15,11 @@ export const DIALECT_LABEL: Record<Dialect, string> = {
   DORIS: "Apache Doris",
   CLICKHOUSE: "ClickHouse",
 };
+
+/** "HTTP API", or the database type. */
+export function typeLabel(d: Pick<DatasourceView, "type" | "dialect">): string {
+  return d.type === "http" || !d.dialect ? "HTTP API" : DIALECT_LABEL[d.dialect];
+}
 
 /** What the database name field means for each dialect. */
 export const DATABASE_LABEL: Record<Dialect, string> = {
@@ -40,12 +47,21 @@ export const DATABASE_HELP: Record<Dialect, string> = {
   CLICKHOUSE: "The database to connect to",
 };
 
+/** The label of the secret field for each kind of HTTP authentication. */
+export const SECRET_LABEL: Record<HttpAuth, string> = {
+  none: "Secret",
+  bearer: "Token",
+  basic: "Password",
+  header: "API key",
+};
+
 export type PropertyRow = { key: string; value: string };
 
 /** Form state: strings for inputs, converted once on submit. */
 export type DatasourceForm = {
   name: string;
   description: string;
+  type: SourceType;
   dialect: Dialect;
   host: string;
   port: string;
@@ -58,12 +74,18 @@ export type DatasourceForm = {
   minimumIdle: string;
   connectionTimeoutMs: string;
   readOnly: boolean;
+  baseUrl: string;
+  auth: HttpAuth;
+  httpUsername: string;
+  headerName: string;
+  headers: PropertyRow[];
 };
 
 export function emptyForm(): DatasourceForm {
   return {
     name: "",
     description: "",
+    type: "jdbc",
     dialect: "POSTGRESQL",
     host: "",
     port: "",
@@ -76,33 +98,76 @@ export function emptyForm(): DatasourceForm {
     connectionTimeoutMs: "10000",
     // Safer default: endpoints that only read cannot write by accident.
     readOnly: true,
+    baseUrl: "",
+    auth: "bearer",
+    httpUsername: "",
+    headerName: "X-API-Key",
+    headers: [],
   };
 }
 
 export function formFrom(d: DatasourceView): DatasourceForm {
+  const empty = emptyForm();
+  if (d.type === "http" && d.http) {
+    return {
+      ...empty,
+      name: d.name,
+      description: d.description ?? "",
+      type: "http",
+      readOnly: d.readOnly,
+      baseUrl: d.http.baseUrl,
+      auth: d.http.auth as HttpAuth,
+      httpUsername: d.http.username ?? "",
+      headerName: d.http.headerName ?? empty.headerName,
+      headers: Object.entries(d.http.headers ?? {}).map(([key, value]) => ({ key, value: value ?? "" })),
+      connectionTimeoutMs: String(d.http.connectTimeoutMs ?? 10000),
+    };
+  }
   return {
+    ...empty,
     name: d.name,
     description: d.description ?? "",
-    dialect: d.dialect,
+    dialect: d.dialect ?? "POSTGRESQL",
     host: d.host,
     port: String(d.port),
-    database: d.database,
-    username: d.username,
-    password: "",
+    database: d.database ?? "",
+    username: d.username ?? "",
     properties: Object.entries(d.properties).map(([key, value]) => ({ key, value })),
-    maximumPoolSize: String(d.pool.maximumPoolSize ?? 10),
-    minimumIdle: String(d.pool.minimumIdle ?? 0),
-    connectionTimeoutMs: String(d.pool.connectionTimeoutMs ?? 10000),
+    maximumPoolSize: String(d.pool?.maximumPoolSize ?? 10),
+    minimumIdle: String(d.pool?.minimumIdle ?? 0),
+    connectionTimeoutMs: String(d.pool?.connectionTimeoutMs ?? 10000),
     readOnly: d.readOnly,
   };
 }
 
 const intOrNull = (s: string): number | null => (s.trim() === "" ? null : Number.parseInt(s, 10));
 
+function rows(list: PropertyRow[]): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const row of list) {
+    if (row.key.trim()) out[row.key.trim()] = row.value.trim();
+  }
+  return out;
+}
+
 export function toRequest(f: DatasourceForm): SaveDatasource {
-  const properties: Record<string, string> = {};
-  for (const row of f.properties) {
-    if (row.key.trim()) properties[row.key.trim()] = row.value.trim();
+  const password = f.password === "" ? null : f.password;
+  if (f.type === "http") {
+    return {
+      name: f.name.trim(),
+      description: f.description.trim() || null,
+      type: "http",
+      password,
+      readOnly: f.readOnly,
+      http: {
+        baseUrl: f.baseUrl.trim(),
+        auth: f.auth,
+        username: f.auth === "basic" ? f.httpUsername.trim() : null,
+        headerName: f.auth === "header" ? f.headerName.trim() : null,
+        headers: rows(f.headers),
+        connectTimeoutMs: intOrNull(f.connectionTimeoutMs),
+      },
+    };
   }
   return {
     name: f.name.trim(),
@@ -112,8 +177,8 @@ export function toRequest(f: DatasourceForm): SaveDatasource {
     port: intOrNull(f.port),
     database: f.database.trim(),
     username: f.username.trim(),
-    password: f.password === "" ? null : f.password,
-    properties,
+    password,
+    properties: rows(f.properties),
     pool: {
       maximumPoolSize: intOrNull(f.maximumPoolSize),
       minimumIdle: intOrNull(f.minimumIdle),

@@ -13,7 +13,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDate } from "@/lib/format";
 import { ConnectionBadge } from "./ConnectionBadge";
-import { DIALECT_LABEL } from "./datasourceForm";
+import { typeLabel } from "./datasourceForm";
 
 export default function DatasourcesPage() {
   const { ws = "" } = useParams();
@@ -76,9 +76,9 @@ export default function DatasourcesPage() {
                         </Link>
                         {d.description && <div className="text-xs font-normal text-muted-foreground">{d.description}</div>}
                       </TableCell>
-                      <TableCell>{DIALECT_LABEL[d.dialect]}</TableCell>
+                      <TableCell>{typeLabel(d)}</TableCell>
                       <TableCell className="font-mono text-xs">
-                        {d.host}:{d.port}/{d.database}
+                        {d.type === "http" ? d.http?.baseUrl : `${d.host}:${d.port}/${d.database}`}
                       </TableCell>
                       <TableCell>
                         <StatusBadge tone={d.readOnly ? "neutral" : "highlight"}>{d.readOnly ? t("Read only") : t("Read & write")}</StatusBadge>

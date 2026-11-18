@@ -63,10 +63,11 @@ export function isScript(def: EndpointDefinition): boolean {
   return def.task.type === "script";
 }
 
-export type TaskKind = "sql" | "fragment" | "full" | "workflow";
+export type TaskKind = "sql" | "fragment" | "full" | "workflow" | "http";
 
 export function taskKind(def: EndpointDefinition): TaskKind {
   if (def.task.type === "workflow") return "workflow";
+  if (def.task.type === "http") return "http";
   return !isScript(def) ? "sql" : def.task.mode === "full" ? "full" : "fragment";
 }
 
@@ -84,6 +85,10 @@ export function nodeIds(def: EndpointDefinition): string[] {
 export function withLanguage(def: EndpointDefinition, kind: TaskKind): EndpointDefinition {
   const task = def.task;
   if (kind === "sql") return { ...def, task: { ...task, type: "sql" } };
+  if (kind === "http") {
+    const request = task.request ?? { method: "GET" as const, path: "/", query: [], body: [], resultPath: "" };
+    return { ...def, task: { ...task, type: "http", transaction: false, request } };
+  }
   if (kind === "workflow") {
     const statements = task.statements;
     const sql = (statements.find((s) => s.id === "main") ?? statements[statements.length - 1])?.template ?? "select 1";
@@ -99,6 +104,7 @@ export function withLanguage(def: EndpointDefinition, kind: TaskKind): EndpointD
 /** The text the UI edits: the main SQL statement, or the script. */
 export function mainSql(def: EndpointDefinition): string {
   if (isScript(def)) return def.task.source ?? "";
+  if (def.task.type === "http") return httpText(def);
   if (def.task.type === "workflow") {
     return (def.task.nodes ?? []).flatMap((n) => (n ? [`-- node ${n.id}\n${(n.kind === "script" ? n.source : n.template) ?? ""}`] : []))
       .join("\n\n");
@@ -111,6 +117,37 @@ export function withMainSql(def: EndpointDefinition, sql: string): EndpointDefin
   if (isScript(def)) return { ...def, task: { ...def.task, source: sql } };
   const others = def.task.statements.filter((s) => s.id !== "main");
   return { ...def, task: { ...def.task, statements: [...others, { id: "main", template: sql }] } };
+}
+
+/** An HTTP task as text, for diffs: the request line, then one line per query and body field. */
+export function httpText(def: EndpointDefinition): string {
+  const r = def.task.request;
+  if (!r) return "";
+  const lines = [`${r.method} ${r.path}`];
+  for (const f of r.query ?? []) if (f) lines.push(`query ${f.name} = ${f.value}`);
+  for (const f of r.body ?? []) if (f) lines.push(`body ${f.name} = ${f.value}`);
+  if (r.resultPath) lines.push(`rows at ${r.resultPath}`);
+  return lines.join("\n");
+}
+
+const KEYWORDS = new Set(["and", "or", "not", "null", "true", "false", "eq", "neq", "lt", "lte", "gt", "gte", "size", "length", "isEmpty"]);
+
+/**
+ * What "Detect parameters" reads: the SQL or script, or for an HTTP task the expressions of
+ * its path, query and body written as #{name}.
+ */
+export function paramSource(def: EndpointDefinition): string {
+  if (def.task.type !== "http") return mainSql(def);
+  const r = def.task.request;
+  if (!r) return "";
+  const expressions = [...[...r.path.matchAll(/\{([^{}]+)\}/g)].map((m) => m[1]),
+    ...(r.query ?? []).flatMap((f) => (f ? [f.value] : [])), ...(r.body ?? []).flatMap((f) => (f ? [f.value] : []))];
+  const names = new Set<string>();
+  for (const e of expressions) {
+    const bare = e.replace(/'[^']*'/g, "").replace(/"[^"]*"/g, "");
+    for (const m of bare.matchAll(/(?<![.\w])([A-Za-z_]\w*)/g)) if (!KEYWORDS.has(m[1])) names.add(m[1]);
+  }
+  return [...names].map((n) => `#{${n}}`).join(" ");
 }
 
 const RESERVED = new Set(["page", "size", "format"]);

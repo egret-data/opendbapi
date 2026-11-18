@@ -100,6 +100,48 @@ spec:
 
 Settings left out take their defaults, so a hand-written file can be much shorter than an export.
 
+An [HTTP API](../datasources/http-apis.md) datasource has `type: http` and its settings under `spec`; its endpoints have
+an `http` task:
+
+```yaml
+apiVersion: opendbapi/v1
+kind: Datasource
+metadata:
+  name: orders-api
+spec:
+  type: http
+  baseUrl: https://api.example.com/v1
+  auth: bearer
+  headers:
+    X-Tenant: acme
+  readOnly: true
+  passwordRef: secret:orders-api-token
+---
+apiVersion: opendbapi/v1
+kind: Endpoint
+metadata:
+  name: Customer orders
+spec:
+  method: GET
+  path: "v1/customers/{id}/orders"
+  access: private
+  datasource: orders-api
+  params:
+  - name: id
+    in: path
+    type: bigint
+    required: true
+  task:
+    type: http
+    request:
+      method: GET
+      path: "/customers/{id}/orders"
+      query:
+      - name: status
+        value: "'open'"
+      resultPath: /data
+```
+
 ## Splitting files
 
 Keep one file per area or per endpoint if you like: [`plan` and `apply`](./plan-and-apply.md) read several files, or every

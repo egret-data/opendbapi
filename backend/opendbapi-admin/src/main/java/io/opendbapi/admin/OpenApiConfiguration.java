@@ -29,21 +29,31 @@ public class OpenApiConfiguration {
      * every property is required. Without this the generated TypeScript types would make
      * every field optional and push pointless null checks into the UI.
      */
+    /**
+     * Nullable record components that reference another schema: OpenAPI 3.0 cannot mark a $ref
+     * nullable, so they are listed here to stay optional in requests.
+     */
+    private static final java.util.Map<String, java.util.Set<String>> OPTIONAL_REFS = java.util.Map.of(
+            "Task", java.util.Set.of("request"),
+            "SaveDatasource", java.util.Set.of("http", "pool"));
+
     @Bean
     OpenApiCustomizer recordPropertiesAreRequired() {
         return openApi -> {
             if (openApi.getComponents() == null || openApi.getComponents().getSchemas() == null) {
                 return;
             }
-            for (Schema<?> schema : openApi.getComponents().getSchemas().values()) {
+            for (var entry : openApi.getComponents().getSchemas().entrySet()) {
+                Schema<?> schema = entry.getValue();
                 if (schema.getProperties() == null) {
                     continue;
                 }
+                java.util.Set<String> optional = OPTIONAL_REFS.getOrDefault(entry.getKey(), java.util.Set.of());
                 List<String> required = new ArrayList<>();
                 schema.getProperties().forEach((name, property) -> {
                     // A $ref cannot carry "nullable" in OpenAPI 3.0; free-form JSON is always optional.
                     boolean freeJson = property.get$ref() != null && property.get$ref().endsWith("/JsonNode");
-                    if (!Boolean.TRUE.equals(property.getNullable()) && !freeJson) {
+                    if (!Boolean.TRUE.equals(property.getNullable()) && !freeJson && !optional.contains(name)) {
                         required.add(name);
                     }
                     // Map<String, Object>: values may be any JSON, not only objects.

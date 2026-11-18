@@ -413,5 +413,19 @@
   "Empty. Drag endpoints here, or use Move to in a row's menu.": "Trống. Kéo endpoint vào đây, hoặc dùng mục Chuyển vào trong menu của từng dòng.",
   "Empty.": "Trống.",
   "Actions for group {{name}}": "Thao tác cho nhóm {{name}}",
-  "Delete group…": "Xoá nhóm…"
+  "Delete group…": "Xoá nhóm…",
+  "HTTP request": "Request HTTP",
+  "Request method": "Method của request",
+  "Put a parameter in the path with {name}. Values here and below are expressions, as in <if test>: a parameter name, customer.id, or 'text'.": "Đặt tham số vào path bằng {name}. Giá trị ở đây và bên dưới là biểu thức, như trong <if test>: tên tham số, customer.id, hoặc 'text'.",
+  "No query string. Add a row to pass a parameter on, e.g. status → status.": "Không có query string. Thêm một dòng để chuyển tiếp tham số, ví dụ status → status.",
+  "JSON body": "JSON body",
+  "No body. Add a row to send a JSON field.": "Không có body. Thêm một dòng để gửi một trường JSON.",
+  "Rows at": "Dòng dữ liệu ở",
+  "A JSON Pointer to the rows in the response; empty for the whole response. An array gives one row per item, an object one row.": "JSON Pointer tới các dòng trong response; để trống để lấy cả response. Mảng cho mỗi phần tử một dòng, object cho một dòng.",
+  "{{section}} field {{number}} name": "Tên trường {{number}} của {{section}}",
+  "{{section}} field {{number}} value": "Giá trị trường {{number}} của {{section}}",
+  "Remove {{section}} field {{number}}": "Xoá trường {{number}} của {{section}}",
+  "Add field": "Thêm trường",
+  "Every name the request reads is declared": "Mọi tên mà request đọc đều đã được khai báo",
+  "Detect from request": "Phát hiện từ request"
 }
