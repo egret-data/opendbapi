@@ -3,6 +3,7 @@ package io.opendbapi.engines;
 import io.opendbapi.core.datasource.JdbcDialect;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
 import java.util.Properties;
@@ -27,32 +28,29 @@ class TrinoEngineTest extends EngineContract {
         Properties p = new Properties();
         p.setProperty("user", "seed");
         String url = "jdbc:trino://" + host() + ":" + port() + "/memory/default";
-        // /v1/info says started before the coordinator's worker has announced itself; queries until
-        // then fail with "No nodes available to run query".
+        // /v1/info says started before the node scheduler sees a worker for the memory catalog, and even an
+        // active row in system.runtime.nodes does not guarantee it: until then statements fail with "No nodes
+        // available to run query", without side effects. Retry each seeding statement on that error.
         long deadline = System.nanoTime() + Duration.ofMinutes(2).toNanos();
+        retryWhileNoNodes(url, p, deadline, "create table if not exists orders (id bigint, customer varchar, total decimal(10, 2))");
+        retryWhileNoNodes(url, p, deadline,
+                "insert into orders values (1, 'ana', 10), (2, 'bo', 20), (3, 'cy', 30), (4, 'di', 40), (5, 'ed', 50)");
+        // The memory connector keeps data on the worker; read it back before the tests run.
+        retryWhileNoNodes(url, p, deadline, "select count(*) from orders");
+    }
+
+    private static void retryWhileNoNodes(String url, Properties p, long deadline, String sql) throws Exception {
         while (true) {
-            try (Connection c = DriverManager.getConnection(url, p); Statement s = c.createStatement();
-                 java.sql.ResultSet rs = s.executeQuery("select count(*) from system.runtime.nodes where state = 'active'")) {
-                if (rs.next() && rs.getLong(1) > 0) {
-                    break;
-                }
-            } catch (java.sql.SQLException e) {
-                if (System.nanoTime() > deadline) {
+            try (Connection c = DriverManager.getConnection(url, p); Statement s = c.createStatement()) {
+                s.execute(sql);
+                return;
+            } catch (SQLException e) {
+                boolean noNodes = String.valueOf(e.getMessage()).contains("No nodes available");
+                if (!noNodes || System.nanoTime() > deadline) {
                     throw e;
                 }
             }
-            if (System.nanoTime() > deadline) {
-                throw new IllegalStateException("Trino has no active node after 2 minutes");
-            }
             Thread.sleep(1000);
-        }
-        try (Connection c = DriverManager.getConnection(url, p); Statement s = c.createStatement()) {
-            s.execute("create table orders (id bigint, customer varchar, total decimal(10, 2))");
-            s.execute("insert into orders values (1, 'ana', 10), (2, 'bo', 20), (3, 'cy', 30), (4, 'di', 40), (5, 'ed', 50)");
-            // The memory connector keeps data on the worker; read it back before the tests run.
-            try (java.sql.ResultSet rs = s.executeQuery("select count(*) from orders")) {
-                rs.next();
-            }
         }
     }
 
