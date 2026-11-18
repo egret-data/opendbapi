@@ -90,7 +90,7 @@ docker compose -f deploy/quickstart/docker-compose.yml exec -T postgres \
 
 Then open <http://localhost:8520> and sign in as `admin` / `admin-change-me`.
 
-- **Needs** Docker with Compose v2. The stack pulls `ghcr.io/egret-data/opendbapi:0.3.0` and PostgreSQL 16.
+- **Needs** Docker with Compose v2. The stack pulls `ghcr.io/egret-data/opendbapi:0.3.1` and PostgreSQL 16.
 - **Next:** [publish your first endpoint](https://egret-data.github.io/opendbapi/get-started/first-endpoint) on the sample
   shop.
 - **Demo only.** The quick start uses fixed, published passwords and master key. To run OpenDBAPI for real, follow
@@ -148,7 +148,7 @@ Dockerfile          one image: API and UI
 
 ## Status
 
-The current release is [0.3.0](https://github.com/egret-data/opendbapi/releases/tag/v0.3.0). Everything in the
+The current release is [0.3.1](https://github.com/egret-data/opendbapi/releases/tag/v0.3.1). Everything in the
 highlights above is built and tested. Elasticsearch datasources are deferred until there is a need.
 Problems in the current release are listed in
 [Known issues](https://egret-data.github.io/opendbapi/reference/known-issues).
