@@ -5,31 +5,46 @@
  * Authoring and administration API consumed by the OpenDBAPI web UI.
  * OpenAPI spec version: v1
  */
+import type { HttpConfig } from './httpConfig';
 import type { PoolSettings } from './poolSettings';
 import type { SaveDatasourceDialect } from './saveDatasourceDialect';
 import type { SaveDatasourceProperties } from './saveDatasourceProperties';
+import type { SaveDatasourceType } from './saveDatasourceType';
 
 export interface SaveDatasource {
-  database: string;
+  /**
+     * Databases: required
+     * @nullable
+     */
+  database?: string | null;
   /**
      * @minLength 0
      * @maxLength 1000
      * @nullable
      */
   description?: string | null;
-  dialect: SaveDatasourceDialect;
-  host: string;
+  /**
+     * Databases: required
+     * @nullable
+     */
+  dialect?: SaveDatasourceDialect;
+  /**
+     * Databases: required
+     * @nullable
+     */
+  host?: string | null;
+  http?: HttpConfig | null;
   /**
      * @minLength 0
      * @maxLength 120
      */
   name: string;
   /**
-     * Plain password (stored encrypted) or env:NAME; omit to keep the stored one
+     * Plain password, token or API key (stored encrypted), or a secret:, env: or vault: reference; omit to keep the stored one
      * @nullable
      */
   password?: string | null;
-  pool: PoolSettings;
+  pool?: PoolSettings | null;
   /**
      * Default port of the dialect when empty
      * @nullable
@@ -38,5 +53,14 @@ export interface SaveDatasource {
   /** @nullable */
   properties?: SaveDatasourceProperties;
   readOnly: boolean;
-  username: string;
+  /**
+     * Default jdbc
+     * @nullable
+     */
+  type?: SaveDatasourceType;
+  /**
+     * Databases: required
+     * @nullable
+     */
+  username?: string | null;
 }

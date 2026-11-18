@@ -26,6 +26,8 @@ const DS: DatasourceView = {
   createdAt: "2026-11-16T00:00:00Z",
   updatedAt: "2026-11-16T00:00:00Z",
   lastTest: null,
+  type: "jdbc",
+  http: null,
 };
 
 const DIALECTS = [
@@ -132,6 +134,40 @@ describe("Datasources pages", () => {
     await waitFor(() => expect(server.calls.some((c) => c.key === "POST /admin/api/ws/sales/datasources")).toBe(true));
     const post = server.calls.find((c) => c.key === "POST /admin/api/ws/sales/datasources");
     expect(JSON.parse(String(post?.init?.body))).toMatchObject({ dialect: "TRINO", database: "hive.sales", password: null });
+  });
+
+  it("creates an HTTP API datasource with an API key", async () => {
+    // Arrange
+    const server = mockServer({
+      "GET /admin/api/me": () => json(meAs("admin")),
+      "GET /admin/api/ws/sales/datasources/dialects": () => json(DIALECTS),
+      "POST /admin/api/ws/sales/datasources": () => json({ ...DS, id: "ds9", type: "http", dialect: null,
+        http: { baseUrl: "https://api.example.com/v1", auth: "header", headerName: "X-API-Key", headers: {} } }, 201),
+    });
+    const user = userEvent.setup();
+    renderApp("/w/sales/datasources/new");
+
+    // Act
+    await user.type(await screen.findByLabelText("Name"), "orders-api");
+    await user.click(screen.getByRole("combobox", { name: "Type" }));
+    await user.click(screen.getByRole("option", { name: "HTTP API" }));
+    await user.type(screen.getByLabelText("Base URL"), "https://api.example.com/v1");
+    await user.click(screen.getByRole("combobox", { name: "Authentication" }));
+    await user.click(screen.getByRole("option", { name: "API key in a header" }));
+    await user.type(screen.getByLabelText("API key"), "secret:ORDERS_KEY");
+    await user.click(screen.getByRole("button", { name: "Add header" }));
+    await user.type(screen.getByLabelText("Header 1 name"), "X-Tenant");
+    await user.type(screen.getByLabelText("Header 1 value"), "acme");
+    await user.click(screen.getByRole("button", { name: "Create datasource" }));
+
+    // Assert
+    await waitFor(() => expect(server.calls.some((c) => c.key === "POST /admin/api/ws/sales/datasources")).toBe(true));
+    const post = server.calls.find((c) => c.key === "POST /admin/api/ws/sales/datasources");
+    expect(JSON.parse(String(post?.init?.body))).toEqual({
+      name: "orders-api", description: null, type: "http", password: "secret:ORDERS_KEY", readOnly: true,
+      http: { baseUrl: "https://api.example.com/v1", auth: "header", username: null, headerName: "X-API-Key",
+        headers: { "X-Tenant": "acme" }, connectTimeoutMs: 10000 },
+    });
   });
 
   it("says when the database cannot roll back", async () => {

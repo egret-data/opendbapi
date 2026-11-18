@@ -320,8 +320,14 @@ public class ConfigPlanner {
                 && !passwordRef.startsWith(io.opendbapi.core.secret.VaultSecrets.PREFIX)) {
             throw new IllegalArgumentException("passwordRef must be secret:NAME, env:NAME or vault:PATH#KEY.");
         }
-        JdbcConfig config = json.treeToValue(spec, JdbcConfig.class);
-        ObjectNode out = json.valueToTree(config);
+        boolean http = io.opendbapi.core.datasource.Datasource.HTTP.equals(text(spec.remove("type")));
+        ObjectNode out = json.createObjectNode();
+        if (http) {
+            out.put("type", io.opendbapi.core.datasource.Datasource.HTTP);
+            out.setAll((ObjectNode) json.valueToTree(json.treeToValue(spec, io.opendbapi.core.datasource.HttpConfig.class)));
+        } else {
+            out.setAll((ObjectNode) json.valueToTree(json.treeToValue(spec, JdbcConfig.class)));
+        }
         out.put("readOnly", readOnly);
         if (description != null) {
             out.put("description", description);
@@ -617,11 +623,18 @@ public class ConfigPlanner {
                     String description = text(spec.remove("description"));
                     String passwordRef = text(spec.remove("passwordRef"));
                     boolean readOnly = spec.remove("readOnly").asBoolean(true);
-                    JdbcConfig config = treeToValue(spec, JdbcConfig.class, c);
+                    String type = Datasource.HTTP.equals(text(spec.remove("type"))) ? Datasource.HTTP : Datasource.JDBC;
+                    Object config = Datasource.HTTP.equals(type)
+                            ? treeToValue(spec, io.opendbapi.core.datasource.HttpConfig.class, c).validate()
+                            : treeToValue(spec, JdbcConfig.class, c);
                     String secretRef = passwordRef == null ? null : workspaceSecrets.toReference(passwordRef);
                     Datasource existing = dsByName.get(c.name());
+                    if (existing != null && !existing.type().equals(type)) {
+                        throw ApiProblem.conflict("datasource_type", "Datasource '%s' is %s here and %s in the files; delete it first."
+                                .formatted(c.name(), existing.type(), type));
+                    }
                     Datasource saved = existing == null
-                            ? datasources.create(ws, c.name(), description, config, secretRef, readOnly, userId)
+                            ? datasources.create(ws, c.name(), description, type, config, secretRef, readOnly, userId)
                             : datasources.update(existing.id(), c.name(), description, config, secretRef, readOnly);
                     dsByName.put(c.name(), saved);
                     if (existing != null) {

@@ -42,11 +42,17 @@ public class DatasourceStore {
 
     public Datasource create(UUID workspaceId, String name, String description, JdbcConfig config, String secretRef,
                              boolean readOnly, UUID createdBy) {
+        return create(workspaceId, name, description, Datasource.JDBC, config, secretRef, readOnly, createdBy);
+    }
+
+    /** @param config a {@link JdbcConfig} for {@code jdbc}, an {@link HttpConfig} for {@code http} */
+    public Datasource create(UUID workspaceId, String name, String description, String type, Object config, String secretRef,
+                             boolean readOnly, UUID createdBy) {
         try {
             return jdbc.sql("""
                     insert into datasource (workspace_id, name, description, type, config, secret_ref, read_only, created_by)
-                    values (?, ?, ?, 'jdbc', ?::jsonb, ?, ?, ?) returning *""")
-                    .params(workspaceId, name, description, write(config), secretRef, readOnly, createdBy)
+                    values (?, ?, ?, ?, ?::jsonb, ?, ?, ?) returning *""")
+                    .params(workspaceId, name, description, type, write(config), secretRef, readOnly, createdBy)
                     .query(this::map)
                     .single();
         } catch (DuplicateKeyException e) {
@@ -55,7 +61,7 @@ public class DatasourceStore {
     }
 
     /** {@code secretRef == null} keeps the stored password. */
-    public Datasource update(UUID id, String name, String description, JdbcConfig config, String secretRef, boolean readOnly) {
+    public Datasource update(UUID id, String name, String description, Object config, String secretRef, boolean readOnly) {
         try {
             return jdbc.sql("""
                     update datasource set name = ?, description = ?, config = ?::jsonb,
@@ -114,7 +120,7 @@ public class DatasourceStore {
         return ApiProblem.conflict("name_taken", "A datasource named '%s' already exists in this workspace.".formatted(name));
     }
 
-    private String write(JdbcConfig config) {
+    private String write(Object config) {
         try {
             return json.writeValueAsString(config);
         } catch (JsonProcessingException e) {
@@ -123,6 +129,7 @@ public class DatasourceStore {
     }
 
     private Datasource map(ResultSet rs, int row) throws SQLException {
+        boolean http = Datasource.HTTP.equals(rs.getString("type"));
         try {
             return new Datasource(
                     rs.getObject("id", UUID.class),
@@ -130,12 +137,13 @@ public class DatasourceStore {
                     rs.getString("name"),
                     rs.getString("description"),
                     rs.getString("type"),
-                    json.readValue(rs.getString("config"), JdbcConfig.class),
+                    http ? null : json.readValue(rs.getString("config"), JdbcConfig.class),
                     rs.getString("secret_ref"),
                     rs.getBoolean("read_only"),
                     rs.getObject("created_by", UUID.class),
                     rs.getObject("created_at", OffsetDateTime.class),
-                    rs.getObject("updated_at", OffsetDateTime.class));
+                    rs.getObject("updated_at", OffsetDateTime.class),
+                    http ? json.readValue(rs.getString("config"), HttpConfig.class) : null);
         } catch (JsonProcessingException e) {
             throw new SQLException("Bad datasource config", e);
         }

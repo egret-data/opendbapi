@@ -94,6 +94,11 @@ public class QueryExecutor {
         /** @param sql the query as written (before the row filter), to trace masked table columns */
         void mask(List<ResultColumn> columns, List<Map<String, Object>> rows, String sql);
 
+        /** Whether a row filter applies; it needs SQL, so HTTP tasks refuse to run under one. */
+        default boolean filtersRows() {
+            return false;
+        }
+
         static Policy rewriteOnly(java.util.function.UnaryOperator<BoundSql> rewrite) {
             return new Policy() {
                 @Override
@@ -168,6 +173,13 @@ public class QueryExecutor {
         this.registry = registry;
     }
 
+    private io.opendbapi.core.datasource.HttpSources httpSources;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setHttpSources(io.opendbapi.core.datasource.HttpSources httpSources) {
+        this.httpSources = httpSources;
+    }
+
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     void setMeters(io.micrometer.core.instrument.MeterRegistry meters) {
         this.meters = meters;
@@ -193,7 +205,7 @@ public class QueryExecutor {
         long start = System.nanoTime();
         try {
             return io.micrometer.observation.Observation.createNotStarted("opendbapi.db", observations)
-                    .lowCardinalityKeyValue("db.system", ds.config().dialect().name().toLowerCase(java.util.Locale.ROOT))
+                    .lowCardinalityKeyValue("db.system", ds.isHttp() ? "http" : ds.config().dialect().name().toLowerCase(java.util.Locale.ROOT))
                     .lowCardinalityKeyValue("datasource", ds.name())
                     .observe(work);
         } finally {
@@ -238,8 +250,11 @@ public class QueryExecutor {
     /** @param shared a connection to run on, inside its owner's transaction; null borrows one */
     public QueryResult run(Datasource ds, CompiledTask task, Map<String, Object> params, PageRequest page,
                       EndpointDefinition.Limits limits, RunMode mode, Policy policy, EndpointCaller caller, Connection shared) {
-        requireTransactions(ds, task);
         List<BoundSql> executed = new ArrayList<>();
+        if (task.isHttp() || ds.isHttp()) {
+            return measured(ds, params, executed, () -> runHttp(ds, task, params, limits, mode, policy, executed));
+        }
+        requireTransactions(ds, task);
         if (task.isFull()) {
             return measured(ds, params, executed, () -> runScript(ds, task, params, limits, mode, policy, executed, shared));
         }
@@ -408,6 +423,105 @@ public class QueryExecutor {
     private static ApiProblem previewCannotRollBack(Datasource ds) {
         return ApiProblem.badRequest("preview_cannot_roll_back", ("%s cannot roll back, so preview does not run statements that "
                 + "change data. Publish the endpoint and call it to run them.").formatted(ds.config().dialect().label()));
+    }
+
+    /**
+     * Spec §6: one request to an HTTP datasource. Preview does not send a request that may change
+     * data upstream, since nothing can roll it back; a row filter (which needs SQL) refuses the call.
+     */
+    private QueryResult runHttp(Datasource ds, CompiledTask task, Map<String, Object> params, EndpointDefinition.Limits limits,
+                                RunMode mode, Policy policy, List<BoundSql> executed) {
+        if (!task.isHttp() || !ds.isHttp()) {
+            throw new ApiProblem(500, "datasource_mismatch", task.isHttp()
+                    ? "This endpoint sends an HTTP request, but its datasource is a database."
+                    : "This endpoint's datasource is an HTTP API; its task must be an HTTP request.");
+        }
+        if (httpSources == null) {
+            throw new IllegalStateException("HTTP datasources are not configured");
+        }
+        CompiledHttp http = task.http();
+        if (policy.filtersRows()) {
+            throw new ApiProblem(500, "row_filter_failed",
+                    "A row filter applies to this endpoint, but row filters need SQL and this endpoint calls an HTTP API.");
+        }
+        if (http.writes() && task.readOnly()) {
+            throw new ApiProblem(403, "write_in_get", "A GET endpoint must not change data, nor the endpoints it calls.");
+        }
+        if (http.writes() && ds.readOnly()) {
+            throw new ApiProblem(403, "read_only_datasource", "This endpoint's datasource is read-only: it sends GET requests only.");
+        }
+        if (http.writes() && mode == RunMode.PREVIEW) {
+            throw ApiProblem.badRequest("preview_cannot_roll_back", ("Preview does not send %s requests: an HTTP API cannot roll "
+                    + "them back. Publish the endpoint and call it to send one.").formatted(http.method()));
+        }
+        long start = System.nanoTime();
+        CompiledHttp.OutgoingRequest request = http.render(params);
+        executed.add(new BoundSql(request.described(), List.of()));
+        byte[] body;
+        try {
+            body = request.body() == null ? null : RequestJson.MAPPER.writeValueAsBytes(request.body());
+        } catch (java.io.IOException e) {
+            throw new IllegalStateException(e);
+        }
+        io.opendbapi.core.datasource.HttpSources.Response response =
+                httpSources.send(ds, request.method(), request.pathAndQuery(), body, limits.timeoutSeconds());
+        if (response.status() == 404) {
+            throw ApiProblem.notFound("not_found", "The upstream API found nothing (HTTP 404).");
+        }
+        if (response.status() < 200 || response.status() >= 300) {
+            throw new ApiProblem(502, "upstream_failed", "The upstream API answered HTTP %d.".formatted(response.status()));
+        }
+        List<Map<String, Object>> rows;
+        if (response.body().length == 0) {
+            rows = List.of();
+        } else {
+            com.fasterxml.jackson.databind.JsonNode json;
+            try {
+                json = RequestJson.MAPPER.readTree(response.body());
+            } catch (java.io.IOException e) {
+                throw new ApiProblem(502, "upstream_failed", "The upstream response is not JSON.");
+            }
+            rows = http.rows(json);
+        }
+        boolean truncated = rows.size() > limits.maxRows();
+        if (truncated) {
+            rows = new ArrayList<>(rows.subList(0, limits.maxRows()));
+        }
+        java.util.LinkedHashMap<String, String> types = new java.util.LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            row.forEach((k, v) -> {
+                if (v != null || !types.containsKey(k)) {
+                    types.merge(k, jsonType(v), (a, b) -> "null".equals(a) ? b : a);
+                }
+            });
+        }
+        List<ResultColumn> columns = types.entrySet().stream().map(e -> new ResultColumn(e.getKey(), e.getValue())).toList();
+        for (Map<String, Object> row : rows) {
+            for (ResultColumn c : columns) {
+                row.putIfAbsent(c.name(), null);
+            }
+        }
+        long ms = (System.nanoTime() - start) / 1_000_000;
+        return new QueryResult(columns, rows, null, truncated, null, null, ms, executed);
+    }
+
+    private static String jsonType(Object v) {
+        if (v == null) {
+            return "null";
+        }
+        if (v instanceof Number) {
+            return "number";
+        }
+        if (v instanceof Boolean) {
+            return "boolean";
+        }
+        if (v instanceof Map<?, ?>) {
+            return "object";
+        }
+        if (v instanceof List<?>) {
+            return "array";
+        }
+        return "string";
     }
 
     /** Turns what a script or workflow threw into the answer a caller gets. */
@@ -708,8 +822,8 @@ public class QueryExecutor {
 
     public long stream(Datasource ds, CompiledTask task, Map<String, Object> params, EndpointDefinition.Limits limits,
                        RowSink sink, java.util.function.UnaryOperator<BoundSql> mainRewrite) {
-        if (task.isFull() || task.isWorkflow()) {
-            throw ApiProblem.badRequest("not_streamable", "Script and workflow endpoints answer JSON only.");
+        if (task.isFull() || task.isWorkflow() || task.isHttp()) {
+            throw ApiProblem.badRequest("not_streamable", "Script, workflow and HTTP endpoints answer JSON only.");
         }
         List<BoundSql> executed = new ArrayList<>();
         return measured(ds, params, executed, () -> streamMeasured(ds, task, params, limits, sink, mainRewrite, executed));

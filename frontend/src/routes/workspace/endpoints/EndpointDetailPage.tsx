@@ -47,7 +47,8 @@ import { FindingsList, PreviewPanel } from "./PreviewPanel";
 import { SettingsTab } from "./SettingsTab";
 import { TryItTab } from "./TryItTab";
 import { VersionsTab } from "./VersionsTab";
-import { STATE_LABEL, STATE_TONE, formFrom, isScript, mainSql, needsScriptRole, nodeIds, taskKind, toUpdate, withLanguage, withMainSql, type DraftForm, type TaskKind } from "./endpointForm";
+import { STATE_LABEL, STATE_TONE, formFrom, isScript, mainSql, needsScriptRole, nodeIds, paramSource, taskKind, toUpdate, withLanguage, withMainSql, type DraftForm, type TaskKind } from "./endpointForm";
+import { HttpRequestEditor } from "./HttpRequestEditor";
 import { WorkflowEditor } from "./WorkflowEditor";
 
 const TABS = ["query", "try", "tests", "settings", "access", "versions"] as const;
@@ -87,6 +88,7 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
   const script = isScript(form.definition);
   const scripted = needsScriptRole(form.definition);
   const workflow = taskKind(form.definition) === "workflow";
+  const http = taskKind(form.definition) === "http";
   useUnsavedChangesWarning(dirty);
 
   // Each tab is a child route (spec §17.3): /w/:ws/endpoints/:id/settings survives a reload.
@@ -217,14 +219,21 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
           <div className="flex flex-wrap items-center gap-3">
             <Label htmlFor="ep-datasource">{t("Datasource")}</Label>
             <Select value={form.definition.task.datasourceId ?? ""} disabled={!canAuthor}
-              onValueChange={(v) => setForm({ ...form, definition: { ...form.definition, task: { ...form.definition.task, datasourceId: v } } })}>
+              onValueChange={(v) => {
+                // An HTTP API takes an HTTP request; a database takes SQL.
+                const toHttp = (datasources.data ?? []).find((d) => d.id === v)?.type === "http";
+                const def = { ...form.definition, task: { ...form.definition.task, datasourceId: v } };
+                const kind = taskKind(def);
+                setForm({ ...form, definition: toHttp && kind !== "http" ? withLanguage(def, "http")
+                  : !toHttp && kind === "http" ? withLanguage(def, "sql") : def });
+              }}>
               <SelectTrigger id="ep-datasource" className="w-64"><SelectValue placeholder={t("Choose a datasource")} /></SelectTrigger>
               <SelectContent>
                 {(datasources.data ?? []).map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Label htmlFor="ep-language">{t("Language")}</Label>
-            <Select value={taskKind(form.definition)} disabled={!canAuthor || (scripted && !canScript)}
+            <Select value={taskKind(form.definition)} disabled={!canAuthor || (scripted && !canScript) || http}
               onValueChange={(v) => setForm({ ...form, definition: withLanguage(form.definition, v as TaskKind) })}>
               <SelectTrigger id="ep-language" className="w-56"><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -232,6 +241,7 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
                 <SelectItem value="fragment" disabled={!canScript}>{t("Groovy script")}</SelectItem>
                 <SelectItem value="full" disabled={!canScript}>{t("Groovy script (full: db, any answer)")}</SelectItem>
                 <SelectItem value="workflow">{t("Workflow (several steps)")}</SelectItem>
+                {http && <SelectItem value="http">{t("HTTP request")}</SelectItem>}
               </SelectContent>
             </Select>
             {scripted && !canScript && (
@@ -239,7 +249,11 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
             )}
           </div>
           <div className={workflow ? "space-y-6" : "grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,34rem)]"}>
-            {workflow ? (
+            {http && form.definition.task.request ? (
+              <HttpRequestEditor request={form.definition.task.request} disabled={!canAuthor}
+                baseUrl={(datasources.data ?? []).find((d) => d.id === form.definition.task.datasourceId)?.http?.baseUrl}
+                onChange={(request) => setForm({ ...form, definition: { ...form.definition, task: { ...form.definition.task, request } } })} />
+            ) : workflow ? (
               <WorkflowEditor ws={ws} selfId={s.id} task={form.definition.task} disabled={!canAuthor} canScript={canScript}
                 onChange={(task) => setForm({ ...form, definition: { ...form.definition, task } })} />
             ) : (
@@ -252,7 +266,7 @@ function Editor({ ws, detail }: { ws: string; detail: EndpointDetail }) {
               />
             </div>
             )}
-            <ParamsEditor params={form.definition.params} disabled={!canAuthor} sql={mainSql(form.definition)} path={form.path}
+            <ParamsEditor params={form.definition.params} disabled={!canAuthor} sql={paramSource(form.definition)} path={form.path} http={http}
               ignore={nodeIds(form.definition)}
               onChange={(p) => setForm({ ...form, definition: { ...form.definition, params: p } })} />
           </div>

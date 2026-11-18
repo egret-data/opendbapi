@@ -1597,11 +1597,12 @@ Result cache (spec §9.5)
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `createdAt` | `string (date-time)` | yes |  |
-| `database` | `string` | yes |  |
+| `database` | `string` | no | Databases only |
 | `description` | `string` | no |  |
-| `dialect` | `POSTGRESQL \| MYSQL \| MARIADB \| SQLSERVER \| ORACLE \| TRINO \| STARROCKS \| DORIS \| CLICKHOUSE` | yes |  |
+| `dialect` | `POSTGRESQL \| MYSQL \| MARIADB \| SQLSERVER \| ORACLE \| TRINO \| STARROCKS \| DORIS \| CLICKHOUSE` | no | Databases only |
 | `hasPassword` | `boolean` | yes |  |
 | `host` | `string` | yes |  |
+| `http` | `HttpConfig` | yes |  |
 | `id` | `string (uuid)` | yes |  |
 | `lastTest` | `LastTest` | yes |  |
 | `name` | `string` | yes |  |
@@ -1611,8 +1612,9 @@ Result cache (spec §9.5)
 | `port` | `integer (int32)` | yes |  |
 | `properties` | `object` | yes |  |
 | `readOnly` | `boolean` | yes |  |
+| `type` | `jdbc \| http` | yes |  |
 | `updatedAt` | `string (date-time)` | yes |  |
-| `username` | `string` | yes |  |
+| `username` | `string` | no | Databases only |
 
 ### Day
 
@@ -1742,6 +1744,40 @@ Result cache (spec §9.5)
 | `resourceId` | `string (uuid)` | yes |  |
 | `resourceName` | `string` | yes |  |
 | `resourceType` | `string` | yes |  |
+
+### HttpCall
+
+HTTP tasks: the request to the HTTP datasource
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `body` | `HttpField[]` | no | JSON body fields: name and expression; none sends no body |
+| `method` | `GET \| POST \| PUT \| PATCH \| DELETE` | yes |  |
+| `path` | `string` | yes |  |
+| `query` | `HttpField[]` | no | Query string: name and expression; null values are left out |
+| `resultPath` | `string` | no | JSON Pointer to the rows, e.g. /data/items |
+
+### HttpConfig
+
+HTTP APIs: required
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `auth` | `none \| bearer \| basic \| header` | yes |  |
+| `baseUrl` | `string` | yes |  |
+| `connectTimeoutMs` | `integer (int32)` | no | 250–60000 ms, default 10000 |
+| `headerName` | `string` | no | API key authentication only |
+| `headers` | `object` | no |  |
+| `username` | `string` | no | Basic authentication only |
+
+### HttpField
+
+JSON body fields: name and expression; none sends no body
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | `string` | yes |  |
+| `value` | `string` | yes |  |
 
 ### ImportReport
 
@@ -2129,17 +2165,19 @@ Checks on the bound parameters, run before the query (spec §13.1)
 
 | Field | Type | Required | Description |
 |---|---|---|---|
-| `database` | `string` | yes |  |
+| `database` | `string` | no | Databases: required |
 | `description` | `string` | no |  |
-| `dialect` | `POSTGRESQL \| MYSQL \| MARIADB \| SQLSERVER \| ORACLE \| TRINO \| STARROCKS \| DORIS \| CLICKHOUSE` | yes |  |
-| `host` | `string` | yes |  |
+| `dialect` | `POSTGRESQL \| MYSQL \| MARIADB \| SQLSERVER \| ORACLE \| TRINO \| STARROCKS \| DORIS \| CLICKHOUSE` | no | Databases: required |
+| `host` | `string` | no | Databases: required |
+| `http` | `HttpConfig` | no |  |
 | `name` | `string` | yes |  |
-| `password` | `string` | no | Plain password (stored encrypted) or env:NAME; omit to keep the stored one |
-| `pool` | `PoolSettings` | yes |  |
+| `password` | `string` | no | Plain password, token or API key (stored encrypted), or a secret:, env: or vault: reference; omit to keep the stored one |
+| `pool` | `PoolSettings` | no |  |
 | `port` | `integer (int32)` | no | Default port of the dialect when empty |
 | `properties` | `object` | no |  |
 | `readOnly` | `boolean` | yes |  |
-| `username` | `string` | yes |  |
+| `type` | `jdbc \| http` | no | Default jdbc |
+| `username` | `string` | no | Databases: required |
 
 ### SaveEndpointTest
 
@@ -2294,10 +2332,11 @@ Datasources and alert channels that use it
 | `mode` | `fragment \| full` | no |  |
 | `nodes` | `WorkflowNode[]` | no | Workflow tasks: the nodes of the graph (spec §6.1) |
 | `output` | `string` | no | Workflow tasks: the node whose result is the answer; the last node when empty |
+| `request` | `HttpCall` | no |  |
 | `source` | `string` | no | Script tasks: the Groovy source |
 | `statements` | `Statement[]` | yes |  |
 | `transaction` | `boolean` | yes |  |
-| `type` | `sql \| script \| workflow` | yes |  |
+| `type` | `sql \| script \| workflow \| http` | yes |  |
 
 ### TestCaseResult
 

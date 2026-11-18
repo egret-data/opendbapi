@@ -5,6 +5,7 @@
  * Authoring and administration API consumed by the OpenDBAPI web UI.
  * OpenAPI spec version: v1
  */
+import type { HttpCall } from './httpCall';
 import type { Statement } from './statement';
 import type { TaskLanguage } from './taskLanguage';
 import type { TaskMode } from './taskMode';
@@ -28,6 +29,7 @@ export interface Task {
      * @nullable
      */
   output?: string | null;
+  request?: HttpCall | null;
   /**
      * Script tasks: the Groovy source
      * @nullable

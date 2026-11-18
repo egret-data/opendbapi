@@ -266,6 +266,39 @@ describe("Endpoints", () => {
     });
   });
 
+  it("edits the request of an endpoint on an HTTP API", async () => {
+    // Arrange
+    const httpDetail: EndpointDetail = { ...DETAIL, definition: { ...DETAIL.definition, params: [
+      { name: "id", in: "path", type: "bigint", required: true }, { name: "status", in: "query", type: "string", required: false }],
+    task: { type: "http", datasourceId: "api", transaction: false, statements: [],
+      request: { method: "GET", path: "/orders/{id}", query: [], body: [], resultPath: "" } } } };
+    const server = mockServer({
+      ...common,
+      "GET /admin/api/ws/sales/datasources": () => json([{ id: "api", name: "orders-api", type: "http",
+        http: { baseUrl: "https://api.example.com/v1", auth: "bearer" } }]),
+      "GET /admin/api/me": () => json(meAs("author")),
+      "GET /admin/api/ws/sales/endpoints/e1": () => json(httpDetail),
+      "PATCH /admin/api/ws/sales/endpoints/e1": () => json(httpDetail),
+    });
+    const user = userEvent.setup();
+    renderApp("/w/sales/endpoints/e1");
+
+    // Act
+    expect(await screen.findByText("https://api.example.com/v1")).toBeInTheDocument();
+    await user.click(screen.getAllByRole("button", { name: "Add field" })[0]);
+    await user.type(screen.getByLabelText("Query field 1 name"), "status");
+    await user.type(screen.getByLabelText("Query field 1 value"), "status");
+    await user.type(screen.getByLabelText("Rows at"), "/data");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    // Assert
+    expect(screen.getByRole("combobox", { name: "Language" })).toHaveTextContent("HTTP request");
+    await waitFor(() => expect(server.calls.some((c) => c.key === "PATCH /admin/api/ws/sales/endpoints/e1")).toBe(true));
+    const sent = JSON.parse(String(server.calls.find((c) => c.key === "PATCH /admin/api/ws/sales/endpoints/e1")!.init?.body));
+    expect(sent.definition.task.request).toEqual({ method: "GET", path: "/orders/{id}", query: [{ name: "status", value: "status" }],
+      body: [], resultPath: "/data" });
+  });
+
   it("saves output mapping, keyset pagination and cache settings with the draft", async () => {
     // Arrange
     const server = mockServer({

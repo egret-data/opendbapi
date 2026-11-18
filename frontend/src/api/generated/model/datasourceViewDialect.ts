@@ -6,7 +6,11 @@
  * OpenAPI spec version: v1
  */
 
-export type DatasourceViewDialect = typeof DatasourceViewDialect[keyof typeof DatasourceViewDialect];
+/**
+ * Databases only
+ * @nullable
+ */
+export type DatasourceViewDialect = typeof DatasourceViewDialect[keyof typeof DatasourceViewDialect] | null;
 
 
 export const DatasourceViewDialect = {

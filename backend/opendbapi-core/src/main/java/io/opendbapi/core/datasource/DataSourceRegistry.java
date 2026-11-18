@@ -76,6 +76,9 @@ public class DataSourceRegistry implements DisposableBean {
 
     /** A pooled connection; the caller closes it. */
     public Connection connection(Datasource ds) throws SQLException {
+        if (ds.isHttp()) {
+            throw ApiProblem.badRequest("not_a_database", "'%s' is an HTTP API, not a database.".formatted(ds.name()));
+        }
         return pool(ds).getConnection();
     }
 

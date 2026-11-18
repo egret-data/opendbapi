@@ -85,7 +85,13 @@ public class EndpointValidator {
         } else if (datasource == null) {
             findings.add(Finding.error("unknown_datasource", "The chosen datasource no longer exists in this workspace."));
         }
-        if (datasource != null && def.task().transaction() && !datasource.config().dialect().transactional()) {
+        if (datasource != null && datasource.isHttp() != def.task().http()) {
+            findings.add(Finding.error("datasource_mismatch", datasource.isHttp()
+                    ? "'%s' is an HTTP API; choose HTTP request as the language, or a database datasource.".formatted(datasource.name())
+                    : "An HTTP request needs an HTTP datasource; '%s' is a database.".formatted(datasource.name())));
+            return new Validation(findings, List.of(), List.of());
+        }
+        if (datasource != null && !datasource.isHttp() && def.task().transaction() && !datasource.config().dialect().transactional()) {
             findings.add(Finding.error("transaction_unsupported", ("%s cannot roll back writes, so this endpoint cannot run in a "
                     + "transaction. Turn off Transaction.").formatted(datasource.config().dialect().label())));
         }
@@ -106,12 +112,14 @@ public class EndpointValidator {
         for (String name : used) {
             if (!declared.contains(name) && !"sort".equals(name)) {
                 findings.add(Finding.error("undeclared_param",
-                        "The SQL reads '%s', which is not a declared parameter. Add it, or fix the name.".formatted(name)));
+                        "The %s reads '%s', which is not a declared parameter. Add it, or fix the name."
+                                .formatted(task.isHttp() ? "request" : "SQL", name)));
             }
         }
         for (Param p : def.params()) {
             if (!used.contains(p.name())) {
-                findings.add(Finding.warning("unused_param", "Parameter '%s' is not used by the SQL.".formatted(p.name())));
+                findings.add(Finding.warning("unused_param", "Parameter '%s' is not used by the %s."
+                        .formatted(p.name(), task.isHttp() ? "request" : "SQL")));
             }
         }
 
@@ -165,6 +173,32 @@ public class EndpointValidator {
             if (policies.rowFilterColumn() != null && "public".equals(policies.access())) {
                 findings.add(Finding.error("row_filter_public",
                         "This endpoint has a row filter, which needs to know the calling client. Make it private."));
+            }
+            checkCache(method, def, policies, findings);
+            return new Validation(findings, new ArrayList<>(used), List.of());
+        }
+        if (task.isHttp()) {
+            CompiledHttp http = task.http();
+            if ("GET".equals(method) && http.writes()) {
+                findings.add(Finding.error("write_in_get", "A GET endpoint must not change data, and this one sends %s upstream; "
+                        .formatted(http.method()) + "use POST, PUT or DELETE, or send GET."));
+            }
+            if (datasource != null && datasource.readOnly() && http.writes()) {
+                findings.add(Finding.error("read_only_datasource", "The datasource is read-only, so it sends GET requests only."));
+            }
+            if (http.writes()) {
+                findings.add(Finding.info("http_preview", "Preview does not send %s requests, which an HTTP API cannot roll back."
+                        .formatted(http.method())));
+            }
+            if (def.pagination().enabled()) {
+                findings.add(Finding.error("pagination", "HTTP requests answer what the API returns; turn pagination off and "
+                        + "pass page parameters on to the API under Query."));
+            }
+            if (def.streaming().allowed()) {
+                findings.add(Finding.error("streaming", "HTTP requests answer JSON only; turn streaming off."));
+            }
+            if (policies.rowFilterColumn() != null) {
+                findings.add(Finding.error("row_filter", "A row filter applies, but row filters need SQL; this endpoint calls an HTTP API."));
             }
             checkCache(method, def, policies, findings);
             return new Validation(findings, new ArrayList<>(used), List.of());

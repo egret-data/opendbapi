@@ -46,6 +46,7 @@ server log and in **Activity**, found by `requestId`.
 | 415 | `unsupported_media_type` | The body is not JSON |
 | 429 | `rate_limited` | A rate limit is exceeded; wait `Retry-After` seconds |
 | 500 | `query_failed` | The database refused the query |
+| 502 | `upstream_failed` | An [HTTP API](../datasources/http-apis.md#how-calls-end) answered an error, a redirect or no JSON, or could not be reached |
 | 500 | `script_failed` | A Groovy script failed |
 | 500 | `workflow_failed` | A workflow node failed, or endpoints called each other too deep |
 | 500 | `template_failed` | The SQL template could not be rendered with these values |
@@ -71,8 +72,9 @@ The management API (`/admin/api`) uses the same problem format. Codes you may me
 | Status | Code | Meaning |
 |---|---|---|
 | 400 | `invalid_endpoint`, `invalid_datasource`, `invalid_policy`, … | The request breaks a rule; `detail` says which |
+| 400 | `not_a_database` | Tables, schemas and columns were asked of an HTTP API datasource |
 | 400 | `preview_cannot_roll_back` | Preview refused a statement that changes data on a database [without transactions](../datasources/datasources.md#databases-without-transactions) |
-| 409 | `validation_failed` | Publishing found errors in the draft (bad SQL, writes in `GET`, …) |
+| 409 | `validation_failed` | Publishing found errors in the draft (bad SQL, writes in `GET`, an HTTP request on a database, …) |
 | 409 | `config_locked` | The workspace is [managed by configuration files](../config/plan-and-apply.md#lock-a-workspace-to-its-files) |
 | 409 | `nothing_to_publish` | The saved draft equals the live version |
 | 409 | `tests_failed` | Publishing requires passing tests and one failed |

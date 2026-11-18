@@ -7,6 +7,8 @@ import io.opendbapi.core.datasource.Datasource;
 import io.opendbapi.core.datasource.DatasourceStore;
 import io.opendbapi.core.datasource.JdbcConfig;
 import io.opendbapi.core.datasource.JdbcDialect;
+import io.opendbapi.core.datasource.HttpConfig;
+import io.opendbapi.core.datasource.HttpSources;
 import io.opendbapi.core.error.ApiProblem;
 import io.opendbapi.core.secret.SecretResolver;
 import io.opendbapi.core.secret.WorkspaceSecrets;
@@ -57,11 +59,12 @@ public class DatasourceController {
             UUID id,
             String name,
             @Schema(nullable = true) String description,
-            JdbcDialect dialect,
+            @Schema(allowableValues = {"jdbc", "http"}) String type,
+            @Schema(nullable = true, description = "Databases only") JdbcDialect dialect,
             String host,
             int port,
-            String database,
-            String username,
+            @Schema(nullable = true, description = "Databases only") String database,
+            @Schema(nullable = true, description = "Databases only") String username,
             Map<String, String> properties,
             PoolSettings pool,
             boolean readOnly,
@@ -71,42 +74,84 @@ public class DatasourceController {
             OffsetDateTime createdAt,
             OffsetDateTime updatedAt,
             @Schema(nullable = true, description = "Last connection test; null when never tested since the settings changed")
-            DatasourceStore.LastTest lastTest) {
+            DatasourceStore.LastTest lastTest,
+            @Schema(nullable = true, description = "HTTP APIs only") HttpConfig http) {
 
         static DatasourceView of(Datasource d) {
             return of(d, null);
         }
 
         static DatasourceView of(Datasource d, DatasourceStore.LastTest lastTest) {
-            JdbcConfig c = d.config();
             String ref = d.secretRef();
-            return new DatasourceView(d.id(), d.name(), d.description(), c.dialect(), c.host(), c.effectivePort(),
+            String passwordEnv = ref != null && (ref.startsWith("env:") || ref.startsWith("vault:")) ? ref : null;
+            String passwordSecret = WorkspaceSecrets.isReference(ref) ? WorkspaceSecrets.nameOf(ref) : null;
+            if (d.isHttp()) {
+                java.net.URI uri = d.http().uri();
+                int port = uri.getPort() > 0 ? uri.getPort() : "https".equalsIgnoreCase(uri.getScheme()) ? 443 : 80;
+                return new DatasourceView(d.id(), d.name(), d.description(), Datasource.HTTP, null, uri.getHost(), port, null, null,
+                        Map.of(), new PoolSettings(null, null, null), d.readOnly(), ref != null, passwordEnv, passwordSecret,
+                        d.createdAt(), d.updatedAt(), lastTest, d.http());
+            }
+            JdbcConfig c = d.config();
+            return new DatasourceView(d.id(), d.name(), d.description(), Datasource.JDBC, c.dialect(), c.host(), c.effectivePort(),
                     c.database(), c.username(), c.properties(),
                     new PoolSettings(c.pool().maximumPoolSize(), c.pool().minimumIdle(), c.pool().connectionTimeoutMs()),
-                    d.readOnly(), ref != null, ref != null && (ref.startsWith("env:") || ref.startsWith("vault:")) ? ref : null,
-                    WorkspaceSecrets.isReference(ref) ? WorkspaceSecrets.nameOf(ref) : null,
-                    d.createdAt(), d.updatedAt(), lastTest);
+                    d.readOnly(), ref != null, passwordEnv, passwordSecret, d.createdAt(), d.updatedAt(), lastTest, null);
         }
     }
 
     public record SaveDatasource(
             @NotBlank @Size(max = 120) String name,
             @Schema(nullable = true) @Size(max = 1000) String description,
-            @NotNull JdbcDialect dialect,
-            @NotBlank String host,
+            @Schema(nullable = true, description = "Databases: required") JdbcDialect dialect,
+            @Schema(nullable = true, description = "Databases: required") String host,
             @Schema(nullable = true, description = "Default port of the dialect when empty") Integer port,
-            @NotBlank String database,
-            @NotBlank String username,
-            @Schema(nullable = true, description = "Plain password (stored encrypted) or env:NAME; omit to keep the stored one")
+            @Schema(nullable = true, description = "Databases: required") String database,
+            @Schema(nullable = true, description = "Databases: required") String username,
+            @Schema(nullable = true, description = "Plain password, token or API key (stored encrypted), or a secret:, env: or vault: "
+                    + "reference; omit to keep the stored one")
             String password,
             @Schema(nullable = true) Map<String, String> properties,
-            @NotNull PoolSettings pool,
-            boolean readOnly) {
+            @Schema(nullable = true) PoolSettings pool,
+            boolean readOnly,
+            @Schema(nullable = true, allowableValues = {"jdbc", "http"}, description = "Default jdbc") String type,
+            @Schema(nullable = true, description = "HTTP APIs: required") HttpConfig http) {
+
+        boolean isHttp() {
+            return Datasource.HTTP.equals(type);
+        }
+
+        String kind() {
+            return isHttp() ? Datasource.HTTP : Datasource.JDBC;
+        }
+
+        /** The validated settings: an {@link HttpConfig} or a {@link JdbcConfig}. */
+        Object settings() {
+            if (isHttp()) {
+                if (http == null) {
+                    throw ApiProblem.badRequest("invalid_datasource", "http settings are required for an HTTP datasource.");
+                }
+                return http.validate();
+            }
+            return config();
+        }
 
         JdbcConfig config() {
-            PoolSettings p = pool;
+            if (type != null && !Datasource.JDBC.equals(type)) {
+                throw ApiProblem.badRequest("invalid_datasource", "type is jdbc or http.");
+            }
+            if (dialect == null || host == null || host.isBlank() || database == null || database.isBlank() || username == null
+                    || username.isBlank()) {
+                throw ApiProblem.badRequest("invalid_datasource", "A database needs dialect, host, database and username.");
+            }
+            PoolSettings p = pool == null ? new PoolSettings(null, null, null) : pool;
             return new JdbcConfig(dialect, host.strip(), port, database.strip(), username.strip(), properties,
                     new JdbcConfig.Pool(p.maximumPoolSize(), p.minimumIdle(), p.connectionTimeoutMs())).validate();
+        }
+
+        /** Whether a new datasource of these settings may have no secret. */
+        boolean secretOptional() {
+            return isHttp() ? "none".equals(http.auth()) : dialect.passwordOptional();
         }
     }
 
@@ -143,6 +188,13 @@ public class DatasourceController {
     @org.springframework.beans.factory.annotation.Autowired
     void setWorkspaceSecrets(WorkspaceSecrets workspaceSecrets) {
         this.workspaceSecrets = workspaceSecrets;
+    }
+
+    private HttpSources httpSources;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setHttpSources(HttpSources httpSources) {
+        this.httpSources = httpSources;
     }
 
     public DatasourceController(WorkspaceAccess access, WorkspaceScope scope, DatasourceStore store,
@@ -192,10 +244,11 @@ public class DatasourceController {
     @Operation(operationId = "createDatasource", summary = "Add a datasource (workspace admin)")
     public DatasourceView create(@PathVariable String ws, @Valid @RequestBody SaveDatasource body) {
         var granted = access.require(ws, WorkspaceRole.ADMIN);
-        JdbcConfig config = body.config();
+        Object config = body.settings();
         boolean noPassword = body.password() == null || body.password().isEmpty();
-        if (noPassword && !config.dialect().passwordOptional()) {
-            throw ApiProblem.badRequest("invalid_datasource", "password is required for a new datasource.");
+        if (noPassword && !body.secretOptional()) {
+            throw ApiProblem.badRequest("invalid_datasource", body.isHttp()
+                    ? "This authentication needs a secret: a token, password or API key." : "password is required for a new datasource.");
         }
         UUID wsId = granted.workspace().id();
         String secretRef = noPassword ? null : scope.call(wsId, () -> workspaceSecrets.toReference(body.password()));
@@ -205,11 +258,12 @@ public class DatasourceController {
                 throw ApiProblem.conflict("quota_exceeded",
                         "This workspace may have at most %d datasources.".formatted(max.intValue()));
             }
-            return store.create(wsId, body.name().strip(), body.description(), config, secretRef, body.readOnly(),
+            return store.create(wsId, body.name().strip(), body.description(), body.kind(), config, secretRef, body.readOnly(),
                     granted.user().id());
         });
         audit.record(wsId, granted.user().id(), "datasource.create", "datasource", created.id().toString(),
-                Map.of("name", created.name(), "dialect", config.dialect().name(), "host", config.host()));
+                Map.of("name", created.name(), "dialect", config instanceof JdbcConfig j ? j.dialect().name() : "HTTP",
+                        "host", config instanceof JdbcConfig j ? j.host() : ((HttpConfig) config).host()));
         return DatasourceView.of(created);
     }
 
@@ -217,12 +271,14 @@ public class DatasourceController {
     @Operation(operationId = "updateDatasource", summary = "Change a datasource; omit password to keep it (workspace admin)")
     public DatasourceView update(@PathVariable String ws, @PathVariable UUID id, @Valid @RequestBody SaveDatasource body) {
         var granted = access.require(ws, WorkspaceRole.ADMIN);
-        JdbcConfig config = body.config();
+        Object config = body.settings();
         UUID wsId = granted.workspace().id();
         String secretRef = body.password() == null || body.password().isEmpty() ? null
                 : scope.call(wsId, () -> workspaceSecrets.toReference(body.password()));
         Datasource updated = scope.call(wsId, () -> {
-            find(wsId, id);
+            if (!find(wsId, id).type().equals(body.kind())) {
+                throw ApiProblem.badRequest("invalid_datasource", "A datasource keeps its type; add a new one instead.");
+            }
             return store.update(id, body.name().strip(), body.description(), config, secretRef, body.readOnly());
         });
         registry.evict(id);
@@ -258,7 +314,7 @@ public class DatasourceController {
     @Operation(operationId = "testDatasourceSettings", summary = "Try settings before saving them (workspace admin)")
     public DatasourceTestResult testSettings(@PathVariable String ws, @Valid @RequestBody TestDatasource body) {
         var granted = access.require(ws, WorkspaceRole.ADMIN);
-        JdbcConfig config = body.settings().config();
+        Object config = body.settings().settings();
         String password = body.settings().password();
         Datasource saved = null;
         if ((password == null || password.isEmpty()) && body.existingId() != null) {
@@ -269,7 +325,7 @@ public class DatasourceController {
             password = workspaceSecrets.resolve(granted.workspace().id(), password);
         }
         DatasourceTestResult result = run(config, password);
-        if (saved != null && saved.config().equals(config)) {
+        if (saved != null && config.equals(saved.isHttp() ? saved.http() : saved.config())) {
             // The settings on screen are the saved ones: this was a test of the saved datasource.
             UUID id = saved.id();
             scope.run(granted.workspace().id(), () -> store.recordTest(id, result.ok(), result.message()));
@@ -282,7 +338,8 @@ public class DatasourceController {
     public DatasourceTestResult test(@PathVariable String ws, @PathVariable UUID id) {
         var granted = access.require(ws, WorkspaceRole.AUTHOR);
         Datasource ds = find(granted.workspace().id(), id);
-        DatasourceTestResult result = run(ds.config(), workspaceSecrets.resolve(granted.workspace().id(), ds.secretRef()));
+        DatasourceTestResult result = run(ds.isHttp() ? ds.http() : ds.config(),
+                workspaceSecrets.resolve(granted.workspace().id(), ds.secretRef()));
         scope.run(granted.workspace().id(), () -> store.recordTest(id, result.ok(), result.message()));
         return result;
     }
@@ -316,9 +373,14 @@ public class DatasourceController {
                 .orElseThrow(() -> ApiProblem.notFound("datasource_not_found", "That datasource does not exist in this workspace."));
     }
 
-    private DatasourceTestResult run(JdbcConfig config, String password) {
+    private DatasourceTestResult run(Object config, String password) {
         try {
-            var result = registry.test(config, password);
+            if (config instanceof HttpConfig http) {
+                var answer = httpSources.test(http, password);
+                return new DatasourceTestResult(true, "Connected: the API answered %s in %d ms.".formatted(answer.product(), answer.latencyMs()),
+                        answer.product(), answer.version(), answer.latencyMs());
+            }
+            var result = registry.test((JdbcConfig) config, password);
             return new DatasourceTestResult(true, "Connected to %s %s in %d ms.".formatted(result.product(), result.version(), result.latencyMs()),
                     result.product(), result.version(), result.latencyMs());
         } catch (ApiProblem e) {

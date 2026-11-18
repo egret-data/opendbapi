@@ -4,7 +4,8 @@ sidebar_position: 1
 
 # Datasources
 
-A datasource is a database that endpoints query. Workspace admins connect them; authors choose one per endpoint.
+A datasource is a database that endpoints query. Workspace admins connect them; authors choose one per endpoint. To call
+another REST API instead, see [HTTP APIs](./http-apis.md).
 
 ![The shop datasource: PostgreSQL, read only, connected](/img/datasources/detail.png)
 

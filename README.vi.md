@@ -64,7 +64,9 @@ trong PostgreSQL.
 | **Cấu hình dạng code** | Export workspace ra YAML, rồi `opendbapi plan` và `apply` từ CI; import bản export của DBAPI thành bản nháp. | [Tài liệu](https://egret-data.github.io/opendbapi/vi/config/plan-and-apply) |
 | **Người dùng và triển khai** | Workspace, vai trò, đăng nhập bằng tài khoản local, LDAP hoặc SSO (OIDC) có map group; secret do OpenDBAPI hoặc HashiCorp Vault giữ; Docker và Helm chart; giao diện tiếng Anh và tiếng Việt. | [Tài liệu](https://egret-data.github.io/opendbapi/vi/deploy/authentication) |
 
-Datasource: PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, Trino, StarRocks, Apache Doris và ClickHouse.
+Datasource: PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, Trino, StarRocks, Apache Doris và ClickHouse, cùng
+[HTTP API](https://egret-data.github.io/opendbapi/vi/datasources/http-apis): đặt một REST API có sẵn sau cùng lớp kiểm
+soát truy cập, masking, cache và activity log.
 
 ## Ảnh chụp màn hình
 
@@ -150,7 +152,7 @@ Dockerfile          một image: API và giao diện
 ## Trạng thái
 
 Bản phát hành hiện tại là [0.2.0](https://github.com/egret-data/opendbapi/releases/tag/v0.2.0). Mọi thứ trong phần điểm
-nổi bật ở trên đã được xây dựng và có test. Datasource Elasticsearch và HTTP được hoãn đến khi có nhu cầu.
+nổi bật ở trên đã được xây dựng và có test. Datasource Elasticsearch được hoãn đến khi có nhu cầu.
 Lỗi trong bản hiện tại được liệt kê ở [Vấn đề đã biết](https://egret-data.github.io/opendbapi/vi/reference/known-issues).
 
 ## Đóng góp và bảo mật

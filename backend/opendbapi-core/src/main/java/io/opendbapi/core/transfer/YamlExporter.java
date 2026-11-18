@@ -171,7 +171,13 @@ public class YamlExporter {
 
     /** A datasource as its document shows it: settings, never a password; only env:/secret: references. */
     ObjectNode datasourceSpec(Datasource d) {
-        ObjectNode spec = json.valueToTree(d.config());
+        ObjectNode spec = json.createObjectNode();
+        if (d.isHttp()) {
+            spec.put("type", Datasource.HTTP);
+            spec.setAll((ObjectNode) json.valueToTree(d.http()));
+        } else {
+            spec.setAll((ObjectNode) json.valueToTree(d.config()));
+        }
         spec.put("readOnly", d.readOnly());
         if (d.description() != null) {
             spec.put("description", d.description());

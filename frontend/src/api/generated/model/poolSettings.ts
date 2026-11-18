@@ -6,7 +6,10 @@
  * OpenAPI spec version: v1
  */
 
-export interface PoolSettings {
+/**
+ * @nullable
+ */
+export type PoolSettings = {
   /**
      * 250–60000 ms, default 10000
      * @nullable
@@ -22,4 +25,4 @@ export interface PoolSettings {
      * @nullable
      */
   minimumIdle?: number | null;
-}
+} | null;

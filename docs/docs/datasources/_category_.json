@@ -3,6 +3,6 @@
   "position": 4,
   "link": {
     "type": "generated-index",
-    "description": "Connect the databases endpoints query."
+    "description": "Connect the databases and HTTP APIs endpoints read."
   }
 }

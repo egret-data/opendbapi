@@ -19,6 +19,7 @@ export function ParamsEditor({
   path,
   disabled,
   ignore,
+  http = false,
 }: {
   params: Param[];
   onChange: (next: Param[]) => void;
@@ -27,6 +28,8 @@ export function ParamsEditor({
   disabled: boolean;
   /** Names that are not parameters, e.g. workflow node ids. */
   ignore?: string[];
+  /** The names come from an HTTP request rather than SQL. */
+  http?: boolean;
 }) {
   const { t } = useTranslation();
   const set = (i: number, patch: Partial<Param>) => onChange(params.map((p, j) => (j === i ? { ...p, ...patch } : p)));
@@ -39,10 +42,12 @@ export function ParamsEditor({
         {!disabled && (
           <div className="flex gap-1">
             <Button type="button" variant="ghost" size="sm" disabled={missing.length === 0}
-              title={missing.length === 0 ? t("Every name the SQL reads is declared") : t("Add {{names}}", { names: missing.join(", ") })}
+              title={missing.length === 0
+                ? (http ? t("Every name the request reads is declared") : t("Every name the SQL reads is declared"))
+                : t("Add {{names}}", { names: missing.join(", ") })}
               onClick={() => onChange([...params, ...missing.map((n) => newParam(n, path))])}>
               <Wand2 aria-hidden="true" />
-              {t("Detect from SQL")}
+              {http ? t("Detect from request") : t("Detect from SQL")}
             </Button>
             <Button type="button" variant="ghost" size="sm" onClick={() => onChange([...params, newParam("", path)])}>
               <Plus aria-hidden="true" />

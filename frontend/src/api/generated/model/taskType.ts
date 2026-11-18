@@ -13,4 +13,5 @@ export const TaskType = {
   sql: 'sql',
   script: 'script',
   workflow: 'workflow',
+  http: 'http',
 } as const;

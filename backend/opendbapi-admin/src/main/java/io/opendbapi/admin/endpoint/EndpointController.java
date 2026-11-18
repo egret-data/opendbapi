@@ -158,6 +158,12 @@ public class EndpointController {
     private final EndpointStore store;
     private final EndpointService endpoints;
     private final AuditLog audit;
+    private io.opendbapi.core.datasource.DatasourceStore datasources;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setDatasources(io.opendbapi.core.datasource.DatasourceStore datasources) {
+        this.datasources = datasources;
+    }
 
     public EndpointController(WorkspaceAccess access, WorkspaceScope scope, EndpointStore store, EndpointService endpoints,
                               AuditLog audit) {
@@ -186,8 +192,11 @@ public class EndpointController {
     @Operation(operationId = "createEndpoint", summary = "Create a draft with a starter query (author)")
     public EndpointDetail create(@PathVariable String ws, @Valid @RequestBody CreateEndpoint body) {
         var granted = access.require(ws, WorkspaceRole.AUTHOR);
+        boolean http = body.datasourceId() != null && datasources != null && scope.call(granted.workspace().id(),
+                () -> datasources.find(body.datasourceId())).map(io.opendbapi.core.datasource.Datasource::isHttp).orElse(false);
         Endpoint created = endpoints.create(granted.workspace().id(), new EndpointService.Draft(body.groupId(), body.name().strip(),
-                null, body.method(), body.path(), body.access(), EndpointDefinition.starter(body.datasourceId())), granted.user().id());
+                null, body.method(), body.path(), body.access(), EndpointDefinition.starter(body.datasourceId(), http)),
+                granted.user().id());
         audit(granted, "endpoint.create", created, Map.of("route", created.method() + " /" + created.path()));
         return EndpointDetail.of(created);
     }

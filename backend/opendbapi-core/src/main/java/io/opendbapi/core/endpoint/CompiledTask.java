@@ -10,20 +10,26 @@ import java.util.UUID;
 
 /** A task with its templates compiled once (spec §3.3). */
 public record CompiledTask(UUID datasourceId, boolean transaction, List<CompiledStatement> statements, int mainIndex,
-                           io.opendbapi.core.script.ScriptSandbox.Compiled full, CompiledWorkflow workflow, boolean readOnly) {
+                           io.opendbapi.core.script.ScriptSandbox.Compiled full, CompiledWorkflow workflow, boolean readOnly,
+                           CompiledHttp http) {
 
     public CompiledTask(UUID datasourceId, boolean transaction, List<CompiledStatement> statements, int mainIndex) {
-        this(datasourceId, transaction, statements, mainIndex, null, null, false);
+        this(datasourceId, transaction, statements, mainIndex, null, null, false, null);
     }
 
     public CompiledTask(UUID datasourceId, boolean transaction, List<CompiledStatement> statements, int mainIndex,
                         io.opendbapi.core.script.ScriptSandbox.Compiled full, CompiledWorkflow workflow) {
-        this(datasourceId, transaction, statements, mainIndex, full, workflow, false);
+        this(datasourceId, transaction, statements, mainIndex, full, workflow, false, null);
     }
 
     /** The same task for an endpoint answering {@code method}: a GET must not change data, which scripts and workflows check as they run. */
     public CompiledTask forMethod(String method) {
-        return new CompiledTask(datasourceId, transaction, statements, mainIndex, full, workflow, "GET".equals(method));
+        return new CompiledTask(datasourceId, transaction, statements, mainIndex, full, workflow, "GET".equals(method), http);
+    }
+
+    /** Spec §6: one request to an HTTP datasource. */
+    public boolean isHttp() {
+        return http != null;
     }
 
     /** Spec §6.1: a graph of nodes rather than statements. */
@@ -52,6 +58,9 @@ public record CompiledTask(UUID datasourceId, boolean transaction, List<Compiled
 
     /** @throws TemplateException naming the statement that does not compile */
     public static CompiledTask compile(EndpointDefinition.Task task) {
+        if (task.http()) {
+            return new CompiledTask(task.datasourceId(), false, List.of(), -1, null, null, false, CompiledHttp.compile(task.request()));
+        }
         if (task.script()) {
             if (!scriptsEnabled) {
                 throw new TemplateException("Groovy scripts are turned off on this server.");
@@ -120,6 +129,9 @@ public record CompiledTask(UUID datasourceId, boolean transaction, List<Compiled
         }
         if (workflow != null) {
             return workflow.parameterNames();
+        }
+        if (http != null) {
+            return http.parameterNames();
         }
         Set<String> out = new LinkedHashSet<>();
         statements.forEach(s -> out.addAll(s.template().parameterNames()));

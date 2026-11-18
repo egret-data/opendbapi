@@ -65,7 +65,9 @@ PostgreSQL.
 | **Configuration as code** | Export a workspace as YAML, then `opendbapi plan` and `apply` it from CI; import DBAPI exports as drafts. | [Docs](https://egret-data.github.io/opendbapi/config/plan-and-apply) |
 | **People and deployment** | Workspaces, roles, sign-in with local accounts, LDAP or SSO (OIDC) with group mapping; secrets from OpenDBAPI or HashiCorp Vault; Docker and a Helm chart; UI in English and Vietnamese. | [Docs](https://egret-data.github.io/opendbapi/deploy/authentication) |
 
-Datasources: PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, Trino, StarRocks, Apache Doris and ClickHouse.
+Datasources: PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, Trino, StarRocks, Apache Doris and ClickHouse, and
+[HTTP APIs](https://egret-data.github.io/opendbapi/datasources/http-apis): put an existing REST API behind the same access
+control, masking, caching and activity log.
 
 ## Screenshots
 
@@ -149,7 +151,7 @@ Dockerfile          one image: API and UI
 ## Status
 
 The current release is [0.2.0](https://github.com/egret-data/opendbapi/releases/tag/v0.2.0). Everything in the
-highlights above is built and tested. Elasticsearch and HTTP datasources are deferred until there is a need.
+highlights above is built and tested. Elasticsearch datasources are deferred until there is a need.
 Problems in the current release are listed in
 [Known issues](https://egret-data.github.io/opendbapi/reference/known-issues).
 

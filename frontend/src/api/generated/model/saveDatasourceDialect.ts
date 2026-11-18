@@ -6,7 +6,11 @@
  * OpenAPI spec version: v1
  */
 
-export type SaveDatasourceDialect = typeof SaveDatasourceDialect[keyof typeof SaveDatasourceDialect];
+/**
+ * Databases: required
+ * @nullable
+ */
+export type SaveDatasourceDialect = typeof SaveDatasourceDialect[keyof typeof SaveDatasourceDialect] | null;
 
 
 export const SaveDatasourceDialect = {
