@@ -178,7 +178,8 @@ function SettingsTab({ ws, ds, canManage }: { ws: string; ds: DatasourceView; ca
 
 /** The schema endpoints will most likely query: the configured one, then the usual defaults. */
 export function defaultSchema(schemas: string[], ds: DatasourceView): string {
-  const preferred = [ds.properties.currentSchema, "public", "dbo", ds.database, ds.username];
+  // Trino's catalog.schema and StarRocks' or Doris' catalog.database name the schema last; ClickHouse calls it "default".
+  const preferred = [ds.properties.currentSchema, "public", "dbo", ds.database, ds.database.split(".").pop(), "default", ds.username];
   for (const candidate of preferred) {
     const match = schemas.find((s) => candidate && s.toLowerCase() === candidate.toLowerCase());
     if (match) return match;

@@ -36,6 +36,34 @@ jobs:
           path: backend/*/target/surefire-reports/
           retention-days: 7
 
+  engines:
+    name: Analytics engines (Trino, StarRocks, Doris, ClickHouse)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Make room for the engine images
+        run: sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL && df -h /
+      - name: Kernel settings Doris and StarRocks backends expect
+        run: sudo sysctl -w vm.max_map_count=2000000
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Engine tests
+        working-directory: backend
+        run: |
+          mvn -B -ntp -q -Daether.connector.http.retryHandler.count=6 install -DskipTests
+          mvn -B -ntp -pl opendbapi-app test -Dtest.excludedGroups=none -Dgroups=engines -Dsurefire.failIfNoSpecifiedTests=false
+      - name: Test reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-reports
+          path: backend/opendbapi-app/target/surefire-reports/
+          retention-days: 7
+
   frontend:
     name: Frontend (lint, types, tests, build)
     runs-on: ubuntu-24.04

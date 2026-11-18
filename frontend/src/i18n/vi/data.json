@@ -39,7 +39,6 @@
   "How long a request waits for a free connection": "Thời gian một lời gọi chờ kết nối rảnh",
   "Safety": "An toàn",
   "Read only": "Chỉ đọc",
-  "Endpoints cannot publish SQL that writes, and PostgreSQL, MySQL and MariaDB sessions are opened read-only. A read-only database account is still the stronger guarantee, and the only one for SQL Server and Oracle.": "Endpoint không thể phát hành SQL ghi dữ liệu, và phiên PostgreSQL, MySQL, MariaDB được mở ở chế độ chỉ đọc. Tài khoản cơ sở dữ liệu chỉ đọc vẫn là cách đảm bảo chắc chắn hơn, và là cách duy nhất với SQL Server và Oracle.",
   "Testing…": "Đang kiểm tra…",
   "Test connection": "Kiểm tra kết nối",
   "Connected.": "Đã kết nối.",
@@ -231,5 +230,11 @@
   "Datasource here": "Nguồn dữ liệu ở đây",
   "Choose": "Chọn",
   "Remove mapping": "Bỏ ánh xạ",
-  "Saved encrypted. Or type secret:NAME for a managed secret, env:NAME for the server's environment, or vault:PATH#KEY for HashiCorp Vault.": "Được lưu ở dạng mã hoá. Hoặc nhập secret:NAME để dùng secret được quản lý, env:NAME để đọc từ biến môi trường của máy chủ, hoặc vault:PATH#KEY để đọc từ HashiCorp Vault."
+  "Saved encrypted. Or type secret:NAME for a managed secret, env:NAME for the server's environment, or vault:PATH#KEY for HashiCorp Vault.": "Được lưu ở dạng mã hoá. Hoặc nhập secret:NAME để dùng secret được quản lý, env:NAME để đọc từ biến môi trường của máy chủ, hoặc vault:PATH#KEY để đọc từ HashiCorp Vault.",
+  "Catalog": "Catalog",
+  "A catalog, e.g. hive, or catalog.schema to make that schema the default": "Một catalog, ví dụ hive, hoặc catalog.schema để schema đó là mặc định",
+  "A database, or catalog.database for an external catalog": "Một database, hoặc catalog.database cho catalog ngoài",
+  "Optional: leave empty when Trino runs without authentication. With a password, set the SSL property to true.": "Không bắt buộc: để trống khi Trino chạy không xác thực. Khi có mật khẩu, đặt thuộc tính SSL là true.",
+  "Endpoints cannot publish SQL that writes, and the connection is opened read-only where the database or driver supports it (all but SQL Server and Oracle). A read-only database account is still the stronger guarantee.": "Endpoint không thể phát hành SQL ghi dữ liệu, và kết nối được mở ở chế độ chỉ đọc khi cơ sở dữ liệu hoặc driver hỗ trợ (tất cả trừ SQL Server và Oracle). Tài khoản cơ sở dữ liệu chỉ đọc vẫn là cách đảm bảo chắc chắn hơn.",
+  "{{db}} cannot roll back: preview does not run statements that change data, and endpoints cannot use transactions.": "{{db}} không rollback được: preview không chạy câu lệnh thay đổi dữ liệu, và endpoint không dùng được transaction."
 }

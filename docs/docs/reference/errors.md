@@ -38,6 +38,7 @@ server log and in **Activity**, found by `requestId`.
 | 403 | `missing_attribute` | A row filter needs an attribute the service account does not have |
 | 403 | `row_filter_needs_client` | A row filter applies, but the call has no client |
 | 403 | `write_in_get` | A `GET` endpoint tried to change data |
+| 400 | `transaction_unsupported` | The endpoint runs in a transaction, but its datasource (StarRocks, Apache Doris, ClickHouse) [has none](../datasources/datasources.md#databases-without-transactions) |
 | 403 | `read_only_datasource` | A query tried to change data on a read-only datasource |
 | 404 | `not_found` | No published endpoint at this method and path, or a **Single object** endpoint found no row |
 | 406 | `not_acceptable` | The requested format is not allowed (streaming off, or an encrypted client asked for a stream) |
@@ -70,6 +71,7 @@ The management API (`/admin/api`) uses the same problem format. Codes you may me
 | Status | Code | Meaning |
 |---|---|---|
 | 400 | `invalid_endpoint`, `invalid_datasource`, `invalid_policy`, … | The request breaks a rule; `detail` says which |
+| 400 | `preview_cannot_roll_back` | Preview refused a statement that changes data on a database [without transactions](../datasources/datasources.md#databases-without-transactions) |
 | 409 | `validation_failed` | Publishing found errors in the draft (bad SQL, writes in `GET`, …) |
 | 409 | `config_locked` | The workspace is [managed by configuration files](../config/plan-and-apply.md#lock-a-workspace-to-its-files) |
 | 409 | `nothing_to_publish` | The saved draft equals the live version |

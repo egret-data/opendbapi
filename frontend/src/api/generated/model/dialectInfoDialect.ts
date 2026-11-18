@@ -15,4 +15,8 @@ export const DialectInfoDialect = {
   MARIADB: 'MARIADB',
   SQLSERVER: 'SQLSERVER',
   ORACLE: 'ORACLE',
+  TRINO: 'TRINO',
+  STARROCKS: 'STARROCKS',
+  DORIS: 'DORIS',
+  CLICKHOUSE: 'CLICKHOUSE',
 } as const;

@@ -28,7 +28,7 @@ không phải viết service, không phải đưa mật khẩu database cho ai.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/architecture-dark.svg">
-  <img alt="Kiến trúc OpenDBAPI: author viết và publish endpoint trên trình duyệt; chương trình gọi endpoint bằng OAuth2 token qua pipeline serving, pipeline truy vấn database PostgreSQL, MySQL, MariaDB, SQL Server hoặc Oracle của bạn." src=".github/assets/architecture-light.svg" width="100%">
+  <img alt="Kiến trúc OpenDBAPI: author viết và publish endpoint trên trình duyệt; chương trình gọi endpoint bằng OAuth2 token qua pipeline serving, pipeline truy vấn database PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, Trino, StarRocks, Doris hoặc ClickHouse của bạn." src=".github/assets/architecture-light.svg" width="100%">
 </picture>
 
 </div>
@@ -64,7 +64,7 @@ trong PostgreSQL.
 | **Cấu hình dạng code** | Export workspace ra YAML, rồi `opendbapi plan` và `apply` từ CI; import bản export của DBAPI thành bản nháp. | [Tài liệu](https://egret-data.github.io/opendbapi/vi/config/plan-and-apply) |
 | **Người dùng và triển khai** | Workspace, vai trò, đăng nhập bằng tài khoản local, LDAP hoặc SSO (OIDC) có map group; secret do OpenDBAPI hoặc HashiCorp Vault giữ; Docker và Helm chart; giao diện tiếng Anh và tiếng Việt. | [Tài liệu](https://egret-data.github.io/opendbapi/vi/deploy/authentication) |
 
-Datasource: PostgreSQL, MySQL, MariaDB, SQL Server và Oracle.
+Datasource: PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, Trino, StarRocks, Apache Doris và ClickHouse.
 
 ## Ảnh chụp màn hình
 
@@ -150,7 +150,7 @@ Dockerfile          một image: API và giao diện
 ## Trạng thái
 
 Bản phát hành hiện tại là [0.2.0](https://github.com/egret-data/opendbapi/releases/tag/v0.2.0). Mọi thứ trong phần điểm
-nổi bật ở trên đã được xây dựng và có test. Datasource Elasticsearch, HTTP và ClickHouse được hoãn đến khi có nhu cầu.
+nổi bật ở trên đã được xây dựng và có test. Datasource Elasticsearch và HTTP được hoãn đến khi có nhu cầu.
 Lỗi trong bản hiện tại được liệt kê ở [Vấn đề đã biết](https://egret-data.github.io/opendbapi/vi/reference/known-issues).
 
 ## Đóng góp và bảo mật

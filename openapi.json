@@ -4822,7 +4822,7 @@
           },
           "dialect" : {
             "type" : "string",
-            "enum" : [ "POSTGRESQL", "MYSQL", "MARIADB", "SQLSERVER", "ORACLE" ]
+            "enum" : [ "POSTGRESQL", "MYSQL", "MARIADB", "SQLSERVER", "ORACLE", "TRINO", "STARROCKS", "DORIS", "CLICKHOUSE" ]
           },
           "hasPassword" : {
             "type" : "boolean"
@@ -4919,7 +4919,7 @@
         }
       },
       "DialectInfo" : {
-        "required" : [ "allowedProperties", "defaultPort", "dialect" ],
+        "required" : [ "allowedProperties", "defaultPort", "dialect", "passwordOptional", "transactional" ],
         "type" : "object",
         "properties" : {
           "allowedProperties" : {
@@ -4934,7 +4934,15 @@
           },
           "dialect" : {
             "type" : "string",
-            "enum" : [ "POSTGRESQL", "MYSQL", "MARIADB", "SQLSERVER", "ORACLE" ]
+            "enum" : [ "POSTGRESQL", "MYSQL", "MARIADB", "SQLSERVER", "ORACLE", "TRINO", "STARROCKS", "DORIS", "CLICKHOUSE" ]
+          },
+          "passwordOptional" : {
+            "type" : "boolean",
+            "description" : "Whether a datasource may have no password"
+          },
+          "transactional" : {
+            "type" : "boolean",
+            "description" : "Whether a rollback undoes writes: preview and transactions need it"
           }
         }
       },
@@ -6200,7 +6208,7 @@
           },
           "dialect" : {
             "type" : "string",
-            "enum" : [ "POSTGRESQL", "MYSQL", "MARIADB", "SQLSERVER", "ORACLE" ]
+            "enum" : [ "POSTGRESQL", "MYSQL", "MARIADB", "SQLSERVER", "ORACLE", "TRINO", "STARROCKS", "DORIS", "CLICKHOUSE" ]
           },
           "host" : {
             "type" : "string"

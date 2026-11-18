@@ -238,6 +238,7 @@ public class QueryExecutor {
     /** @param shared a connection to run on, inside its owner's transaction; null borrows one */
     public QueryResult run(Datasource ds, CompiledTask task, Map<String, Object> params, PageRequest page,
                       EndpointDefinition.Limits limits, RunMode mode, Policy policy, EndpointCaller caller, Connection shared) {
+        requireTransactions(ds, task);
         List<BoundSql> executed = new ArrayList<>();
         if (task.isFull()) {
             return measured(ds, params, executed, () -> runScript(ds, task, params, limits, mode, policy, executed, shared));
@@ -263,11 +264,13 @@ public class QueryExecutor {
         private final java.util.concurrent.atomic.AtomicBoolean truncated;
         private final java.util.concurrent.atomic.AtomicBoolean wrote;
         private final boolean readOnlyRequest;
+        private final boolean previewWithoutRollback;
 
         ScriptDb(Connection connection, Datasource ds, EndpointDefinition.Limits limits, Policy policy, List<BoundSql> executed,
                  java.util.concurrent.atomic.AtomicLong rows, java.util.concurrent.atomic.AtomicBoolean truncated,
-                 java.util.concurrent.atomic.AtomicBoolean wrote, boolean readOnlyRequest) {
+                 java.util.concurrent.atomic.AtomicBoolean wrote, boolean readOnlyRequest, boolean previewWithoutRollback) {
             this.readOnlyRequest = readOnlyRequest;
+            this.previewWithoutRollback = previewWithoutRollback;
             this.connection = connection;
             this.ds = ds;
             this.limits = limits;
@@ -279,7 +282,7 @@ public class QueryExecutor {
         }
 
         ScriptDb on(Connection other) {
-            return new ScriptDb(other, ds, limits, policy, executed, rows, truncated, wrote, readOnlyRequest);
+            return new ScriptDb(other, ds, limits, policy, executed, rows, truncated, wrote, readOnlyRequest, previewWithoutRollback);
         }
 
         /** @throws io.opendbapi.core.script.DbAccess.Failure wrapping what went wrong */
@@ -303,6 +306,9 @@ public class QueryExecutor {
             if (isWrite && ds.readOnly()) {
                 throw new io.opendbapi.core.script.DbAccess.Failure(new ApiProblem(403, "read_only_datasource",
                         "This endpoint's datasource is read-only."));
+            }
+            if (isWrite && previewWithoutRollback) {
+                throw new io.opendbapi.core.script.DbAccess.Failure(previewCannotRollBack(ds));
             }
             for (var f : io.opendbapi.sql.inspect.SqlInspector.inspect(bound.sql(),
                     new io.opendbapi.sql.inspect.SqlInspector.Context(false, ds.readOnly()))) {
@@ -374,9 +380,34 @@ public class QueryExecutor {
     }
 
     private ScriptDb scriptDb(Connection c, Datasource ds, EndpointDefinition.Limits limits, Policy policy, List<BoundSql> executed,
-                              boolean readOnlyRequest) {
+                              boolean readOnlyRequest, RunMode mode) {
         return new ScriptDb(c, ds, limits, policy, executed, new java.util.concurrent.atomic.AtomicLong(),
-                new java.util.concurrent.atomic.AtomicBoolean(), new java.util.concurrent.atomic.AtomicBoolean(), readOnlyRequest);
+                new java.util.concurrent.atomic.AtomicBoolean(), new java.util.concurrent.atomic.AtomicBoolean(), readOnlyRequest,
+                mode == RunMode.PREVIEW && !ds.config().dialect().transactional());
+    }
+
+    /**
+     * Starts a transaction when one is wanted and the database has them (spec §4.6); returns
+     * whether it did, which is whether to commit or roll back.
+     */
+    private static boolean begin(Connection c, Datasource ds, boolean wanted) throws SQLException {
+        if (!wanted || !ds.config().dialect().transactional()) {
+            return false;
+        }
+        c.setAutoCommit(false);
+        return true;
+    }
+
+    private static void requireTransactions(Datasource ds, CompiledTask task) {
+        if (task.transaction() && !ds.config().dialect().transactional()) {
+            throw ApiProblem.badRequest("transaction_unsupported", ("%s cannot roll back writes, so an endpoint on it cannot run "
+                    + "in a transaction. Turn off Transaction in the endpoint's settings.").formatted(ds.config().dialect().label()));
+        }
+    }
+
+    private static ApiProblem previewCannotRollBack(Datasource ds) {
+        return ApiProblem.badRequest("preview_cannot_roll_back", ("%s cannot roll back, so preview does not run statements that "
+                + "change data. Publish the endpoint and call it to run them.").formatted(ds.config().dialect().label()));
     }
 
     /** Turns what a script or workflow threw into the answer a caller gets. */
@@ -402,15 +433,12 @@ public class QueryExecutor {
                                   RunMode mode, Policy policy, List<BoundSql> executed, Connection shared) {
         long start = System.nanoTime();
         try (Connection c = lease(ds, shared)) {
-            boolean manual = mode == RunMode.PREVIEW || task.transaction();
-            if (manual) {
-                c.setAutoCommit(false);
-            }
-            ScriptDb db = scriptDb(c, ds, limits, policy, java.util.Collections.synchronizedList(executed), task.readOnly());
+            boolean manual = begin(c, ds, mode == RunMode.PREVIEW || task.transaction());
+            ScriptDb db = scriptDb(c, ds, limits, policy, java.util.Collections.synchronizedList(executed), task.readOnly(), mode);
             try {
                 Object value = task.full().run(params, db);
                 QueryResult result = db.finish(value, start);
-                if (mode == RunMode.PREVIEW) {
+                if (manual && mode == RunMode.PREVIEW) {
                     c.rollback();
                 } else if (manual) {
                     c.commit();
@@ -441,10 +469,8 @@ public class QueryExecutor {
         boolean together = mode == RunMode.PREVIEW || task.transaction() || shared != null;
         List<BoundSql> log = java.util.Collections.synchronizedList(executed);
         try (Connection c = lease(ds, shared)) {
-            if (together) {
-                c.setAutoCommit(false);
-            }
-            ScriptDb db = scriptDb(c, ds, limits, policy, log, task.readOnly());
+            boolean manual = begin(c, ds, together);
+            ScriptDb db = scriptDb(c, ds, limits, policy, log, task.readOnly(), mode);
             SharedConnection joinable = together ? new SharedConnection(c, ds.id()) : null;
             try {
                 for (List<CompiledWorkflow.Node> level : wf.levels()) {
@@ -480,14 +506,14 @@ public class QueryExecutor {
                     }
                 }
                 QueryResult result = db.finish(answer(wf, results, inactive), start);
-                if (mode == RunMode.PREVIEW) {
+                if (manual && mode == RunMode.PREVIEW) {
                     c.rollback();
-                } else if (together) {
+                } else if (manual) {
                     c.commit();
                 }
                 return result;
             } catch (RuntimeException e) {
-                if (together) {
+                if (manual) {
                     rollbackQuietly(c);
                 }
                 throw translate(e);
@@ -597,11 +623,9 @@ public class QueryExecutor {
                       List<BoundSql> executed, Connection shared) {
         long start = System.nanoTime();
         Dialect dialect = Dialect.valueOf(ds.config().dialect().name());
+        boolean previewWithoutRollback = mode == RunMode.PREVIEW && !ds.config().dialect().transactional();
         try (Connection c = lease(ds, shared)) {
-            boolean manual = mode == RunMode.PREVIEW || task.transaction();
-            if (manual) {
-                c.setAutoCommit(false);
-            }
+            boolean manual = begin(c, ds, mode == RunMode.PREVIEW || task.transaction());
             try {
                 QueryResult main = null;
                 for (int i = 0; i < task.statements().size(); i++) {
@@ -609,6 +633,9 @@ public class QueryExecutor {
                     BoundSql bound = render(task.statements().get(i), params);
                     if (task.readOnly() && io.opendbapi.sql.inspect.SqlInspector.isWrite(bound.sql())) {
                         throw new ApiProblem(403, "write_in_get", "A GET endpoint must not change data, nor the endpoints it calls.");
+                    }
+                    if (previewWithoutRollback && io.opendbapi.sql.inspect.SqlInspector.isWrite(bound.sql())) {
+                        throw previewCannotRollBack(ds);
                     }
                     if (isMain) {
                         bound = mainRewrite.apply(bound);
@@ -623,7 +650,7 @@ public class QueryExecutor {
                         }
                     }
                 }
-                if (mode == RunMode.PREVIEW) {
+                if (manual && mode == RunMode.PREVIEW) {
                     c.rollback();
                 } else if (manual) {
                     c.commit();
@@ -692,7 +719,8 @@ public class QueryExecutor {
                                 RowSink sink, java.util.function.UnaryOperator<BoundSql> mainRewrite, List<BoundSql> executed) {
         int limit = limits.streamRowLimit();
         try (Connection c = registry.connection(ds)) {
-            c.setAutoCommit(false); // PostgreSQL only uses a cursor (fetch size) inside a transaction
+            // PostgreSQL only uses a cursor (fetch size) inside a transaction
+            boolean manual = begin(c, ds, true);
             boolean started = false;
             try {
                 for (int i = 0; i < task.statements().size(); i++) {
@@ -739,7 +767,9 @@ public class QueryExecutor {
                                 sink.row(values);
                                 sent++;
                             }
-                            c.commit();
+                            if (manual) {
+                                c.commit();
+                            }
                             sink.end(truncated);
                             return sent;
                         }

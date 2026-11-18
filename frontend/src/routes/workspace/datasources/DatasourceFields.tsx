@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { errorMessage } from "@/lib/errors";
-import { DATABASE_LABEL, DIALECT_LABEL, toRequest, type DatasourceForm, type Dialect } from "./datasourceForm";
+import { DATABASE_HELP, DATABASE_LABEL, DIALECT_LABEL, toRequest, type DatasourceForm, type Dialect } from "./datasourceForm";
 
 /**
  * The datasource settings as one `Setting | Details | Value` table (FE-PAGE-5). `disabled`
@@ -42,7 +42,9 @@ export function DatasourceFields({
   const set = (patch: Partial<DatasourceForm>) => onChange({ ...form, ...patch });
   const setProperty = (i: number, patch: Partial<DatasourceForm["properties"][number]>) =>
     set({ properties: form.properties.map((p, j) => (j === i ? { ...p, ...patch } : p)) });
-  const passwordHelp = hasPassword
+  const passwordHelp = info?.passwordOptional && !hasPassword
+    ? t("Optional: leave empty when Trino runs without authentication. With a password, set the SSL property to true.")
+    : hasPassword
     ? passwordSecret
       ? t("Read from the managed secret {{name}}. Leave empty to keep it.", { name: passwordSecret })
       : passwordEnv
@@ -63,7 +65,11 @@ export function DatasourceFields({
         </ConfigTableRow>
 
         <ConfigTableGroup label={t("Connection")} />
-        <ConfigTableRow label={t("Database type")} htmlFor="ds-dialect" details={t("Drivers for these are built in")}>
+        <ConfigTableRow label={t("Database type")} htmlFor="ds-dialect"
+          details={info && !info.transactional
+            ? t("{{db}} cannot roll back: preview does not run statements that change data, and endpoints cannot use transactions.",
+              { db: DIALECT_LABEL[form.dialect] })
+            : t("Drivers for these are built in")}>
           <Select value={form.dialect} onValueChange={(v) => set({ dialect: v as Dialect, properties: [] })} disabled={disabled}>
             <SelectTrigger id="ds-dialect" className="w-full">
               <SelectValue />
@@ -87,7 +93,7 @@ export function DatasourceFields({
             placeholder={info ? String(info.defaultPort) : undefined} onChange={(e) => set({ port: e.target.value })} />
         </ConfigTableRow>
         <ConfigTableRow label={t(DATABASE_LABEL[form.dialect])} htmlFor="ds-database"
-          details={form.dialect === "ORACLE" ? t("The service name, e.g. ORCLPDB1") : t("The database to connect to")}>
+          details={t(DATABASE_HELP[form.dialect])}>
           <Input id="ds-database" className="font-mono text-xs" value={form.database} required
             onChange={(e) => set({ database: e.target.value })} />
         </ConfigTableRow>
@@ -132,7 +138,7 @@ export function DatasourceFields({
         </ConfigTableRow>
         <ConfigTableRow label={t("Password")} htmlFor="ds-password" details={passwordHelp}>
           <Input id="ds-password" type="password" autoComplete="new-password" value={form.password}
-            placeholder={hasPassword ? "••••••••" : undefined} required={!hasPassword}
+            placeholder={hasPassword ? "••••••••" : undefined} required={!hasPassword && !info?.passwordOptional}
             onChange={(e) => set({ password: e.target.value })} />
         </ConfigTableRow>
 
@@ -153,7 +159,7 @@ export function DatasourceFields({
 
         <ConfigTableGroup label={t("Safety")} />
         <ConfigTableRow label={t("Read only")} htmlFor="ds-readonly"
-          details={t("Endpoints cannot publish SQL that writes, and PostgreSQL, MySQL and MariaDB sessions are opened read-only. A read-only database account is still the stronger guarantee, and the only one for SQL Server and Oracle.")}>
+          details={t("Endpoints cannot publish SQL that writes, and the connection is opened read-only where the database or driver supports it (all but SQL Server and Oracle). A read-only database account is still the stronger guarantee.")}>
           <Switch id="ds-readonly" checked={form.readOnly} onCheckedChange={(v) => set({ readOnly: v })} />
         </ConfigTableRow>
       </ConfigTable>

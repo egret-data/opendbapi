@@ -176,6 +176,12 @@ public class DbapiImporter {
         } else if (lower.startsWith("jdbc:sqlserver:")) {
             dialect = JdbcDialect.SQLSERVER;
             rest = u.substring("jdbc:sqlserver:".length());
+        } else if (lower.startsWith("jdbc:trino:")) {
+            dialect = JdbcDialect.TRINO;
+            rest = u.substring("jdbc:trino:".length());
+        } else if (lower.startsWith("jdbc:clickhouse:") || lower.startsWith("jdbc:ch:")) {
+            dialect = JdbcDialect.CLICKHOUSE;
+            rest = u.substring(u.indexOf(':', 5) + 1);
         } else if (lower.startsWith("jdbc:oracle:thin:@")) {
             return parseOracle(u.substring("jdbc:oracle:thin:@".length()), username, notes);
         } else {
@@ -188,6 +194,9 @@ public class DbapiImporter {
             return null;
         }
         String database = m.group(3);
+        if (dialect == JdbcDialect.TRINO && database != null) {
+            database = database.replaceAll("/+$", "").replace('/', '.'); // catalog/schema
+        }
         if (dialect == JdbcDialect.SQLSERVER) {
             Matcher db = Pattern.compile("(?i);database(?:Name)?=([^;]+)").matcher(rest);
             database = db.find() ? db.group(1) : null;

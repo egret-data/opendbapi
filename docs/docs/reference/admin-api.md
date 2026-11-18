@@ -1599,7 +1599,7 @@ Result cache (spec §9.5)
 | `createdAt` | `string (date-time)` | yes |  |
 | `database` | `string` | yes |  |
 | `description` | `string` | no |  |
-| `dialect` | `POSTGRESQL \| MYSQL \| MARIADB \| SQLSERVER \| ORACLE` | yes |  |
+| `dialect` | `POSTGRESQL \| MYSQL \| MARIADB \| SQLSERVER \| ORACLE \| TRINO \| STARROCKS \| DORIS \| CLICKHOUSE` | yes |  |
 | `hasPassword` | `boolean` | yes |  |
 | `host` | `string` | yes |  |
 | `id` | `string (uuid)` | yes |  |
@@ -1642,7 +1642,9 @@ Result cache (spec §9.5)
 |---|---|---|---|
 | `allowedProperties` | `string[]` | yes |  |
 | `defaultPort` | `integer (int32)` | yes |  |
-| `dialect` | `POSTGRESQL \| MYSQL \| MARIADB \| SQLSERVER \| ORACLE` | yes |  |
+| `dialect` | `POSTGRESQL \| MYSQL \| MARIADB \| SQLSERVER \| ORACLE \| TRINO \| STARROCKS \| DORIS \| CLICKHOUSE` | yes |  |
+| `passwordOptional` | `boolean` | yes | Whether a datasource may have no password |
+| `transactional` | `boolean` | yes | Whether a rollback undoes writes: preview and transactions need it |
 
 ### EndpointAccess
 
@@ -2129,7 +2131,7 @@ Checks on the bound parameters, run before the query (spec §13.1)
 |---|---|---|---|
 | `database` | `string` | yes |  |
 | `description` | `string` | no |  |
-| `dialect` | `POSTGRESQL \| MYSQL \| MARIADB \| SQLSERVER \| ORACLE` | yes |  |
+| `dialect` | `POSTGRESQL \| MYSQL \| MARIADB \| SQLSERVER \| ORACLE \| TRINO \| STARROCKS \| DORIS \| CLICKHOUSE` | yes |  |
 | `host` | `string` | yes |  |
 | `name` | `string` | yes |  |
 | `password` | `string` | no | Plain password (stored encrypted) or env:NAME; omit to keep the stored one |
