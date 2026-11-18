@@ -8,8 +8,8 @@ The handful of things OpenDBAPI is made of, and how they fit together.
 
 ## Workspace
 
-A workspace is a team's space: its own datasources, endpoints, service accounts, secrets, policies and activity.
-Nothing is shared between workspaces, and PostgreSQL row-level security keeps one workspace's data out of another's
+A workspace belongs to a team and holds its own datasources, endpoints, service accounts, secrets, policies and
+activity. Workspaces share nothing, and PostgreSQL row-level security keeps one workspace's data out of another's
 queries. The workspace's **slug** is part of every endpoint URL:
 
 ```text
@@ -20,8 +20,8 @@ People join a workspace as **members** with a role; see [Members and roles](../w
 
 ## Datasource
 
-The database an endpoint queries: PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, Trino, StarRocks, Apache Doris or
-ClickHouse; or an [HTTP API](../datasources/http-apis.md) it sends requests to. A datasource holds the connection settings and a password (encrypted, or a reference to a
+The database an endpoint queries (PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, Trino, StarRocks, Apache Doris or
+ClickHouse), or an [HTTP API](../datasources/http-apis.md) it sends requests to. A datasource holds the connection settings and a password (encrypted, or a reference to a
 [secret](../workspace/secrets.md)). Mark it **read only** when its endpoints should never change data. See [Datasources](../datasources/datasources.md).
 
 ## Endpoint
@@ -36,7 +36,7 @@ frozen **versions** you publish:
 | **Disabled** | Taken out of service; keeps its live version and grants, so **Enable** brings it back as it was | No |
 | **In the trash** | Soft-deleted; restore it to edit it again | No |
 
-Callers only ever see a published version; saving the draft changes nothing for them until you press **Publish**.
+Callers only ever see a published version. Saving the draft changes nothing for them until you press **Publish**.
 See [Endpoints](../endpoints/write-and-publish.md).
 
 ## Service account, client and grant

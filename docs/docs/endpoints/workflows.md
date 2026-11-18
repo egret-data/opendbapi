@@ -56,8 +56,8 @@ A node reads the results of the nodes before it by id, and the request parameter
 ## The answer
 
 The **Answer** menu above the canvas picks the node whose result is the response's `data`. **Last node that ran** (the
-default) is the last node, in list order, that nothing depends on and that ran — such as the end node of the branch
-taken.
+default) is the last node, in list order, that ran and that nothing depends on. Usually that is the end node of the
+branch taken.
 
 ## Calling other endpoints
 

@@ -9,8 +9,8 @@ published endpoints on port 8520. It stores everything in one PostgreSQL databas
 
 ## Prepare PostgreSQL
 
-OpenDBAPI needs PostgreSQL 14 or later for its own data (users, workspaces, endpoints, activity) — not the databases your
-endpoints query. Create the database and two roles: an **owner** that runs the schema migrations, and an **app** role
+OpenDBAPI needs PostgreSQL 14 or later for its own data (users, workspaces, endpoints, activity). This is separate from the
+databases your endpoints query. Create the database and two roles: an **owner** that runs the schema migrations, and an **app** role
 that the server uses at run time, subject to row-level security.
 
 ```sql

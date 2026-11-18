@@ -4,8 +4,8 @@ sidebar_position: 4
 
 # Major versions and deprecation
 
-Publishing a new version replaces what callers get at the same URL. When a change would break callers — a column
-removed, a type changed — publish it as a **new major version** at a new path instead, keep the old one running, and
+Publishing a new version replaces what callers get at the same URL. When a change would break callers (a column
+removed, a type changed), publish it as a **new major version** at a new path instead, keep the old one running, and
 announce its end with **deprecation**.
 
 ![The Versions tab with the Major versions table: v1 deprecated with a sunset date, v2 live](/img/endpoints/versions.png)

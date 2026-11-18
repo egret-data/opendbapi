@@ -21,8 +21,8 @@ docker compose -f deploy/quickstart/docker-compose.yml up -d
 
 This starts two containers:
 
-- **postgres**: PostgreSQL 16 that holds OpenDBAPI's own data (users, workspaces, endpoints, activity).
-- **opendbapi**: the `ghcr.io/egret-data/opendbapi:0.3.0` image, which serves the management UI and the published
+- `postgres`: PostgreSQL 16, which holds OpenDBAPI's own data (users, workspaces, endpoints, activity).
+- `opendbapi`: the `ghcr.io/egret-data/opendbapi:0.3.0` image, which serves the management UI and the published
   endpoints on port 8520.
 
 OpenDBAPI creates its schema on first start. Wait until it reports ready:
@@ -47,13 +47,13 @@ docker compose -f deploy/quickstart/docker-compose.yml exec -T postgres \
 
 ## Sign in
 
-Open [http://localhost:8520](http://localhost:8520) and sign in as **admin** with the password `admin-change-me`.
+Open [http://localhost:8520](http://localhost:8520) and sign in as `admin` with the password `admin-change-me`.
 
 ![The sign-in page with Username and Password fields](/img/get-started/login.png)
 
 :::warning
-The quick start uses fixed, published passwords and a published master key. Use it to try OpenDBAPI only; for anything
-else follow [Deploy with Docker](../deploy/docker.md).
+The quick start uses fixed, published passwords and a published master key. Use it only to try OpenDBAPI. For anything
+else, follow [Deploy with Docker](../deploy/docker.md).
 :::
 
 ## Next

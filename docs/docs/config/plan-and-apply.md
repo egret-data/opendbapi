@@ -40,7 +40,7 @@ Digest: 721faafb4703ea35fd3ad0cc4082c05c
 
 ## How apply works
 
-- Everything is written in **one transaction**: if anything fails, nothing changes.
+- Everything is written in one transaction: if anything fails, nothing changes.
 - An endpoint's draft is updated; callers keep getting the live version until it is published.
 - With publishing on, each `live` endpoint runs its [tests](../endpoints/tests.md) first; an endpoint whose tests fail is
   not published and is reported, and the rest still apply.
@@ -55,7 +55,7 @@ to dev, staging and prod while each keeps its own host and password.
 2. Press **Add mapping**: for each **Name in the file**, choose the **Datasource here**.
 3. Press **Save**.
 
-Apply with that environment and the file's `Datasource` documents are bound to the mapped datasources instead of
+When you apply with that environment, the file's `Datasource` documents are bound to the mapped datasources instead of
 creating or changing them.
 
 ## Lock a workspace to its files

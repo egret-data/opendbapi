@@ -5,7 +5,7 @@ sidebar_position: 3
 # Your first endpoint
 
 Turn a SQL query on the sample shop into a URL you can call. You need the [quick start](./quick-start.md) running with the
-sample data loaded, and to be signed in as **admin**.
+sample data loaded, and to be signed in as `admin`.
 
 ## 1. Create a workspace
 
@@ -31,7 +31,7 @@ The workspace switcher at the top now shows **Shop**.
 3. Under **Credentials**, set **Username** `shop_reader` and **Password** `shop-reader`.
 4. Under **Driver properties**, press **Add property** and set `currentSchema` to `shop`, so queries can write
    `customers` instead of `shop.customers`.
-5. Keep **Read only** on, press **Test connection**, and when it says **Connected.** press **Create datasource**.
+5. Keep **Read only** on and press **Test connection**. When it says **Connected.**, press **Create datasource**.
 
 ![The shop datasource with its connection settings and a Connected badge](/img/datasources/detail.png)
 
@@ -66,7 +66,7 @@ A private endpoint needs a token. Create one for a service account:
 
 1. Open **Clients**, press **New service account**, name it `tutorial` and press **Create**.
 2. Under **Grants**, press **Grant access**, choose the `Customers` endpoint and press **Grant**.
-3. Under **Clients**, press **New client** and **Create client**. Copy the **Client id** and **Client secret**; the
+3. Under **Clients**, press **New client** and **Create client**. Copy the **Client id** and **Client secret**. The
    secret is shown only once.
 
 Exchange the client for a token, then call the endpoint:

@@ -4,8 +4,8 @@ sidebar_position: 4
 
 # Security
 
-Workspace-wide limits for everyone who calls the workspace's endpoints: a firewall by caller address and rate limits per
-client and per address. They apply to every endpoint of the workspace, public or private.
+Each workspace has a firewall by caller address and rate limits per client and per address. Both apply to everyone who
+calls the workspace's endpoints, public or private.
 
 ![The Security tab with the firewall and rate limits](/img/workspace/security.png)
 

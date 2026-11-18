@@ -28,13 +28,13 @@ create one while moving endpoints; see below.
 
 ## Move endpoints
 
-Use any of these:
+There are three ways to move an endpoint:
 
-- **Row menu.** Open the endpoint's **…** menu and choose **Move to** a group, **Remove from group**, or **Move to new
-  group…**, which asks for a name, creates the group and moves the endpoint in one step.
-- **Drag and drop.** Drag a row onto a group heading, or onto **No group**.
-- **Select.** Press **Select** in the toolbar to add checkboxes, tick several endpoints, press **Move n to group…** and
-  pick a group, **No group** or **New group…**. With **Select** on, dragging a ticked row moves every ticked row.
+- Open the endpoint's **…** menu and choose **Move to** a group, **Remove from group**, or **Move to new group…**. The
+  last one asks for a name, creates the group and moves the endpoint in one step.
+- Drag a row onto a group heading, or onto **No group**.
+- Press **Select** in the toolbar to add checkboxes, tick several endpoints, press **Move n to group…** and pick a group,
+  **No group** or **New group…**. With **Select** on, dragging a ticked row moves every ticked row.
 
 A move changes nothing an endpoint serves and needs no publishing: the draft, the live version and the URL stay as they
 are. It does change who may call it. When a move takes an endpoint out of a group that service accounts are granted, or

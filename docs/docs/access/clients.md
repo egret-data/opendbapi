@@ -4,7 +4,7 @@ sidebar_position: 1
 
 # Clients and grants
 
-Programs call **private** endpoints with an OAuth2 token. A **service account** is the program's identity, a **client**
+Programs call private endpoints with an OAuth2 token. A **service account** is the program's identity, a **client**
 holds the id and secret it exchanges for tokens, and a **grant** lets the service account call an endpoint or a group.
 
 ![The Clients page with the reporting service account, its active clients and grants](/img/access/clients.png)

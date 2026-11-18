@@ -80,7 +80,7 @@ Scripts run in a sandbox, checked when the script is compiled:
 - each run is time-limited: 2 seconds in fragment mode (`opendbapi.script.timeout`).
 
 :::warning
-A sandbox is a strong layer, not a proof. Give the **script_author** role only to people you trust with the
+The sandbox lowers the risk but does not prove a script harmless. Give the **script_author** role only to people you trust with the
 datasources' credentials, and use a database account that can only read what endpoints need. Set
 `opendbapi.script.groovy-enabled=false` to turn scripts off entirely.
 :::

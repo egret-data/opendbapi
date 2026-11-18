@@ -58,6 +58,20 @@ Only what is true and verified.
 - Second person, present tense, plain words. No marketing language, no "simply" or "just".
 - Sentence case headings without trailing punctuation.
 
+## Writing plainly
+
+Write what the reader needs to do or know, and stop. Before merging a page, read it once for these habits and remove
+them:
+
+- **Contrasts that only add weight.** "It's not X, it's Y" or "X, not Y" when nobody believed X. State Y.
+- **Closers and run-ups.** A last line that repeats the paragraph; an opener such as "Here's what you need to know".
+- **Dashes as connectors.** No em dash (—) or en dash (–) in prose: use a period, comma, colon or parentheses. A dash
+  in a table cell meaning "none" is fine.
+- **Inflated words.** crucial, robust, seamless, powerful, leverage, effortlessly, simply, just. Say what happens.
+- **Bold as decoration.** Bold is for UI labels. Lists of "**Label:** sentence" become plain sentences or a table.
+- **Triads and stacked hedges.** Three items only when there are three; one qualifier at most.
+- **Talking about the page.** "This page explains…", "The table below shows…". Start with the content.
+
 ## Screenshots
 
 - Taken from a seeded local instance only; never capture real hosts, emails, tokens or secrets.
@@ -77,5 +91,19 @@ Only what is true and verified.
 
 ## Vietnamese
 
-English is canonical. Vietnamese pages (`i18n/vi/docusaurus-plugin-content-docs/current/...`) follow once the English page
-is stable.
+English is canonical. Every page has a Vietnamese version at the same path under
+`i18n/vi/docusaurus-plugin-content-docs/current/`; a change to an English page updates its Vietnamese page in the same
+pull request, or says in the description that it will follow. Sidebar, navbar and footer labels are in
+`i18n/vi/*.json` (`npm run write-translations -- -l vi` adds new keys).
+
+- **Anchors.** Give every Vietnamese heading the English anchor as an explicit id, so links from other pages keep
+  working: `## Cấp quyền truy cập {#grant-access}`. The build fails on a broken anchor.
+- **UI labels.** Use the label the Vietnamese UI shows, taken from `frontend/src/i18n/vi/*.json`; keep the English label
+  when it has no translation.
+- **Kept in English.** Code, SQL, YAML, error codes, configuration keys, environment variables, and terms engineers use
+  untranslated: endpoint, datasource, workspace, service account, client, token, grant, preview, publish, cache, rate
+  limit, firewall, workflow, script, query, schema, masking, row filter, secret.
+- **Words.** người gọi (caller), tham số (parameter), phiên bản (version), quyền (permission), vai trò (role), thành viên
+  (member), chỉ đọc (read only), cấu hình (configuration), triển khai (deploy), nhật ký (log).
+- The plain-writing rules above apply to Vietnamese too.
+- `reference/admin-api.md` is generated and stays in English; the Vietnamese site shows the English page.

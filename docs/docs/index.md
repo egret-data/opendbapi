@@ -6,27 +6,27 @@ title: Introduction
 
 # OpenDBAPI
 
-OpenDBAPI turns SQL into REST APIs. You write a query, declare the parameters callers may pass, and publish it; any
-program with an OAuth2 token can then call it over HTTP and get JSON back. You do not write a service, deploy anything
-or hand out database credentials.
+OpenDBAPI turns SQL into REST APIs. You write a query, declare the parameters callers may pass, and publish it. Any
+program with an OAuth2 token can then call it over HTTP and get JSON back. There is no service to write or deploy, and
+no database credentials to hand out.
 
 ![The endpoints list of the demo workspace: published endpoints with their method, path and state](/img/get-started/endpoints-list.png)
 
-Use it when something that is not a person — a nightly job, a partner's backend, a mobile app, a spreadsheet macro —
-needs the answer to a query that you control.
+Use it when a program needs the answer to a query that you control: a nightly job, a partner's backend, a mobile app
+or a spreadsheet macro.
 
 ## What you get
 
-- **Endpoints from SQL**: templates with typed parameters, validation, pagination, result shaping and caching; or a
-  Groovy script, or a workflow of several steps.
-- **Safe publishing**: a draft you edit and numbered versions you publish and roll back; saved tests that run before
-  publishing; side-by-side major versions with deprecation headers.
-- **Access control**: workspaces isolated from one another, roles for the people who write endpoints, OAuth2 client
-  credentials for the programs that call them, optional request signing and response encryption.
-- **Data policies**: mask columns and filter rows by who is calling.
-- **Operations**: an activity view of every call, alerts to Slack or webhooks, an audit log, Prometheus metrics and
+- Endpoints written as SQL templates with typed parameters, validation, pagination, result shaping and caching. An
+  endpoint can also be a Groovy script or a workflow of several steps.
+- Publishing in versions. You edit a draft and publish numbered versions, which you can roll back. Saved tests run
+  before publishing, and major versions can run side by side with deprecation headers.
+- Access control. Workspaces are isolated from one another, the people who write endpoints have roles, and the
+  programs that call them use OAuth2 client credentials. Request signing and response encryption are optional.
+- Data policies that mask columns and filter rows by who is calling.
+- Operations: an activity view of every call, alerts to Slack or webhooks, an audit log, Prometheus metrics and
   tracing.
-- **Configuration as code**: export a workspace as YAML, keep it in Git, and `plan` / `apply` it to other environments
+- Configuration as code. Export a workspace as YAML, keep it in Git, and `plan` / `apply` it to other environments
   with the `opendbapi` command line.
 
 ## Where to start

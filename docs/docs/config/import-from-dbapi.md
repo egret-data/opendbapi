@@ -21,11 +21,11 @@ Move APIs from DBAPI into an OpenDBAPI workspace using the files DBAPI exports.
 
 What happens to each kind:
 
-- **APIs** arrive as endpoint **drafts**: review, test and publish each one.
-- **Groups** are matched by name and created when missing.
-- **Datasources** are recreated from their JDBC URL, **read only** and **without passwords**: set each password (or a
+- APIs arrive as endpoint drafts: review, test and publish each one.
+- Groups are matched by name and created when missing.
+- Datasources are recreated from their JDBC URL, read only and without passwords. Set each password (or a
   [secret](../workspace/secrets.md)) before testing.
 
 DBAPI features OpenDBAPI does not carry over (plugins, parameter rules, non-SQL executors, `${}` text substitution) are
-listed in the report rather than dropped silently. Rewrite `${}` as `#{}` bound parameters or an `<orderBy>` tag (see
+listed in the report, so nothing is dropped silently. Rewrite `${}` as `#{}` bound parameters or an `<orderBy>` tag (see
 [Write and publish endpoints](../endpoints/write-and-publish.md#conditional-sql)).
