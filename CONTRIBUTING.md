@@ -46,7 +46,7 @@ mvn -q install -DskipTests
 OPENDBAPI_DB_PASSWORD=app OPENDBAPI_DB_OWNER_PASSWORD=owner \
 OPENDBAPI_MASTER_KEY="$(openssl rand -base64 32)" \
 OPENDBAPI_BOOTSTRAP_ADMIN_PASSWORD=change-me-please \
-  java -jar opendbapi-app/target/opendbapi-app-0.1.0-SNAPSHOT.jar
+  java -jar opendbapi-app/target/opendbapi-app-0.3.0.jar
 
 # 3. Frontend dev server on :5173 (proxies /admin/api and /api to :8520)
 cd frontend
