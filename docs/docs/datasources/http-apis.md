@@ -53,7 +53,7 @@ datasource switches the **Language** to **HTTP request**.
 | Field | What it is |
 |---|---|
 | **Request** | The method (`GET`, `POST`, `PUT`, `PATCH` or `DELETE`) and the path after the base URL, e.g. `/orders/{id}` |
-| **Query** | Query string fields: a name and a value |
+| **Query string** | Fields of the query string: a name and a value |
 | **JSON body** | Fields of a JSON object sent as the body; not for `GET`. Leave it empty to send no body |
 | **Rows at** | A [JSON Pointer](https://datatracker.ietf.org/doc/html/rfc6901) to the rows in the response, e.g. `/data/items`; empty for the whole response |
 
@@ -98,6 +98,6 @@ mapping (names, shape, types), **Most rows returned** and the cache.
 
 - **Preview** sends `GET` requests only: an API cannot roll a `POST`, `PUT`, `PATCH` or `DELETE` back. Publish the endpoint
   and call it, or use **Try it**, to send one.
-- No pagination, streaming or transactions: pass page parameters on to the API under **Query** instead.
+- No pagination, streaming or transactions: pass page parameters on to the API under **Query string** instead.
 - Column masks apply to the rows; row filters need SQL, so an endpoint under a row filter is refused.
 - The **Tables** tab is not shown for HTTP APIs.
