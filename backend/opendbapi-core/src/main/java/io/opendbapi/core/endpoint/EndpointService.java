@@ -58,6 +58,19 @@ public class EndpointService {
     }
 
     private EndpointInvoker invoker;
+    private io.opendbapi.core.client.CallerAuthorizer callers;
+
+    /** Group grants follow an endpoint's group, so moving it must reach the cached grant checks. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setCallers(io.opendbapi.core.client.CallerAuthorizer callers) {
+        this.callers = callers;
+    }
+
+    private void groupGrantsChanged(UUID ws) {
+        if (callers != null) {
+            callers.invalidate(ws);
+        }
+    }
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     void setInvoker(EndpointInvoker invoker) {
@@ -75,7 +88,8 @@ public class EndpointService {
 
     /** Route changes are refused while live: published URLs are contracts with callers. */
     public Endpoint update(UUID ws, UUID id, Draft d) {
-        return scope.call(ws, () -> {
+        boolean[] groupChanged = {false};
+        Endpoint updated = scope.call(ws, () -> {
             Endpoint e = find(id);
             requireNotTrashed(e);
             boolean routeChanged = !e.method().equals(d.method()) || !e.path().equals(d.path());
@@ -84,8 +98,13 @@ public class EndpointService {
                         "A live endpoint's method and path cannot change: callers depend on them. Disable it first, "
                                 + "or create a new endpoint for the new route.");
             }
+            groupChanged[0] = !java.util.Objects.equals(e.groupId(), d.groupId());
             return store.updateDraft(id, d.groupId(), d.name(), d.description(), d.method(), d.path(), d.access(), d.definition());
         });
+        if (groupChanged[0]) {
+            groupGrantsChanged(ws);
+        }
+        return updated;
     }
 
     public EndpointValidator.Validation validate(UUID ws, UUID id) {
@@ -232,6 +251,18 @@ public class EndpointService {
     }
 
     /** Trash only draft or disabled endpoints: disabling is the one way to stop serving (spec §5.1). */
+    /** Puts the endpoint in a group ({@code null}: no group). Group grants follow at once; nothing is republished. */
+    public Endpoint move(UUID ws, UUID id, UUID groupId) {
+        Endpoint moved = transition(ws, id, e -> {
+            if (groupId != null && !store.groupExists(groupId)) {
+                throw ApiProblem.notFound("group_not_found", "That group does not exist.");
+            }
+            store.setGroup(id, groupId);
+        });
+        groupGrantsChanged(ws);
+        return moved;
+    }
+
     public Endpoint trash(UUID ws, UUID id) {
         return transition(ws, id, e -> {
             if (Endpoint.LIVE.equals(e.state())) {

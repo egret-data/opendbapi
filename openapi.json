@@ -2344,6 +2344,51 @@
         "tags" : [ "endpoints" ]
       }
     },
+    "/admin/api/ws/{ws}/endpoints/{id}/group" : {
+      "put" : {
+        "operationId" : "moveEndpoint",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "ws",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MoveEndpoint"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/EndpointSummary"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "Put the endpoint in a group, or in none; grants on the group apply at once, nothing is republished (author)",
+        "tags" : [ "endpoints" ]
+      }
+    },
     "/admin/api/ws/{ws}/endpoints/{id}/lineage" : {
       "get" : {
         "operationId" : "endpointLineage",
@@ -3231,7 +3276,7 @@
             "description" : "OK"
           }
         },
-        "summary" : "Delete a group; its endpoints become ungrouped (author)",
+        "summary" : "Delete a group; its endpoints become ungrouped and grants on it are revoked (author)",
         "tags" : [ "groups" ]
       },
       "patch" : {
@@ -4224,10 +4269,14 @@
         }
       },
       "ApiGroup" : {
-        "required" : [ "endpointCount", "id", "name" ],
+        "required" : [ "endpointCount", "grantCount", "id", "name" ],
         "type" : "object",
         "properties" : {
           "endpointCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "grantCount" : {
             "type" : "integer",
             "format" : "int32"
           },
@@ -5551,6 +5600,17 @@
           },
           "username" : {
             "type" : "string"
+          }
+        }
+      },
+      "MoveEndpoint" : {
+        "type" : "object",
+        "properties" : {
+          "groupId" : {
+            "type" : "string",
+            "description" : "The group to put the endpoint in; null for no group",
+            "format" : "uuid",
+            "nullable" : true
           }
         }
       },

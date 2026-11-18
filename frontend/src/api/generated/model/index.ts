@@ -95,6 +95,7 @@ export * from './maskType';
 export * from './me';
 export * from './memberView';
 export * from './memberViewRole';
+export * from './moveEndpoint';
 export * from './myWorkspace';
 export * from './myWorkspaceRole';
 export * from './nest';

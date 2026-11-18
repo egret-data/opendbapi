@@ -11,7 +11,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public class ApiGroupStore {
 
-    public record ApiGroup(UUID id, String name, int endpointCount) {
+    /** {@code grantCount}: service accounts granted the whole group. */
+    public record ApiGroup(UUID id, String name, int endpointCount, int grantCount) {
     }
 
     private final JdbcClient jdbc;
@@ -22,10 +23,12 @@ public class ApiGroupStore {
 
     public List<ApiGroup> list() {
         return jdbc.sql("""
-                select g.id, g.name, count(e.id) filter (where e.deleted_at is null) as endpoints
-                from api_group g left join endpoint e on e.group_id = g.id
-                group by g.id, g.name order by lower(g.name)""")
-                .query((rs, i) -> new ApiGroup(rs.getObject("id", UUID.class), rs.getString("name"), rs.getInt("endpoints")))
+                select g.id, g.name,
+                       (select count(*) from endpoint e where e.group_id = g.id and e.deleted_at is null) as endpoints,
+                       (select count(*) from endpoint_grant eg where eg.resource_type = 'group' and eg.resource_id = g.id) as grants
+                from api_group g order by lower(g.name)""")
+                .query((rs, i) -> new ApiGroup(rs.getObject("id", UUID.class), rs.getString("name"), rs.getInt("endpoints"),
+                        rs.getInt("grants")))
                 .list();
     }
 
@@ -33,7 +36,7 @@ public class ApiGroupStore {
         try {
             UUID id = jdbc.sql("insert into api_group (workspace_id, name) values (?, ?) returning id")
                     .params(workspaceId, name).query(UUID.class).single();
-            return new ApiGroup(id, name, 0);
+            return new ApiGroup(id, name, 0, 0);
         } catch (DuplicateKeyException e) {
             throw ApiProblem.conflict("name_taken", "A group named '%s' already exists.".formatted(name));
         }
@@ -47,9 +50,10 @@ public class ApiGroupStore {
         }
     }
 
-    /** Endpoints of the group (trashed included) are moved out of it. */
+    /** Endpoints of the group (trashed included) are moved out of it, and grants on the group are revoked. */
     public boolean delete(UUID id) {
         jdbc.sql("update endpoint set group_id = null where group_id = ?").param(id).update();
+        jdbc.sql("delete from endpoint_grant where resource_type = 'group' and resource_id = ?").param(id).update();
         return jdbc.sql("delete from api_group where id = ?").param(id).update() > 0;
     }
 }

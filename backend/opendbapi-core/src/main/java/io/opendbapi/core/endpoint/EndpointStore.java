@@ -142,6 +142,16 @@ public class EndpointStore {
         jdbc.sql("update endpoint set state = ?, updated_at = now() where id = ?").params(state, endpointId).update();
     }
 
+    /** Moves the endpoint into a group, or out of every group with {@code null}. Not versioned: the draft stays as it is. */
+    public void setGroup(UUID endpointId, UUID groupId) {
+        jdbc.sql("update endpoint set group_id = ?, updated_at = now() where id = ?").params(groupId, endpointId).update();
+    }
+
+    /** Whether a group exists in the current workspace. */
+    public boolean groupExists(UUID groupId) {
+        return jdbc.sql("select exists (select 1 from api_group where id = ?)").param(groupId).query(Boolean.class).single();
+    }
+
     public void setTrashed(UUID endpointId, boolean trashed) {
         jdbc.sql("update endpoint set deleted_at = case when ? then now() else null end, updated_at = now() where id = ?")
                 .params(trashed, endpointId).update();

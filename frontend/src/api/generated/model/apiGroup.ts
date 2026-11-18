@@ -8,6 +8,7 @@
 
 export interface ApiGroup {
   endpointCount: number;
+  grantCount: number;
   id: string;
   name: string;
 }

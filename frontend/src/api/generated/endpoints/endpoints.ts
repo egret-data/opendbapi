@@ -32,6 +32,7 @@ import type {
   EndpointSummary,
   LineageMember,
   ListEndpointsParams,
+  MoveEndpoint,
   NewMajorRequest,
   PreviewRequest,
   PreviewResponse,
@@ -576,6 +577,79 @@ export const useUpdateEndpoint = <TError = unknown,
         TContext
       > => {
       return useMutation(getUpdateEndpointMutationOptions(options), queryClient);
+    }
+    export const getMoveEndpointUrl = (ws: string,
+    id: string,) => {
+
+
+
+
+  return `/admin/api/ws/${ws}/endpoints/${id}/group`
+}
+
+/**
+ * @summary Put the endpoint in a group, or in none; grants on the group apply at once, nothing is republished (author)
+ */
+export const moveEndpoint = async (ws: string,
+    id: string,
+    moveEndpointBody: MoveEndpoint, options?: Parameters<typeof customInstance>[1]): Promise<EndpointSummary> => {
+
+  return customInstance<EndpointSummary>(getMoveEndpointUrl(ws,id),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(moveEndpointBody)
+  }
+);}
+
+
+
+
+
+export const getMoveEndpointMutationOptions = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof moveEndpoint>>, TError,{ws: string;id: string;data: MoveEndpoint}, TContext>, request?: SecondParameter<typeof customInstance>}
+): UseMutationOptions<Awaited<ReturnType<typeof moveEndpoint>>, TError,{ws: string;id: string;data: MoveEndpoint}, TContext> => {
+
+const mutationKey = ['moveEndpoint'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof moveEndpoint>>, {ws: string;id: string;data: MoveEndpoint}> = (props) => {
+          const {ws,id,data} = props ?? {};
+
+          return  moveEndpoint(ws,id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type MoveEndpointMutationResult = NonNullable<Awaited<ReturnType<typeof moveEndpoint>>>
+    export type MoveEndpointMutationBody = MoveEndpoint
+    export type MoveEndpointMutationError = unknown
+
+    /**
+ * @summary Put the endpoint in a group, or in none; grants on the group apply at once, nothing is republished (author)
+ */
+export const useMoveEndpoint = <TError = unknown,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof moveEndpoint>>, TError,{ws: string;id: string;data: MoveEndpoint}, TContext>, request?: SecondParameter<typeof customInstance>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof moveEndpoint>>,
+        TError,
+        {ws: string;id: string;data: MoveEndpoint},
+        TContext
+      > => {
+      return useMutation(getMoveEndpointMutationOptions(options), queryClient);
     }
     export const getEndpointLineageUrl = (ws: string,
     id: string,) => {

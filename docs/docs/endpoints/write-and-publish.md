@@ -19,7 +19,7 @@ An endpoint is a query plus its URL, parameters and settings. You edit a **draft
 | **Name** | How it is listed |
 | **Method** | `GET` reads; `POST`, `PUT` and `DELETE` may change data |
 | **Path** | Segments of letters, digits, `_` and `-`, separated by `/`; `{name}` is a path parameter, e.g. `v1/customers/{id}`. Fixed once live |
-| **Group** | An optional folder; not part of the URL. Grants can cover a whole group |
+| **Group** | An optional folder; not part of the URL. Grants can cover a whole group. See [Groups](./groups.md) |
 | **Datasource** | The database the query runs on |
 | **Access** | **Private** needs a client token; **Public** answers anyone who can reach the server |
 
