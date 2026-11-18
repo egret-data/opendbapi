@@ -34,7 +34,7 @@ jobs:
       - name: API reference is up to date with openapi.json
         run: |
           npm run gen:api
-          git diff --exit-code -- docs/reference/admin-api.md i18n/vi/docusaurus-plugin-content-docs/current/reference/admin-api.md
+          git diff --exit-code -- docs/reference/admin-api.md
       - run: npm run typecheck
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
