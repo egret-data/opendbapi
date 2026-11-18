@@ -23,8 +23,6 @@ without a service to write or database credentials to hand out.
 [**Known issues**](https://egret-data.github.io/opendbapi/reference/known-issues) ·
 [**Contributing**](CONTRIBUTING.md)
 
-<sub>🇻🇳 Tiếng Việt: [`README.vi.md`](README.vi.md)</sub>
-
 <br>
 
 <picture>
