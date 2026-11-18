@@ -88,22 +88,3 @@ them:
 ## Generated pages
 
 - `docs/reference/admin-api.md` is generated from `openapi.json` by `npm run gen:api`. Do not edit it by hand.
-
-## Vietnamese
-
-English is canonical. Every page has a Vietnamese version at the same path under
-`i18n/vi/docusaurus-plugin-content-docs/current/`; a change to an English page updates its Vietnamese page in the same
-pull request, or says in the description that it will follow. Sidebar, navbar and footer labels are in
-`i18n/vi/*.json` (`npm run write-translations -- -l vi` adds new keys).
-
-- **Anchors.** Give every Vietnamese heading the English anchor as an explicit id, so links from other pages keep
-  working: `## Cấp quyền truy cập {#grant-access}`. The build fails on a broken anchor.
-- **UI labels.** Use the label the Vietnamese UI shows, taken from `frontend/src/i18n/vi/*.json`; keep the English label
-  when it has no translation.
-- **Kept in English.** Code, SQL, YAML, error codes, configuration keys, environment variables, and terms engineers use
-  untranslated: endpoint, datasource, workspace, service account, client, token, grant, preview, publish, cache, rate
-  limit, firewall, workflow, script, query, schema, masking, row filter, secret.
-- **Words.** người gọi (caller), tham số (parameter), phiên bản (version), quyền (permission), vai trò (role), thành viên
-  (member), chỉ đọc (read only), cấu hình (configuration), triển khai (deploy), nhật ký (log).
-- The plain-writing rules above apply to Vietnamese too.
-- `reference/admin-api.md` is generated and stays in English; the Vietnamese site shows the English page.

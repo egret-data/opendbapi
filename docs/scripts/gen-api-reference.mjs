@@ -1,6 +1,6 @@
 // Generates docs/reference/admin-api.md from the repository's openapi.json (the management
 // API contract). Run with `npm run gen:api`; never edit the generated page by hand.
-import {mkdirSync, readFileSync, writeFileSync} from 'node:fs';
+import {readFileSync, writeFileSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 
@@ -107,8 +107,4 @@ for (const name of Object.keys(schemas).sort()) {
 }
 
 writeFileSync(out, lines.join('\n'));
-// The Vietnamese site shows the same generated page; without its own copy, links to and from it break there.
-const vi = join(here, '../i18n/vi/docusaurus-plugin-content-docs/current/reference/admin-api.md');
-mkdirSync(dirname(vi), {recursive: true});
-writeFileSync(vi, lines.join('\n'));
 console.log(`Wrote ${out}`);

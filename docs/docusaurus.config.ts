@@ -19,11 +19,9 @@ const config: Config = {
   onBrokenMarkdownLinks: 'throw',
   onBrokenAnchors: 'throw',
 
-  // English is canonical; Vietnamese is a reference translation (npm run write-translations -- -l vi).
   i18n: {
     defaultLocale: 'en',
-    locales: ['en', 'vi'],
-    localeConfigs: {en: {label: 'English'}, vi: {label: 'Tiếng Việt'}},
+    locales: ['en'],
   },
 
   headTags: [
@@ -65,7 +63,6 @@ const config: Config = {
       items: [
         {type: 'docSidebar', sidebarId: 'docs', position: 'left', label: 'Docs'},
         {to: '/reference/admin-api', label: 'API reference', position: 'left'},
-        {type: 'localeDropdown', position: 'right'},
         {href: 'https://github.com/egret-data/opendbapi', label: 'GitHub', position: 'right'},
       ],
     },
