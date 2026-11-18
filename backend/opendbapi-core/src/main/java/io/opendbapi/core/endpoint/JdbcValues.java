@@ -35,11 +35,19 @@ public final class JdbcValues {
         if (value instanceof String || value instanceof Boolean || value instanceof Number) {
             return value;
         }
-        if (value instanceof Timestamp ts) {
-            int type = rs == null ? java.sql.Types.TIMESTAMP : rs.getMetaData().getColumnType(column);
-            if (type == java.sql.Types.TIMESTAMP_WITH_TIMEZONE) {
-                return rs.getObject(column, OffsetDateTime.class).toString();
+        if (rs != null && !(value instanceof java.time.temporal.TemporalAccessor) && hasTimeZone(rs, column)) {
+            // PgJDBC reports timestamptz as Types.TIMESTAMP and hands out a Timestamp in the JVM zone; SQL Server and
+            // Oracle hand out their own classes. Ask for the instant with its offset instead.
+            try {
+                OffsetDateTime odt = rs.getObject(column, OffsetDateTime.class);
+                if (odt != null) {
+                    return odt.toString();
+                }
+            } catch (SQLException ignored) {
+                // the driver cannot convert; fall back to its own text below
             }
+        }
+        if (value instanceof Timestamp ts) {
             return ts.toLocalDateTime().toString();
         }
         if (value instanceof java.sql.Date d) {
@@ -74,5 +82,15 @@ public final class JdbcValues {
             return ldt.toString();
         }
         return value.toString();
+    }
+
+    /** {@code timestamptz}, {@code timestamp with time zone}, {@code datetimeoffset}, whatever the driver's type code. */
+    static boolean hasTimeZone(ResultSet rs, int column) throws SQLException {
+        var meta = rs.getMetaData();
+        if (meta.getColumnType(column) == java.sql.Types.TIMESTAMP_WITH_TIMEZONE) {
+            return true;
+        }
+        String name = String.valueOf(meta.getColumnTypeName(column)).toLowerCase(java.util.Locale.ROOT);
+        return name.contains("timestamptz") || name.contains("with time zone") || name.contains("datetimeoffset");
     }
 }

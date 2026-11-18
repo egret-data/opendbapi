@@ -30,10 +30,12 @@ class OutputAndKeysetIntegrationTest extends AppTestSupport {
         admin.post("/admin/api/workspaces", Map.of("slug", ws, "name", "Output " + ws)).expect(201);
         try (Connection c = DriverManager.getConnection(POSTGRES.getJdbcUrl(), POSTGRES.getUsername(), POSTGRES.getPassword());
              Statement s = c.createStatement()) {
-            s.execute("create table " + table + " (id int primary key, created_at timestamp not null, amount numeric(12,2), kind text)");
+            s.execute("create table " + table + " (id int primary key, created_at timestamp not null, amount numeric(12,2), kind text, "
+                    + "placed_at timestamptz not null)");
             // 25 events, several sharing a timestamp so the id tie-breaker matters
             s.execute("insert into " + table + " select g, timestamp '2026-01-01' + ((g / 3) || ' hours')::interval, g * 1.25, "
-                    + "case when g % 2 = 0 then 'even' else 'odd' end from generate_series(1, 25) g");
+                    + "case when g % 2 = 0 then 'even' else 'odd' end, "
+                    + "timestamptz '2026-01-01 00:00:00+07' + ((g / 3) || ' hours')::interval from generate_series(1, 25) g");
         }
         Map<String, Object> ds = new HashMap<>(Map.of("name", "events", "dialect", "POSTGRESQL", "host", POSTGRES.getHost(),
                 "port", POSTGRES.getMappedPort(5432), "database", "opendbapi", "username", POSTGRES.getUsername(),
@@ -86,6 +88,48 @@ class OutputAndKeysetIntegrationTest extends AppTestSupport {
         call("events?after=garbage").expectProblem(400, "invalid_cursor");
         String docs = client().get("/api/" + ws + "/openapi.json").expect(200).body();
         assertThat(docs).contains("\"after\"").contains("nextCursor");
+    }
+
+    @Test
+    void timestampsWithTimeZoneKeepTheirOffset() {
+        // Arrange
+        String id = endpoint("placed", "select id, placed_at, placed_at as placed_ms, created_at from " + table + " where id = 1",
+                Map.of("output", Map.of("types", Map.of("placed_ms", "epoch_ms"))));
+        admin.post(ws("/endpoints/" + id + ":publish"), Map.of()).expect(200);
+
+        // Act
+        JsonNode row = call("placed").expect(200).json().path("data").get(0);
+
+        // Assert: the instant comes back with an offset, a plain timestamp stays local
+        assertThat(java.time.OffsetDateTime.parse(row.path("placed_at").asText()).toInstant())
+                .isEqualTo(java.time.Instant.parse("2025-12-31T17:00:00Z"));
+        assertThat(row.path("placed_ms").asLong()).isEqualTo(java.time.Instant.parse("2025-12-31T17:00:00Z").toEpochMilli());
+        assertThat(row.path("created_at").asText()).isEqualTo("2026-01-01T00:00");
+    }
+
+    @Test
+    void keysetPagesOverATimestampWithTimeZone() {
+        // Arrange
+        String id = endpoint("placed-pages", "select id, placed_at from " + table + " order by id", Map.of(
+                "pagination", Map.of("enabled", true, "defaultSize", 7, "maxSize", 50, "count", false, "mode", "keyset",
+                        "keys", List.of(Map.of("column", "placed_at", "descending", true), Map.of("column", "id", "descending", false)))));
+        admin.post(ws("/endpoints/" + id + ":publish"), Map.of()).expect(200);
+
+        // Act
+        List<Integer> seen = new ArrayList<>();
+        String cursor = null;
+        int pages = 0;
+        do {
+            JsonNode body = call("placed-pages" + (cursor == null ? "" : "?after=" + cursor)).expect(200).json();
+            body.path("data").forEach(r -> seen.add(r.path("id").asInt()));
+            cursor = body.path("meta").path("nextCursor").isNull() ? null : body.path("meta").path("nextCursor").asText();
+            pages++;
+        } while (cursor != null && pages < 10);
+
+        // Assert
+        assertThat(pages).isEqualTo(4);
+        assertThat(seen).hasSize(25).doesNotHaveDuplicates();
+        assertThat(seen.subList(0, 4)).containsExactly(24, 25, 21, 22);
     }
 
     @Test
