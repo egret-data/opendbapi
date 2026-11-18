@@ -85,6 +85,10 @@ public class EndpointValidator {
         } else if (datasource == null) {
             findings.add(Finding.error("unknown_datasource", "The chosen datasource no longer exists in this workspace."));
         }
+        if (datasource != null && def.task().transaction() && !datasource.config().dialect().transactional()) {
+            findings.add(Finding.error("transaction_unsupported", ("%s cannot roll back writes, so this endpoint cannot run in a "
+                    + "transaction. Turn off Transaction.").formatted(datasource.config().dialect().label())));
+        }
 
         CompiledTask task;
         try {

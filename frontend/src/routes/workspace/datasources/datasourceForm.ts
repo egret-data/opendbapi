@@ -8,6 +8,10 @@ export const DIALECT_LABEL: Record<Dialect, string> = {
   MARIADB: "MariaDB",
   SQLSERVER: "SQL Server",
   ORACLE: "Oracle",
+  TRINO: "Trino",
+  STARROCKS: "StarRocks",
+  DORIS: "Apache Doris",
+  CLICKHOUSE: "ClickHouse",
 };
 
 /** What the database name field means for each dialect. */
@@ -17,6 +21,23 @@ export const DATABASE_LABEL: Record<Dialect, string> = {
   MARIADB: "Database",
   SQLSERVER: "Database",
   ORACLE: "Service name",
+  TRINO: "Catalog",
+  STARROCKS: "Database",
+  DORIS: "Database",
+  CLICKHOUSE: "Database",
+};
+
+/** What to type in the database field, for each dialect. */
+export const DATABASE_HELP: Record<Dialect, string> = {
+  POSTGRESQL: "The database to connect to",
+  MYSQL: "The database to connect to",
+  MARIADB: "The database to connect to",
+  SQLSERVER: "The database to connect to",
+  ORACLE: "The service name, e.g. ORCLPDB1",
+  TRINO: "A catalog, e.g. hive, or catalog.schema to make that schema the default",
+  STARROCKS: "A database, or catalog.database for an external catalog",
+  DORIS: "A database, or catalog.database for an external catalog",
+  CLICKHOUSE: "The database to connect to",
 };
 
 export type PropertyRow = { key: string; value: string };

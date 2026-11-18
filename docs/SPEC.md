@@ -56,7 +56,7 @@ Cho phép người dùng viết SQL / script / Elasticsearch DSL / HTTP proxy tr
 |---|---|
 | **P1 – MVP** | **Workspace (đa tenant)**; đăng nhập **nội bộ + LDAP + OIDC**; datasource JDBC; task SQL template; draft/publish/rollback; nhóm API; service account + OAuth2; Try-it; **OpenAPI**; **phân trang**; **kiểm tra SQL tĩnh**; **quan sát hệ thống**; **virtual threads + stream**; access log ra file + bảng Activity cơ bản; UI React |
 | **P2 – Đầy đủ** | **Task Groovy `SqlFragment`**; **map kết quả**; **ký HMAC**; **bộ test cho từng API**; **che/lọc dữ liệu**; rule tham số; cảnh báo lỗi qua webhook; cache kết quả; QPS; firewall; mã hoá response; thống kê đầy đủ; import từ DBAPI |
-| **P3 – Mở rộng** | **Cấu hình dưới dạng code và đa môi trường**; **phiên bản major song song**; **MCP**; Vault; workflow DAG; chế độ cluster (gateway, Redis); script Groovy chế độ `full`; executor Elasticsearch và HTTP, driver ClickHouse (hoãn, chỉ làm khi có nhu cầu) |
+| **P3 – Mở rộng** | **Cấu hình dưới dạng code và đa môi trường**; **phiên bản major song song**; **MCP**; Vault; workflow DAG; chế độ cluster (gateway, Redis); script Groovy chế độ `full`; executor Elasticsearch và HTTP (hoãn, chỉ làm khi có nhu cầu); datasource Trino, StarRocks, Doris, ClickHouse (đã có) |
 
 ### 1.4 Ngoài phạm vi
 
@@ -252,10 +252,10 @@ Schema mới trong PostgreSQL, schema `opendbapi`. Dữ liệu DBAPI được nh
 ```jsonc
 // type = jdbc (P1)
 {
-  "dialect": "POSTGRESQL",             // POSTGRESQL | MYSQL | MARIADB | SQLSERVER | ORACLE
+  "dialect": "POSTGRESQL",             // POSTGRESQL | MYSQL | MARIADB | SQLSERVER | ORACLE | TRINO | STARROCKS | DORIS | CLICKHOUSE
   "host": "db.corp.local",             // chỉ tên host hoặc IP, không kèm port/path/tham số
   "port": null,                        // null = cổng mặc định của dialect
-  "database": "sales",                 // Oracle: service name
+  "database": "sales",                 // Oracle: service name; Trino: catalog hoặc catalog.schema; StarRocks/Doris: database hoặc catalog.database
   "username": "api_reader",
   "properties": { "sslmode": "require" },   // chỉ các thuộc tính trong danh sách trắng của dialect
   "pool": { "maximumPoolSize": 10, "minimumIdle": 0, "connectionTimeoutMs": 10000 }
@@ -272,10 +272,12 @@ Mật khẩu không nằm trong `config` mà ở `secret_ref`. API không bao gi
 
 - **Không cho nhập URL JDBC thô.** Server tự dựng URL từ các trường có cấu trúc; host, database và giá trị thuộc tính bị kiểm tra để không chèn được `?`, `;`, `&` hay `/`.
 - **Danh sách trắng thuộc tính driver theo dialect.** Những thuộc tính khiến driver nạp class, đọc file hoặc deserialize đều bị từ chối, ví dụ PostgreSQL `socketFactory`/`sslfactory` (lớp lỗ hổng CVE-2022-21724), MySQL `autoDeserialize`/`allowLoadLocalInfile`. Mỗi kết nối còn luôn kèm thuộc tính an toàn: MySQL `allowLoadLocalInfile=false`, `autoDeserialize=false`; MariaDB `allowLocalInfile=false`.
-- **Chỉ có driver PostgreSQL, MySQL, MariaDB, SQL Server, Oracle.** Không có H2, SQLite hay các DB dạng file/chạy trong tiến trình, vì URL của chúng đọc được file hoặc chạy được script trên server. ClickHouse hoãn lại (§25.2).
+- **Chỉ có driver PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, Trino, ClickHouse** (StarRocks và Doris dùng driver MySQL qua giao thức MySQL, kèm đúng các thuộc tính an toàn của MySQL). Không có H2, SQLite hay các DB dạng file/chạy trong tiến trình, vì URL của chúng đọc được file hoặc chạy được script trên server. Trino không cho các thuộc tính trỏ tới file (trust store, key store, Kerberos keytab), proxy, external authentication hay `extraCredentials`/`accessToken`; ClickHouse không cho `clickhouse_setting_*` (sẽ gỡ được `readonly`), `custom_settings`, trust store, proxy hay `http_header_*`.
+- **Không phải DB nào cũng có transaction thật.** StarRocks và Doris nhận `ROLLBACK` nhưng dòng đã ghi vẫn còn; driver ClickHouse từ chối tắt autocommit. Với ba loại này (`JdbcDialect.transactional() = false`): không bật/tắt autocommit hay commit/rollback; preview từ chối câu ghi (400 `preview_cannot_roll_back`) thay vì ghi thật; endpoint bật `transaction` bị validate báo lỗi và bị từ chối khi chạy (400 `transaction_unsupported`). Lời gọi thật vẫn ghi được (không có transaction).
+- **Trino không cần mật khẩu** khi chạy không xác thực (`passwordOptional`); có mật khẩu thì driver Trino bắt buộc TLS (`SSL=true`).
 - **Chặn host.** Mặc định chặn endpoint metadata của cloud (`169.254.0.0/16`, `fd00:ec2::254`, `100.100.100.200`, `metadata.google.internal`). Operator thêm được bằng `opendbapi.datasources.extra-denied-hosts`, hoặc giới hạn bằng `allowed-hosts` (tên host, `*.suffix`, CIDR). Tên host được resolve trước khi so khớp. DNS vẫn có thể đổi giữa lúc kiểm tra và lúc kết nối, nên network policy là lớp bảo vệ chính; đây là lớp bổ sung.
 - **Nên đặt database khách hàng ở server khác với metadata DB của OpenDBAPI.** Nếu dùng chung một server PostgreSQL, tài khoản của datasource vẫn *nhìn thấy tên* các bảng metadata (driver liệt kê mọi bảng bất kể quyền), dù không đọc được dữ liệu nhờ phân quyền và RLS. Khi buộc phải dùng chung, thêm host đó vào `extra-denied-hosts`.
-- **`read_only`:** chặn publish SQL có ghi dữ liệu (§7.5) và mở session ở chế độ chỉ đọc. Với PostgreSQL điều này thật sự được ép (`readOnlyMode=always`), vì `setReadOnly` của JDBC không có tác dụng khi autocommit bật. MySQL/MariaDB được ép bằng `SET SESSION TRANSACTION READ ONLY` mỗi khi mở kết nối (driver MariaDB không đẩy `setReadOnly` xuống server). Cả ba đã được kiểm chứng trên DB thật (`ReadOnlyEnforcementTest`). SQL Server và Oracle không ép được ở mức session, nên bảo đảm thật sự vẫn là một tài khoản DB chỉ có quyền đọc.
+- **`read_only`:** chặn publish SQL có ghi dữ liệu (§7.5) và mở session ở chế độ chỉ đọc. Với PostgreSQL điều này thật sự được ép (`readOnlyMode=always`), vì `setReadOnly` của JDBC không có tác dụng khi autocommit bật. MySQL/MariaDB được ép bằng `SET SESSION TRANSACTION READ ONLY` mỗi khi mở kết nối (driver MariaDB không đẩy `setReadOnly` xuống server). Cả ba đã được kiểm chứng trên DB thật (`ReadOnlyEnforcementTest`). Trino chỉ ép read-only bên trong transaction, nên pool của datasource Trino chỉ đọc tắt autocommit: mỗi câu chạy trong một transaction READ ONLY và pool rollback khi trả kết nối. StarRocks và Doris nhận `SET SESSION TRANSACTION READ ONLY` nhưng bỏ qua; với `readOnlyPropagatesToServer=false`, chính driver MySQL từ chối câu ghi và DDL trên kết nối read-only. ClickHouse: driver từ chối `setReadOnly`, nên dùng setting `readonly=2` (`clickhouse_setting_readonly`) của server. Bốn loại này được kiểm chứng trên engine thật (`engines/*EngineTest`, chạy ở job CI riêng vì image lớn). SQL Server và Oracle không ép được ở mức session, nên bảo đảm thật sự vẫn là một tài khoản DB chỉ có quyền đọc.
 - **Pool:** HikariCP, tối đa 50 kết nối, timeout lấy kết nối 250 ms–60 s. Pool được tạo lần đầu khi dùng và đóng/tạo lại khi datasource đổi hoặc bị xoá.
 
 ---
@@ -686,7 +688,7 @@ Cấu hình ở `definition.output`. Map chạy sau masking, theo thứ tự `ty
 
 - Bật bằng `pagination.enabled`. Bên gọi gửi `page` (bắt đầu từ 1), `size`, và tuỳ chọn `sort` nếu template có `<orderBy>`.
 - Engine (`opendbapi-sql/page/Paginator`) xử lý câu SQL đã render:
-  - data: nếu tầng ngoài cùng của câu chưa tự giới hạn (không có LIMIT/OFFSET/FETCH/TOP) thì **nối** mệnh đề phân trang; ngược lại, hoặc khi không parse được, thì **bọc** `SELECT * FROM (<sql>) page_q`. Cách bọc luôn đúng. Theo dialect: `LIMIT ? OFFSET ?` (PostgreSQL, MySQL, MariaDB, SQLite, H2, ClickHouse, không rõ); `OFFSET ? ROWS FETCH NEXT ? ROWS ONLY` (Oracle, DB2); SQL Server thêm `ORDER BY (SELECT NULL)` khi câu chưa có ORDER BY, vì OFFSET bắt buộc đi sau ORDER BY.
+  - data: nếu tầng ngoài cùng của câu chưa tự giới hạn (không có LIMIT/OFFSET/FETCH/TOP) thì **nối** mệnh đề phân trang; ngược lại, hoặc khi không parse được, thì **bọc** `SELECT * FROM (<sql>) page_q`. Cách bọc luôn đúng. Theo dialect: `LIMIT ? OFFSET ?` (PostgreSQL, MySQL, MariaDB, StarRocks, Doris, SQLite, H2, ClickHouse, không rõ); `OFFSET ? ROWS FETCH NEXT ? ROWS ONLY` (Oracle, DB2, Trino — Trino không nhận `LIMIT … OFFSET`); SQL Server thêm `ORDER BY (SELECT NULL)` khi câu chưa có ORDER BY, vì OFFSET bắt buộc đi sau ORDER BY.
   - count: `SELECT COUNT(*) FROM (<sql>) count_q`. Bỏ ORDER BY ở tầng ngoài nếu an toàn: câu không tự giới hạn và ORDER BY không chứa tham số. Lý do: thứ tự không đổi kết quả đếm, và SQL Server không cho ORDER BY trong derived table. Có thể tắt count bằng `pagination.count = false` để nhanh hơn; khi đó trả `hasNext` thay cho `total`.
   - Dialect suy ra từ JDBC URL.
 - `mode: keyset` (P2): `pagination.keys` liệt kê 1 đến 4 cột kết quả, mỗi cột có thể sắp giảm dần. Các cột này không được `null` và gộp lại phải duy nhất, nên cột cuối thường là `id`.
@@ -1324,7 +1326,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 17. ✅ (2026-11-17) Cache kết quả (§9.5) theo client hoặc dùng chung, xoá khi đổi policy/thuộc tính, nút Clear cache, metric hit/miss.
 18. ✅ (2026-11-17) Ký request HMAC với khoá ký riêng cho từng client (§8.2) và mã hoá response AES-GCM/RSA-OAEP (§8.3), cấu hình ở nút Security của client.
 19. ✅ (2026-11-17) Task Groovy `SqlFragment`, chế độ fragment (§7.4), trong sandbox nhiều lớp; chỉ `script_author` trở lên được viết hoặc preview. Chế độ `full` chuyển sang P3.
-20. ~~Executor Elasticsearch và HTTP (§6), driver ClickHouse.~~ Bỏ khỏi P2 (quyết định 2026-11-17): chưa cần. Chỉ làm khi có nhu cầu thật.
+20. Executor Elasticsearch và HTTP (§6): bỏ khỏi P2 (quyết định 2026-11-17), chỉ làm khi có nhu cầu thật. ✅ (2026-11-18) Datasource Trino, StarRocks, Apache Doris và ClickHouse (§4.6): URL, thuộc tính an toàn, phân trang, read-only, trình duyệt bảng, DB không có transaction; test trên engine thật ở job CI `engines`.
 21. ✅ (2026-11-17) Thống kê đầy đủ trên trang Activity (`/activity/summary` thêm endpoint chậm nhất, top client, top IP, lọc theo endpoint; §21.2); lưu và hiện kết quả lần test kết nối datasource gần nhất (xoá khi đổi cấu hình kết nối).
 22. ✅ (2026-11-17) Export YAML (§15.1) và import từ DBAPI có chạy thử và báo cáo (§15.3), ở Settings → Import & export.
 23. ✅ (2026-11-17) Giao diện tiếng Việt (`react-i18next`, FE-COPY ở §17): chọn ở menu người dùng; thông báo lỗi từ server vẫn bằng tiếng Anh.
@@ -1344,7 +1346,7 @@ Thứ tự chốt ngày 2026-11-17. Mỗi bước là một PR, đủ test và q
 | 5 | Đa tenant | Có, theo workspace, từ P1 |
 | 6 | Mức dùng lại Egret | Chỉ lấy khung (§17.1); UI thiết kế lại gọn cho tính năng DBAPI |
 | 7 | Plugin SPI (2026-11-17) | Bỏ hẳn. Cần gì thì viết thẳng thành tính năng (§13) |
-| 8 | Executor Elasticsearch/HTTP, driver ClickHouse (2026-11-17) | Hoãn, không làm ở P2; chỉ làm khi có nhu cầu |
+| 8 | Executor Elasticsearch/HTTP, driver ClickHouse (2026-11-17) | Elasticsearch/HTTP hoãn, chỉ làm khi có nhu cầu. ClickHouse làm cùng Trino, StarRocks, Doris (2026-11-18) |
 
 ### Còn mở
 

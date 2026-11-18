@@ -20,9 +20,9 @@ People join a workspace as **members** with a role; see [Members and roles](../w
 
 ## Datasource
 
-The database an endpoint queries: PostgreSQL, MySQL, MariaDB, SQL Server, Oracle and other JDBC databases. A datasource
-holds the connection settings and a password (encrypted, or a reference to a [secret](../workspace/secrets.md)). Mark it
-**read only** when its endpoints should never change data. See [Datasources](../datasources/datasources.md).
+The database an endpoint queries: PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, Trino, StarRocks, Apache Doris or
+ClickHouse. A datasource holds the connection settings and a password (encrypted, or a reference to a
+[secret](../workspace/secrets.md)). Mark it **read only** when its endpoints should never change data. See [Datasources](../datasources/datasources.md).
 
 ## Endpoint
 

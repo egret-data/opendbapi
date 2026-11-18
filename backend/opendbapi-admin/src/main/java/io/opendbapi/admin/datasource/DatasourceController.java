@@ -124,7 +124,12 @@ public class DatasourceController {
             @Schema(nullable = true) Long latencyMs) {
     }
 
-    public record DialectInfo(JdbcDialect dialect, int defaultPort, List<String> allowedProperties) {
+    public record DialectInfo(
+            JdbcDialect dialect,
+            int defaultPort,
+            List<String> allowedProperties,
+            @Schema(description = "Whether a rollback undoes writes: preview and transactions need it") boolean transactional,
+            @Schema(description = "Whether a datasource may have no password") boolean passwordOptional) {
     }
 
     private final WorkspaceAccess access;
@@ -165,7 +170,8 @@ public class DatasourceController {
     public List<DialectInfo> dialects(@PathVariable String ws) {
         access.require(ws, WorkspaceRole.VIEWER);
         return java.util.Arrays.stream(JdbcDialect.values())
-                .map(d -> new DialectInfo(d, d.defaultPort(), d.allowedProperties().stream().sorted().toList()))
+                .map(d -> new DialectInfo(d, d.defaultPort(), d.allowedProperties().stream().sorted().toList(), d.transactional(),
+                        d.passwordOptional()))
                 .toList();
     }
 
@@ -187,11 +193,12 @@ public class DatasourceController {
     public DatasourceView create(@PathVariable String ws, @Valid @RequestBody SaveDatasource body) {
         var granted = access.require(ws, WorkspaceRole.ADMIN);
         JdbcConfig config = body.config();
-        if (body.password() == null || body.password().isEmpty()) {
+        boolean noPassword = body.password() == null || body.password().isEmpty();
+        if (noPassword && !config.dialect().passwordOptional()) {
             throw ApiProblem.badRequest("invalid_datasource", "password is required for a new datasource.");
         }
         UUID wsId = granted.workspace().id();
-        String secretRef = scope.call(wsId, () -> workspaceSecrets.toReference(body.password()));
+        String secretRef = noPassword ? null : scope.call(wsId, () -> workspaceSecrets.toReference(body.password()));
         Datasource created = scope.call(wsId, () -> {
             Object quota = granted.workspace().quotas().get("datasources");
             if (quota instanceof Number max && store.count() >= max.intValue()) {

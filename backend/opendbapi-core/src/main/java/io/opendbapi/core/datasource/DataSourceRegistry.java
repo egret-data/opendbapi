@@ -135,11 +135,11 @@ public class DataSourceRegistry implements DisposableBean {
 
     public List<String> schemas(Datasource ds) {
         return withMetadata(ds, (meta, cfg) -> {
-            if (catalogIsSchema(cfg.dialect())) {
-                return List.of(cfg.database());
+            if (cfg.dialect().catalogIsDatabase()) {
+                return List.of(metadataCatalog(cfg));
             }
             List<String> out = new ArrayList<>();
-            try (ResultSet rs = meta.getSchemas()) {
+            try (ResultSet rs = cfg.dialect() == JdbcDialect.TRINO ? meta.getSchemas(metadataCatalog(cfg), null) : meta.getSchemas()) {
                 while (rs.next()) {
                     String schema = rs.getString("TABLE_SCHEM");
                     if (!isSystem(schema)) {
@@ -156,13 +156,13 @@ public class DataSourceRegistry implements DisposableBean {
         return withMetadata(ds, (meta, cfg) -> {
             List<Table> out = new ArrayList<>();
             boolean truncated = false;
-            try (ResultSet rs = meta.getTables(catalog(cfg), schemaPattern(cfg, schema), "%", new String[] {"TABLE", "VIEW"})) {
+            try (ResultSet rs = meta.getTables(metadataCatalog(cfg), schemaPattern(cfg, schema), "%", new String[] {"TABLE", "VIEW"})) {
                 while (rs.next()) {
                     if (out.size() == MAX_TABLES) {
                         truncated = true;
                         break;
                     }
-                    String tableSchema = catalogIsSchema(cfg.dialect()) ? rs.getString("TABLE_CAT") : rs.getString("TABLE_SCHEM");
+                    String tableSchema = cfg.dialect().catalogIsDatabase() ? rs.getString("TABLE_CAT") : rs.getString("TABLE_SCHEM");
                     if (!isSystem(tableSchema)) {
                         out.add(new Table(tableSchema, rs.getString("TABLE_NAME"), rs.getString("TABLE_TYPE"), rs.getString("REMARKS")));
                     }
@@ -175,7 +175,7 @@ public class DataSourceRegistry implements DisposableBean {
     public List<TableColumn> columns(Datasource ds, String schema, String table) {
         return withMetadata(ds, (meta, cfg) -> {
             List<TableColumn> out = new ArrayList<>();
-            try (ResultSet rs = meta.getColumns(catalog(cfg), schemaPattern(cfg, schema), escape(meta, table), "%")) {
+            try (ResultSet rs = meta.getColumns(metadataCatalog(cfg), schemaPattern(cfg, schema), escape(meta, table), "%")) {
                 while (rs.next()) {
                     out.add(new TableColumn(rs.getString("COLUMN_NAME"), rs.getString("TYPE_NAME"), rs.getInt("COLUMN_SIZE"),
                             rs.getInt("NULLABLE") != DatabaseMetaData.columnNoNulls, rs.getInt("ORDINAL_POSITION")));
@@ -238,7 +238,25 @@ public class DataSourceRegistry implements DisposableBean {
         h.setConnectionTimeout(cfg.pool().connectionTimeoutMs());
         h.setIdleTimeout(600_000);
         h.setMaxLifetime(1_800_000);
-        h.setReadOnly(readOnly);
+        if (cfg.dialect() == JdbcDialect.CLICKHOUSE) {
+            // The driver refuses setReadOnly(true); ClickHouse's own setting refuses writes and
+            // DDL but, unlike readonly=1, still lets the driver set per-query settings.
+            if (readOnly) {
+                h.addDataSourceProperty("clickhouse_setting_readonly", "2");
+            }
+        } else {
+            h.setReadOnly(readOnly);
+        }
+        if (readOnly && cfg.dialect() == JdbcDialect.TRINO) {
+            // Trino enforces read-only only inside a transaction (verified in the engines test):
+            // statements then run in READ ONLY transactions the pool rolls back on return.
+            h.setAutoCommit(false);
+        }
+        if (cfg.dialect() == JdbcDialect.STARROCKS || cfg.dialect() == JdbcDialect.DORIS) {
+            // They accept SET SESSION TRANSACTION READ ONLY and ignore it. Kept local, the read-only
+            // flag makes the MySQL driver itself refuse statements that change data or schema.
+            h.addDataSourceProperty("readOnlyPropagatesToServer", "false");
+        }
         if (readOnly && cfg.dialect() == JdbcDialect.POSTGRESQL) {
             // PgJDBC honours setReadOnly only inside explicit transactions by default; with
             // autocommit a write would go through. "always" makes the session itself read-only.
@@ -271,17 +289,23 @@ public class DataSourceRegistry implements DisposableBean {
         }
     }
 
-    /** MySQL and MariaDB call a database a catalog and have no schemas. */
-    private static boolean catalogIsSchema(JdbcDialect dialect) {
-        return dialect == JdbcDialect.MYSQL || dialect == JdbcDialect.MARIADB;
-    }
-
-    private static String catalog(JdbcConfig cfg) {
-        return catalogIsSchema(cfg.dialect()) || cfg.dialect() == JdbcDialect.SQLSERVER ? cfg.database() : null;
+    /**
+     * The catalog metadata calls are scoped to: the database for MySQL-protocol databases
+     * (without a StarRocks or Doris {@code catalog.} prefix), the database for SQL Server, the
+     * catalog for Trino; none otherwise.
+     */
+    private static String metadataCatalog(JdbcConfig cfg) {
+        String db = cfg.database();
+        return switch (cfg.dialect()) {
+            case MYSQL, MARIADB, SQLSERVER -> db;
+            case STARROCKS, DORIS -> db.substring(db.indexOf('.') + 1);
+            case TRINO -> db.contains(".") ? db.substring(0, db.indexOf('.')) : db;
+            default -> null;
+        };
     }
 
     private static String schemaPattern(JdbcConfig cfg, String schema) {
-        return catalogIsSchema(cfg.dialect()) || schema == null || schema.isBlank() ? null : schema;
+        return cfg.dialect().catalogIsDatabase() || schema == null || schema.isBlank() ? null : schema;
     }
 
     private static String escape(DatabaseMetaData meta, String name) throws SQLException {

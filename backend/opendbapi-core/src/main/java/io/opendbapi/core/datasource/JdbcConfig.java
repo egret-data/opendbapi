@@ -63,6 +63,11 @@ public record JdbcConfig(
         if (database == null || !DATABASE.matcher(database).matches() || database.contains("..")) {
             throw invalid("database may contain letters, digits and _ $ . - only (max 128).");
         }
+        if ((dialect == JdbcDialect.TRINO || dialect == JdbcDialect.STARROCKS || dialect == JdbcDialect.DORIS)
+                && database.chars().filter(ch -> ch == '.').count() > 1) {
+            throw invalid(dialect == JdbcDialect.TRINO ? "database is a catalog, or catalog.schema."
+                    : "database is a database, or catalog.database.");
+        }
         if (username == null || !USERNAME.matcher(username).matches()) {
             throw invalid("username is required and may not contain spaces, ; & or ?.");
         }

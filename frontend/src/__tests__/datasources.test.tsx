@@ -29,8 +29,10 @@ const DS: DatasourceView = {
 };
 
 const DIALECTS = [
-  { dialect: "POSTGRESQL", defaultPort: 5432, allowedProperties: ["sslmode", "currentSchema"] },
-  { dialect: "MYSQL", defaultPort: 3306, allowedProperties: ["sslMode"] },
+  { dialect: "POSTGRESQL", defaultPort: 5432, allowedProperties: ["sslmode", "currentSchema"], transactional: true, passwordOptional: false },
+  { dialect: "MYSQL", defaultPort: 3306, allowedProperties: ["sslMode"], transactional: true, passwordOptional: false },
+  { dialect: "TRINO", defaultPort: 8080, allowedProperties: ["SSL"], transactional: true, passwordOptional: true },
+  { dialect: "CLICKHOUSE", defaultPort: 8123, allowedProperties: ["ssl"], transactional: false, passwordOptional: false },
 ];
 
 const meAs = (role: "admin" | "author" | "viewer") => ({
@@ -67,6 +69,9 @@ describe("default schema", () => {
     expect(defaultSchema(["opendbapi", "public", "shop"], { ...DS, properties: {} })).toBe("public");
     expect(defaultSchema(["dbo", "sales"], { ...DS, dialect: "SQLSERVER", properties: {} })).toBe("dbo");
     expect(defaultSchema(["READER", "HR"], { ...DS, dialect: "ORACLE", properties: {}, username: "reader" })).toBe("READER");
+    expect(defaultSchema(["default", "sales"], { ...DS, dialect: "TRINO", database: "hive.sales", properties: {} })).toBe("sales");
+    expect(defaultSchema(["shop"], { ...DS, dialect: "STARROCKS", database: "hive_catalog.shop", properties: {} })).toBe("shop");
+    expect(defaultSchema(["metrics", "default"], { ...DS, dialect: "CLICKHOUSE", database: "x", properties: {} })).toBe("default");
   });
 });
 
@@ -102,6 +107,49 @@ describe("Datasources pages", () => {
       password: "env:DW_PASSWORD",
       readOnly: true,
     });
+  });
+
+  it("creates a Trino datasource on a catalog without a password", async () => {
+    // Arrange
+    const server = mockServer({
+      "GET /admin/api/me": () => json(meAs("admin")),
+      "GET /admin/api/ws/sales/datasources/dialects": () => json(DIALECTS),
+      "POST /admin/api/ws/sales/datasources": () => json({ ...DS, id: "ds9", dialect: "TRINO", port: 8080, database: "hive.sales" }, 201),
+    });
+    const user = userEvent.setup();
+    renderApp("/w/sales/datasources/new");
+
+    // Act
+    await user.type(await screen.findByLabelText("Name"), "lake");
+    await user.click(screen.getByRole("combobox", { name: "Database type" }));
+    await user.click(screen.getByRole("option", { name: "Trino" }));
+    await user.type(screen.getByLabelText("Host"), "trino.corp.local");
+    await user.type(screen.getByLabelText("Catalog"), "hive.sales");
+    await user.type(screen.getByLabelText("Username"), "etl");
+    await user.click(screen.getByRole("button", { name: "Create datasource" }));
+
+    // Assert
+    await waitFor(() => expect(server.calls.some((c) => c.key === "POST /admin/api/ws/sales/datasources")).toBe(true));
+    const post = server.calls.find((c) => c.key === "POST /admin/api/ws/sales/datasources");
+    expect(JSON.parse(String(post?.init?.body))).toMatchObject({ dialect: "TRINO", database: "hive.sales", password: null });
+  });
+
+  it("says when the database cannot roll back", async () => {
+    // Arrange
+    mockServer({
+      "GET /admin/api/me": () => json(meAs("admin")),
+      "GET /admin/api/ws/sales/datasources/dialects": () => json(DIALECTS),
+    });
+    const user = userEvent.setup();
+    renderApp("/w/sales/datasources/new");
+
+    // Act
+    await user.click(await screen.findByRole("combobox", { name: "Database type" }));
+    await user.click(screen.getByRole("option", { name: "ClickHouse" }));
+
+    // Assert
+    expect((await screen.findAllByText(/ClickHouse cannot roll back/)).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText("Password")).toBeRequired();
   });
 
   it("lists each datasource with its last connection test", async () => {

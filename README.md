@@ -29,7 +29,7 @@ without a service to write or database credentials to hand out.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset=".github/assets/architecture-dark.svg">
-  <img alt="OpenDBAPI architecture: authors write and publish endpoints in the browser; programs call them with an OAuth2 token through the serving pipeline, which queries your PostgreSQL, MySQL, MariaDB, SQL Server or Oracle databases." src=".github/assets/architecture-light.svg" width="100%">
+  <img alt="OpenDBAPI architecture: authors write and publish endpoints in the browser; programs call them with an OAuth2 token through the serving pipeline, which queries your PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, Trino, StarRocks, Doris or ClickHouse databases." src=".github/assets/architecture-light.svg" width="100%">
 </picture>
 
 </div>
@@ -65,7 +65,7 @@ PostgreSQL.
 | **Configuration as code** | Export a workspace as YAML, then `opendbapi plan` and `apply` it from CI; import DBAPI exports as drafts. | [Docs](https://egret-data.github.io/opendbapi/config/plan-and-apply) |
 | **People and deployment** | Workspaces, roles, sign-in with local accounts, LDAP or SSO (OIDC) with group mapping; secrets from OpenDBAPI or HashiCorp Vault; Docker and a Helm chart; UI in English and Vietnamese. | [Docs](https://egret-data.github.io/opendbapi/deploy/authentication) |
 
-Datasources: PostgreSQL, MySQL, MariaDB, SQL Server and Oracle.
+Datasources: PostgreSQL, MySQL, MariaDB, SQL Server, Oracle, Trino, StarRocks, Apache Doris and ClickHouse.
 
 ## Screenshots
 
@@ -149,7 +149,7 @@ Dockerfile          one image: API and UI
 ## Status
 
 The current release is [0.2.0](https://github.com/egret-data/opendbapi/releases/tag/v0.2.0). Everything in the
-highlights above is built and tested. Elasticsearch, HTTP and ClickHouse datasources are deferred until there is a need.
+highlights above is built and tested. Elasticsearch and HTTP datasources are deferred until there is a need.
 Problems in the current release are listed in
 [Known issues](https://egret-data.github.io/opendbapi/reference/known-issues).
 

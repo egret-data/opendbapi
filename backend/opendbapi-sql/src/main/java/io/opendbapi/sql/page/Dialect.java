@@ -10,6 +10,10 @@ public enum Dialect {
     SQLITE(Style.LIMIT_OFFSET),
     H2(Style.LIMIT_OFFSET),
     CLICKHOUSE(Style.LIMIT_OFFSET),
+    STARROCKS(Style.LIMIT_OFFSET),
+    DORIS(Style.LIMIT_OFFSET),
+    /** Trino accepts OFFSET only before LIMIT; OFFSET … FETCH is the standard form it takes. */
+    TRINO(Style.OFFSET_FETCH),
     SQLSERVER(Style.OFFSET_FETCH_ORDERED),
     ORACLE(Style.OFFSET_FETCH),
     DB2(Style.OFFSET_FETCH),
@@ -39,6 +43,7 @@ public enum Dialect {
         if (u.startsWith("jdbc:clickhouse:") || u.startsWith("jdbc:ch:")) return CLICKHOUSE;
         if (u.startsWith("jdbc:sqlserver:") || u.startsWith("jdbc:jtds:")) return SQLSERVER;
         if (u.startsWith("jdbc:oracle:")) return ORACLE;
+        if (u.startsWith("jdbc:trino:")) return TRINO;
         if (u.startsWith("jdbc:db2:")) return DB2;
         return OTHER;
     }

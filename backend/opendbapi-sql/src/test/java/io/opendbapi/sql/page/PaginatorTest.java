@@ -70,6 +70,24 @@ class PaginatorTest {
     }
 
     @Test
+    void trinoPutsTheOffsetBeforeTheRowCount() {
+        // Act
+        Paginator.Paged paged = Paginator.paginate(q("select id from t order by id"), Dialect.TRINO, 3, 5);
+
+        // Assert: Trino rejects LIMIT … OFFSET
+        assertThat(paged.data().sql()).isEqualTo("select id from t order by id OFFSET ? ROWS FETCH NEXT ? ROWS ONLY");
+        assertThat(paged.data().parameters()).containsExactly(10L, 5);
+    }
+
+    @Test
+    void starRocksDorisAndClickHouseUseLimitOffset() {
+        // Act + Assert
+        for (Dialect d : new Dialect[] {Dialect.STARROCKS, Dialect.DORIS, Dialect.CLICKHOUSE}) {
+            assertThat(Paginator.paginate(q("select id from t"), d, 1, 5).data().sql()).isEqualTo("select id from t LIMIT ? OFFSET ?");
+        }
+    }
+
+    @Test
     void trailingSemicolonsAndWhitespaceAreIgnored() {
         // Act + Assert
         assertThat(Paginator.paginate(q("select 1 ;\n "), Dialect.POSTGRESQL, 1, 5).data().sql()).isEqualTo("select 1 LIMIT ? OFFSET ?");
@@ -113,6 +131,7 @@ class PaginatorTest {
         assertThat(Dialect.fromJdbcUrl("jdbc:sqlserver://h;databaseName=x")).isEqualTo(Dialect.SQLSERVER);
         assertThat(Dialect.fromJdbcUrl("jdbc:oracle:thin:@h:1521/x")).isEqualTo(Dialect.ORACLE);
         assertThat(Dialect.fromJdbcUrl("jdbc:clickhouse://h")).isEqualTo(Dialect.CLICKHOUSE);
+        assertThat(Dialect.fromJdbcUrl("jdbc:trino://h:8080/hive")).isEqualTo(Dialect.TRINO);
         assertThat(Dialect.fromJdbcUrl("jdbc:something://h")).isEqualTo(Dialect.OTHER);
     }
 

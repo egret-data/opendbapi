@@ -11,4 +11,8 @@ export interface DialectInfo {
   allowedProperties: string[];
   defaultPort: number;
   dialect: DialectInfoDialect;
+  /** Whether a datasource may have no password */
+  passwordOptional: boolean;
+  /** Whether a rollback undoes writes: preview and transactions need it */
+  transactional: boolean;
 }

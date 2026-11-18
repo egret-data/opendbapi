@@ -32,6 +32,66 @@ class JdbcConfigTest {
                 .isEqualTo("jdbc:postgresql://[::1]:6543/x?sslmode=require");
     }
 
+    @Test
+    void buildsUrlsForTheAnalyticsEngines() {
+        // Act + Assert
+        assertThat(config(JdbcDialect.TRINO, "trino", "hive", Map.of()).jdbcUrl()).isEqualTo("jdbc:trino://trino:8080/hive");
+        assertThat(config(JdbcDialect.TRINO, "trino", "hive.sales", Map.of("SSL", "true")).jdbcUrl())
+                .isEqualTo("jdbc:trino://trino:8080/hive/sales?SSL=true");
+        assertThat(config(JdbcDialect.STARROCKS, "sr", "shop", Map.of()).jdbcUrl()).isEqualTo("jdbc:mysql://sr:9030/shop");
+        assertThat(config(JdbcDialect.STARROCKS, "sr", "hive_catalog.shop", Map.of()).jdbcUrl())
+                .isEqualTo("jdbc:mysql://sr:9030/hive_catalog.shop");
+        assertThat(config(JdbcDialect.DORIS, "doris", "shop", Map.of("connectTimeout", "5000")).jdbcUrl())
+                .isEqualTo("jdbc:mysql://doris:9030/shop?connectTimeout=5000");
+        assertThat(config(JdbcDialect.CLICKHOUSE, "ch", "default", Map.of("ssl", "true")).jdbcUrl())
+                .isEqualTo("jdbc:clickhouse://ch:8123/default?ssl=true");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"a.b.c", "x.y.z.w"})
+    void catalogQualifiedNamesHaveOneDotAtMost(String database) {
+        // Act + Assert
+        for (JdbcDialect d : new JdbcDialect[] {JdbcDialect.TRINO, JdbcDialect.STARROCKS, JdbcDialect.DORIS}) {
+            assertThatThrownBy(() -> config(d, "h", database, Map.of()).validate()).isInstanceOf(ApiProblem.class);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"SSLTrustStorePath", "SSLKeyStorePath", "httpProxy", "socksProxy", "externalAuthentication",
+            "KerberosKeytabPath", "accessToken", "extraCredentials"})
+    void trinoFileProxyAndCredentialPropertiesAreRefused(String property) {
+        // Act + Assert
+        assertThatThrownBy(() -> config(JdbcDialect.TRINO, "h", "hive", Map.of(property, "x")).validate())
+                .isInstanceOf(ApiProblem.class).hasMessageContaining("not allowed");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"clickhouse_setting_readonly", "sslrootcert", "trust_store", "proxy_host", "http_header_X", "custom_settings"})
+    void clickHouseSettingsFilesAndProxiesAreRefused(String property) {
+        // Act + Assert: a server setting could lift readonly
+        assertThatThrownBy(() -> config(JdbcDialect.CLICKHOUSE, "h", "default", Map.of(property, "0")).validate())
+                .isInstanceOf(ApiProblem.class).hasMessageContaining("not allowed");
+    }
+
+    @Test
+    void starRocksAndDorisKeepTheMySqlSafetyProperties() {
+        // Act + Assert
+        assertThat(JdbcDialect.STARROCKS.forcedProperties()).isEqualTo(JdbcDialect.MYSQL.forcedProperties());
+        assertThat(JdbcDialect.DORIS.forcedProperties()).isEqualTo(JdbcDialect.MYSQL.forcedProperties());
+        assertThatThrownBy(() -> config(JdbcDialect.DORIS, "h", "d", Map.of("autoDeserialize", "true")).validate())
+                .isInstanceOf(ApiProblem.class);
+    }
+
+    @Test
+    void onlyTrueTransactionsCountAsTransactional() {
+        // Act + Assert
+        assertThat(JdbcDialect.TRINO.transactional()).isTrue();
+        assertThat(JdbcDialect.STARROCKS.transactional()).isFalse();
+        assertThat(JdbcDialect.DORIS.transactional()).isFalse();
+        assertThat(JdbcDialect.CLICKHOUSE.transactional()).isFalse();
+        assertThat(JdbcDialect.POSTGRESQL.transactional()).isTrue();
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"socketFactory", "sslfactory", "authenticationPluginClassName", "loggerFile", "sslpasswordcallback"})
     void postgresClassLoadingPropertiesAreRefused(String property) {
